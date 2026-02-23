@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: var(--font-playfair-display), ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --font-modern: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --font-theological: var(--font-lora), ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --color-exegesis: #64748b; /* Slate */
+  --color-application: #a8a29e; /* Stone */
+  --color-emphasis: #737373; /* Neutral / Emphasis */
+
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--text-primary);
+  --color-muted-foreground: var(--text-secondary);
+  --color-surface: var(--bg-surface);
+  --color-border: var(--border-color);
+  --color-glass: var(--glass-bg);
+}
+
+:root {
+  /* LIGHT THEME (Pristine Apple White) */
+  --bg-primary: #ffffff;
+  --bg-surface: #fbfbfd;
+  --text-primary: #1d1d1f;
+  --text-secondary: #86868b;
+  --border-color: #d2d2d7;
+  --glow-opacity: 0.05;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+}
+
+.dark {
+  /* DARK THEME (Deep OLED Black) */
+  --bg-primary: #000000;
+  --bg-surface: #101010;
+  --text-primary: #f5f5f7;
+  --text-secondary: #86868b;
+  --border-color: #333336;
+  --glow-opacity: 0.15;
+  --glass-bg: rgba(0, 0, 0, 0.6);
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+  touch-action: none;
+  transition: background-color 0.5s ease;
+}
+
+@layer base {
+  h1, h2, h3 {
+    font-family: var(--font-playfair-display), serif;
+  }
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Ensure React Flow container adapts to theme */
+.react-flow__background {
+  background-color: var(--bg-primary) !important;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+  perspective: 1200px;
+}

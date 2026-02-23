@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Sermon {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  authorId    String?
+  blocks      Block[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Block {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  type      String   // VERSE, INSIGHT, IMAGE
+  content   String
+  positionX Float
+  positionY Float
+  metadata  Json?    // { tone: "Cold", flowOrder: 1, etc }
+  sermonId  String   @db.ObjectId
+  sermon    Sermon   @relation(fields: [sermonId], references: [id])
+  order     Int      @default(0)
+  preached  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

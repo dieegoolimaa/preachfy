@@ -8,21 +8,36 @@ datasource db {
 }
 
 model Sermon {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  title       String
-  authorId    String?
-  blocks      Block[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String            @id @default(auto()) @map("_id") @db.ObjectId
+  title          String
+  authorId       String?
+  category       String?           // Ex: "Série Fé", "Avivamento"
+  status         String            @default("DRAFT") // DRAFT, READY, ARCHIVED
+  bibleSources   Json?             // Array de { id, reference, content }
+  blocks         Block[]
+  history        MinistryHistory[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+model MinistryHistory {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  sermonId  String   @db.ObjectId
+  sermon    Sermon   @relation(fields: [sermonId], references: [id])
+  location  String   // Nome da Igreja ou Evento
+  city      String?
+  date      DateTime @default(now())
+  notes     String?  // Feedback ou observações sobre o fluir da mensagem
+  attendees Int?
 }
 
 model Block {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  type      String   // VERSE, INSIGHT, IMAGE
+  type      String   // TEXTO_BASE, EXEGESE, etc
   content   String
-  positionX Float
-  positionY Float
-  metadata  Json?    // { tone: "Cold", flowOrder: 1, etc }
+  positionX Float    @default(0)
+  positionY Float    @default(0)
+  metadata  Json?    // { font, customColor, depth, parentVerseId, bibleSourceId, etc }
   sermonId  String   @db.ObjectId
   sermon    Sermon   @relation(fields: [sermonId], references: [id])
   order     Int      @default(0)

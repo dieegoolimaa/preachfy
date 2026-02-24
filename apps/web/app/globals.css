@@ -2,13 +2,14 @@
 
 @theme {
   --font-serif: var(--font-playfair-display), ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-  --font-modern: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-  --font-theological: var(--font-lora), ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  --color-exegesis: #64748b; /* Slate */
-  --color-application: #a8a29e; /* Stone */
-  --color-emphasis: #737373; /* Neutral / Emphasis */
+  --font-sans: var(--font-outfit), -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  --font-modern: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  --font-theological: var(--font-lora), ui-serif, Georgia, serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, monospace;
+  
+  --color-exegesis: #64748b;
+  --color-application: #a8a29e;
+  --color-emphasis: #737373;
 
   --color-background: var(--bg-primary);
   --color-foreground: var(--text-primary);
@@ -21,31 +22,29 @@
 :root {
   /* LIGHT THEME (Pristine Apple White) */
   --bg-primary: #ffffff;
-  --bg-surface: #fbfbfd;
-  --text-primary: #1d1d1f;
-  --text-secondary: #86868b;
-  --border-color: #d2d2d7;
+  --bg-surface: #f9f9fb;
+  --text-primary: #121213;
+  --text-secondary: #6e6e73;
+  --border-color: #e5e5ea;
   --glow-opacity: 0.05;
-  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-bg: rgba(255, 255, 255, 0.75);
 }
 
 .dark {
-  /* DARK THEME (Deep OLED Black) */
-  --bg-primary: #000000;
-  --bg-surface: #101010;
-  --text-primary: #f5f5f7;
-  --text-secondary: #86868b;
-  --border-color: #333336;
-  --glow-opacity: 0.15;
-  --glass-bg: rgba(0, 0, 0, 0.6);
+  /* DARK THEME (Midnight Premium) */
+  --bg-primary: #050505; /* Deep Midnight */
+  --bg-surface: #0c0c0e; /* Slightly lighter surface */
+  --text-primary: #fcfcfc;
+  --text-secondary: #9a9a9e;
+  --border-color: #1a1a1d;
+  --glow-opacity: 0.2;
+  --glass-bg: rgba(10, 10, 12, 0.7);
 }
 
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  overflow: hidden;
-  touch-action: none;
-  transition: background-color 0.5s ease;
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @layer base {
@@ -62,12 +61,26 @@ body {
   scrollbar-width: none;
 }
 
-/* Ensure React Flow container adapts to theme */
-.react-flow__background {
-  background-color: var(--bg-primary) !important;
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 10px;
 }
 
 .preserve-3d {
   transform-style: preserve-3d;
   perspective: 1200px;
+}
+
+/* Glassmorphism utility */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color);
 }

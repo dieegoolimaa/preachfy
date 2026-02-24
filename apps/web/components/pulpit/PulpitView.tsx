@@ -1,527 +1,503 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useGesture } from '@use-gesture/react';
-import { Sparkles, Activity, AlertCircle, Quote, X, Edit2, CheckCircle2, MapPin } from 'lucide-react';
+import { 
+  Share2, Clock, Search, Book, Sidebar, ChevronRight, X, 
+  Maximize2, Minimize2, ArrowLeft, ArrowRight, MoreVertical, 
+  LayoutGrid, Zap, Sparkles, GripVertical, CheckCircle2,
+  Quote, CornerDownRight, LinkIcon, Trash2
+} from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useSermonSocket } from '@/hooks/useSermonSocket';
+import { useGesture } from '@use-gesture/react';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export type TheologyCategory = 'TEXTO_BASE' | 'EXEGESE' | 'APLICACAO' | 'ILUSTRACAO' | 'ENFASE';
-
-export interface Block {
-  id: string;
-  type: TheologyCategory;
-  content: string;
-  metadata: {
-    font?: string;
-    customColor?: string;
-    parentVerseId?: string;
-    depth?: number;
-  };
-  preached?: boolean;
+interface PulpitViewProps {
+  sermonId: string;
+  targetTime: number; // minutes
+  onExit: () => void;
+  onStudy?: () => void;
 }
 
-const CATEGORY_MAP: Record<TheologyCategory, { label: string, color: string, defFont: string }> = {
-  TEXTO_BASE: { label: 'Texto Base', color: 'var(--color-exegesis)', defFont: 'font-serif' },
-  EXEGESE: { label: 'Exegese', color: '#6366f1', defFont: 'font-sans' },
-  APLICACAO: { label: 'Aplicação', color: 'var(--color-application)', defFont: 'font-modern' },
-  ILUSTRACAO: { label: 'Ilustração', color: '#10b981', defFont: 'font-theological' },
-  ENFASE: { label: 'Ênfase', color: 'var(--color-emphasis)', defFont: 'font-sans' }
+const parseBibleContent = (content: string) => {
+  if (!content) return [];
+  const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+  const verses: { v: number; text: string }[] = [];
+  lines.forEach(line => {
+    const match = line.match(/^(\d+)\s+(.*)/);
+    if (match) verses.push({ v: parseInt(match[1]), text: match[2] });
+    else if (verses.length > 0) verses[verses.length - 1].text += ' ' + line;
+  });
+  return verses;
 };
 
-const MOCK_BLOCKS: Block[] = [
-  { id: '1', type: 'TEXTO_BASE', content: 'E a luz resplandece nas trevas, e as trevas não a compreenderam. (João 1:5)', metadata: { font: 'font-serif', depth: 0 } },
-  { id: '2', type: 'EXEGESE', content: 'A palavra original para "compreenderam" (katalambano) também significa "venceram" ou "apagaram".', metadata: { font: 'font-sans', depth: 1 } },
-  { id: '3', type: 'APLICACAO', content: 'A escuridão não tem poder estrutural para apagar a luz. Ela é apenas a ausência dela.', metadata: { font: 'font-modern', depth: 2 } },
-  { id: '4', type: 'ENFASE', content: 'Onde você está tolerando sombras na sua rotina, esquecendo que você carrega a fonte que as dissipa?', metadata: { font: 'font-sans', depth: 3 } },
-  { id: '5', type: 'ILUSTRACAO', content: 'Como acender um fósforo numa caverna que não vê a luz há milênios. A escuridão histórica cede instantaneamente.', metadata: { font: 'font-theological', depth: 1 } },
-];
+export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: PulpitViewProps) {
+  const { latestBlocks, isConnected } = useSermonSocket(sermonId);
+  const [blocks, setBlocks] = useState<any[]>([]);
+  const [sermonMeta, setSermonMeta] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeBlockIndex, setActiveBlockIndex] = useState(0);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<'BIBLIA' | 'ESTRUTURA'>('ESTRUTURA');
+  const [isHudOpen, setIsHudOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [timeLeft, setTimeLeft] = useState(targetTime * 60);
+  const [showContextPeek, setShowContextPeek] = useState(false);
+  
+  // Update local blocks when socket updates
+  useEffect(() => {
+    if (latestBlocks) {
+      setBlocks(latestBlocks);
+    }
+  }, [latestBlocks]);
 
-export default function PulpitView({ targetTime = 45, onExit }: { targetTime?: number, onExit?: () => void }) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [isMapOpen, setIsMapOpen] = useState(false);
-  const [blocks, setBlocks] = useState(MOCK_BLOCKS);
-  const [timer, setTimer] = useState(targetTime * 60);
-  const [isWrappingUp, setIsWrappingUp] = useState(false);
-  const [congregationHeat, setCongregationHeat] = useState(30); // 0-100 Mock real-time feedback
-  const [isMinimapOpen, setIsMinimapOpen] = useState(false);
-  const [minimapTab, setMinimapTab] = useState<'ESBOCO' | 'TEXTO_BASE'>('ESBOCO');
-  const [isEditingTimer, setIsEditingTimer] = useState(false);
-  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  // Initial Fetch
+  useEffect(() => {
+    const fetchSermon = async () => {
+      try {
+        const res = await fetch(`http://localhost:3001/sermons/${sermonId}`);
+        const data = await res.json();
+        setSermonMeta(data);
+        if (data && data.blocks) {
+          setBlocks(data.blocks);
+        }
+        setLoading(false);
+      } catch (error) {
+        console.error("Failed to fetch sermon in Pulpit:", error);
+        setLoading(false);
+      }
+    };
+    fetchSermon();
+  }, [sermonId]);
 
-  const { pulpitAction } = useSermonSocket('mock-sermon-id');
-
-  // Gestures & Navigation
-  const goToNextBlock = useCallback(() => {
-    if (activeIndex < blocks.length - 1) setActiveIndex(p => p + 1);
-  }, [activeIndex, blocks.length]);
-
-  const goToPrevBlock = useCallback(() => {
-    if (activeIndex > 0) setActiveIndex(p => p - 1);
-  }, [activeIndex]);
-
-  const markAsPreached = useCallback((id: string) => {
-    setBlocks(prev => prev.map(b => b.id === id ? { ...b, preached: true } : b));
-    pulpitAction(id, 'markAsPreached');
-    if (typeof window !== 'undefined' && 'vibrate' in navigator) navigator.vibrate([30, 50, 30]);
-    setTimeout(goToNextBlock, 400);
-  }, [goToNextBlock, pulpitAction]);
-
-  const saveBlockEdits = useCallback((id: string, newContent: string, newColor: string, newFont?: string) => {
-    setBlocks(prev => prev.map(b => b.id === id ? { 
-      ...b, 
-      content: newContent, 
-      metadata: { ...b.metadata, customColor: newColor, font: newFont || b.metadata.font } 
-    } : b));
-    setEditingBlockId(null);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
   }, []);
 
-  const bind = useGesture(
-    {
-      onDrag: ({ swipe: [, swY], last }) => {
-        if (last && !editingBlockId) {
-          if (swY === -1) goToNextBlock(); // Swipe Up to go next
-          if (swY === 1) goToPrevBlock();  // Swipe Down to go prev
-        }
-      },
-    },
-    { drag: { filterTaps: true, threshold: 30 } }
-  );
-
-  // Timer & Urgency Logic
-  useEffect(() => {
-    if (isEditingTimer) return;
-    const interval = setInterval(() => {
-      setTimer(t => {
-        const next = t - 1;
-        if (next > 0 && next < 300) setIsWrappingUp(true); // Last 5 minutes triggers warning aura
-        if (next <= 0) setIsWrappingUp(true);
-        return Math.max(0, next);
-      });
-      // Simulate real-time congregation heat fluctuating
-      setCongregationHeat(prev => Math.min(100, Math.max(10, prev + (Math.random() - 0.5) * 10)));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isEditingTimer]);
-
-  const formatTime = (s: number) => {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m}:${sec.toString().padStart(2, '0')}`;
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (!blocks.length) return null;
+  const bind = useGesture({
+    onDragEnd: (state) => {
+      const { swipe: [_, sy] } = state;
+      if (sy < 0) handleNext();
+      if (sy > 0) handlePrev();
+    }
+  });
 
-  const activeBlock = blocks[activeIndex];
-  // Safe fallback if activeBlock somehow becomes undefined during transit
-  if (!activeBlock) return null;
+  const handleNext = () => {
+    if (activeBlockIndex < blocks.length - 1) setActiveBlockIndex(prev => prev + 1);
+  };
 
-  const activeToneColor = activeBlock.metadata.customColor || CATEGORY_MAP[activeBlock.type].color;
+  const handlePrev = () => {
+    if (activeBlockIndex > 0) setActiveBlockIndex(prev => prev - 1);
+  };
 
-  // Find parent verse if current is insight
-  const activeParentVerse = activeBlock.type !== 'TEXTO_BASE' 
-    ? blocks.find(b => b.id === activeBlock.metadata.parentVerseId) 
-    : null;
+  const activeBlock = blocks[activeBlockIndex] || null;
+  const activeVerseId = activeBlock?.metadata?.parentVerseId;
+  const activeSourceId = activeBlock?.metadata?.bibleSourceId;
+  const activeSource = sermonMeta?.bibleSources?.find((s: any) => s.id === activeSourceId) || (sermonMeta?.bibleSources?.[0]);
 
-  // Find upcoming sub-blocks (infinite nesting)
-  const upcomingSubBlocks: Block[] = [];
-  const currentDepth = activeBlock.metadata.depth || 0;
-  
-  let i = activeIndex + 1;
-  while(i < blocks.length) {
-    const nextBlock = blocks[i];
-    if (!nextBlock) break;
-    const nextDepth = nextBlock.metadata.depth || 0;
-    // Break if we hit a sibling or a higher level ancestor
-    if (nextDepth <= currentDepth) break;
-    upcomingSubBlocks.push(nextBlock);
-    i++;
+  const [previewSourceId, setPreviewSourceId] = useState<string | null>(null);
+  const [previewVerseId, setPreviewVerseId] = useState<string | null>(null);
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center gap-6">
+        <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+        <p className="text-[12px] font-black uppercase tracking-[0.4em] opacity-40">Preparando Altar...</p>
+      </div>
+    );
   }
 
-  return (
-    <main 
-      {...bind()}
-      className="relative h-screen w-full flex overflow-hidden bg-background text-foreground transition-colors duration-500 select-none"
-    >
-      {/* Deep Apple Green Background Aura */}
-      <motion.div 
-        animate={{ 
-          background: isWrappingUp 
-            ? `radial-gradient(circle at 60% 50%, rgba(200,20,20,0.15) 0%, #000000 80%)` 
-            : `radial-gradient(circle at 60% 50%, #2a3c31 0%, #0d120f 80%)`
-        }}
-        transition={{ duration: 2 }}
-        className="absolute inset-0 pointer-events-none z-0"
-      />
+  const jumpToSourceVerse = (sourceId: string, vId: string) => {
+    const index = blocks.findIndex(b => b.metadata?.parentVerseId === vId && b.metadata?.bibleSourceId === sourceId);
+    if (index !== -1) {
+      setActiveBlockIndex(index);
+      setPreviewSourceId(null);
+      setPreviewVerseId(null);
+    } else {
+      setPreviewSourceId(sourceId);
+      setPreviewVerseId(vId);
+    }
+    setShowContextPeek(true);
+  };
 
-      {/* PROCESSUAL MAP (Left Sidebar - Toggleable) */}
+  const finalSource = previewSourceId 
+    ? sermonMeta?.bibleSources?.find((s: any) => s.id === previewSourceId)
+    : activeSource;
+  
+  const finalVerseId = previewVerseId || activeVerseId;
+
+  return (
+    <div className="fixed inset-0 bg-background text-foreground flex overflow-hidden font-sans selection:bg-indigo-500/30">
       <AnimatePresence>
-        {isMapOpen && (
+        {isSidebarOpen && (
           <motion.aside 
-            initial={{ x: -400, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -400, opacity: 0 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="w-[380px] shrink-0 border-r border-[#1a1a1a]/50 bg-[#000000]/40 backdrop-blur-3xl flex flex-col relative z-20"
+            initial={{ x: -400 }}
+            animate={{ x: 0 }}
+            exit={{ x: -400 }}
+            className="w-[400px] h-full border-r border-border bg-surface/50 backdrop-blur-3xl z-40 flex flex-col shadow-2xl"
           >
-            <div className="p-10 pb-4 flex justify-between items-center">
-              <h2 className="text-[9px] font-sans font-bold tracking-[0.2em] text-muted-foreground/40 uppercase flex items-center gap-2">
-                <Activity className="w-3 h-3" />
-                Mapa Processual
-              </h2>
-              <button onClick={() => setIsMapOpen(false)} className="p-2 text-muted-foreground/40 hover:text-foreground transition-colors">
-                <X className="w-4 h-4" />
+            <div className="p-10 border-b border-border flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-serif font-black italic tracking-tight">Apoio</h2>
+                <p className="text-[10px] font-sans font-black tracking-[0.4em] uppercase opacity-30 mt-1">Instrumental</p>
+              </div>
+              <button 
+                onClick={() => setIsSidebarOpen(false)}
+                className="w-12 h-12 rounded-full border border-border flex items-center justify-center hover:bg-foreground hover:text-background transition-all active:scale-90 shadow-sm"
+              >
+                <Sidebar className="w-5 h-5" />
               </button>
             </div>
-        
-        <div className="flex-1 overflow-y-auto hide-scrollbar px-10 pb-20 pt-6">
-          <div className="relative">
-            {/* The absolute timeline line */}
-            <div className="absolute left-[13px] top-4 bottom-4 w-[1px] bg-border/20 rounded-full" />
-            
-            {blocks.map((block, idx) => {
-              const isActive = idx === activeIndex;
-              const isPast = activeIndex > idx;
-              const isPreached = block.preached;
-              const isBase = block.type === 'TEXTO_BASE';
-              
-              const blockColor = block.metadata.customColor || CATEGORY_MAP[block.type].color;
 
-              return (
-                <div 
-                  key={block.id}
-                  onClick={(e) => { e.stopPropagation(); setActiveIndex(idx); }}
-                  className={cn(
-                    "relative flex items-start cursor-pointer group",
-                    isBase ? "mb-10 mt-6" : "mb-6"
+            <div className="flex border-b border-border bg-foreground/[0.02]">
+              <button 
+                onClick={() => setSidebarTab('BIBLIA')}
+                className={cn(
+                  "flex-1 py-4 text-[11px] font-black tracking-[0.3em] uppercase transition-all flex items-center justify-center gap-3",
+                  sidebarTab === 'BIBLIA' ? "text-foreground bg-foreground/5 shadow-[inset_0_-2px_0_var(--foreground)]" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Book className="w-4 h-4" /> Bíblia
+              </button>
+              <button 
+                onClick={() => setSidebarTab('ESTRUTURA')}
+                className={cn(
+                  "flex-1 py-4 text-[11px] font-black tracking-[0.3em] uppercase transition-all flex items-center justify-center gap-3",
+                  sidebarTab === 'ESTRUTURA' ? "text-foreground bg-foreground/5 shadow-[inset_0_-2px_0_var(--foreground)]" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <LayoutGrid className="w-4 h-4" /> Mapa
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+              {sidebarTab === 'BIBLIA' ? (
+                <div className="p-5 flex flex-col gap-6">
+                  {(sermonMeta?.bibleSources || []).map((source: any) => (
+                    <div key={source.id} className="flex flex-col gap-3">
+                       <div className="flex items-center gap-2">
+                         <div className="h-px flex-1 bg-border/40" />
+                         <div className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-500">{source.reference || 'Texto'}</div>
+                         <div className="h-px flex-1 bg-border/40" />
+                       </div>
+                       <div className="flex flex-col gap-1.5">
+                         {parseBibleContent(source.content).map(v => (
+                           <div
+                             key={`${source.id}-${v.v}`}
+                             onClick={() => jumpToSourceVerse(source.id, String(v.v))}
+                             className={cn(
+                               "py-2.5 px-3 rounded-lg cursor-pointer transition-all flex items-start gap-3 group active:scale-95",
+                               (String(v.v) === activeVerseId && source.id === activeSourceId) || (String(v.v) === previewVerseId && source.id === previewSourceId)
+                                ? "bg-foreground text-background shadow-lg" 
+                                : "text-foreground/80 hover:bg-foreground/5 border border-transparent hover:border-border"
+                             )}
+                           >
+                             <span className={cn("text-xs font-mono font-bold mt-0.5", (String(v.v) === activeVerseId && source.id === activeSourceId) || (String(v.v) === previewVerseId && source.id === previewSourceId) ? "opacity-100" : "opacity-20")}>{v.v}</span>
+                             <span className="text-sm leading-relaxed font-serif">{v.text}</span>
+                           </div>
+                         ))}
+                       </div>
+                    </div>
+                  ))}
+                  {(!sermonMeta?.bibleSources || sermonMeta.bibleSources.length === 0) && (
+                    <div className="py-20 text-center opacity-20 text-[11px] font-black tracking-widest uppercase italic">Nenhum texto bíblico importado</div>
                   )}
-                  style={{ marginLeft: `${(block.metadata.depth || 0) * 1.5}rem` }}
-                >
-                  <div className="w-7 shrink-0 flex items-center justify-center relative mt-1.5">
-                    
-                    <div className={cn(
-                      "relative z-10 flex items-center justify-center rounded-full transition-all duration-500",
-                      isBase ? "w-7 h-7 border-[1px]" : "w-3 h-3 border-[1px]",
-                      isActive 
-                        ? "border-[#00ff6c] bg-[#000000]" 
-                        : isPast || isPreached
-                          ? "border-muted-foreground/30 bg-transparent"
-                          : "border-border/30 bg-transparent"
-                    )}
-                    style={isActive ? { borderColor: '#00ff6c' } : {}}>
-                      {isActive && <div className={cn("rounded-full bg-[#00ff6c]", isBase ? "w-2.5 h-2.5 shadow-[0_0_10px_#00ff6c]" : "w-1 h-1")} />}
-                      {isPreached || isPast ? <CheckCircle2 className={cn("text-muted-foreground/40", isBase ? "w-3 h-3" : "w-2 h-2 opacity-50")} /> : null}
-                    </div>
-                  </div>
-
-                  {/* Node Content */}
-                  <div className={cn(
-                    "flex flex-col ml-5 flex-1 transition-all duration-500",
-                    isBase ? "pt-0.5" : "pt-0",
-                    isActive ? "opacity-100 translate-x-1" : isPast ? "opacity-30" : "opacity-40 group-hover:opacity-100"
-                  )}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[8px] font-sans tracking-[0.2em] font-medium opacity-40">#{idx + 1}</span>
-                      <span className={cn("font-bold tracking-widest uppercase", isBase ? "text-[9px]" : "text-[8px]")} style={{ color: isActive ? '#ffffff' : 'inherit' }}>
-                        {CATEGORY_MAP[block.type].label}
-                      </span>
-                    </div>
-                    <p className={cn(
-                      "leading-relaxed font-sans",
-                      isActive ? "text-[#f5f5f7]" : "text-muted-foreground",
-                      isBase ? "text-sm line-clamp-3 italic font-medium" : "text-xs line-clamp-2 font-light"
-                    )}>
-                      {block.content}
-                    </p>
-                  </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
+              ) : (
+                <div className="p-4 flex flex-col gap-2">
+                  {blocks.map((block, idx) => (
+                    <div 
+                      key={block.id}
+                      onClick={() => { setActiveBlockIndex(idx); setPreviewSourceId(null); setPreviewVerseId(null); }}
+                      className={cn(
+                        "p-3 rounded-lg cursor-pointer transition-all flex flex-col gap-1.5 group relative overflow-hidden active:scale-[0.98]",
+                        activeBlockIndex === idx ? "bg-foreground text-background shadow-md" : "bg-foreground/5 border border-border hover:border-foreground/20"
+                      )}
+                      style={{ marginLeft: `${(block.metadata?.depth || 0) * 0.75}rem` }}
+                    >
+                      {activeBlockIndex === idx && <motion.div layoutId="indicator" className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500" />}
+                      <div className="flex items-center justify-between">
+                         <span className={cn("text-[8px] font-black uppercase tracking-widest", activeBlockIndex === idx ? "text-background/50" : "text-muted-foreground")}>{block.type}</span>
+                         {block.metadata?.parentVerseId && <span className="text-[8px] font-mono font-bold opacity-40">REF {block.metadata.parentVerseId}</span>}
+                      </div>
+                      <p className="text-xs font-medium line-clamp-1 leading-tight">{block.content}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-10 border-t border-border bg-foreground/[0.02]">
+               <button onClick={onExit} className="w-full flex items-center justify-center gap-4 py-5 rounded-full border border-border text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground hover:bg-red-500 hover:text-white hover:border-red-500 transition-all shadow-xl active:scale-95">
+                 <ArrowLeft className="w-5 h-5" /> Encerrar Púlpito
+               </button>
+            </div>
           </motion.aside>
         )}
       </AnimatePresence>
 
-      {/* FOCUS STAGE (Right Main Area) */}
-      <section className="flex-1 relative flex flex-col items-center justify-center p-12 z-10 w-full">
-        
-        {/* Top UI Container (Timer, Context, Engajamento) */}
-        <div className="absolute top-8 left-12 right-12 flex justify-between items-start pointer-events-none">
-          {/* Top Left Controls: Exit & Map Toggle */}
-          <div className="flex flex-col gap-4 pointer-events-auto">
-            {!isMapOpen && (
+      <main className="flex-1 flex flex-col relative h-full">
+        {/* NAV/HUD PULPITO - PREMIUM WORKBENCH */}
+        <header className="h-24 px-12 border-b border-border bg-surface/40 backdrop-blur-md flex items-center justify-between shrink-0 z-30">
+          <div className="flex items-center gap-6">
+            {!isSidebarOpen && (
               <button 
-                onClick={() => setIsMapOpen(true)}
-                className="flex items-center gap-3 text-[10px] font-sans font-bold tracking-[0.15em] text-muted-foreground/50 hover:text-foreground transition-colors uppercase"
+                onClick={() => setIsSidebarOpen(true)}
+                className="w-12 h-12 rounded-full border border-border flex items-center justify-center hover:bg-foreground hover:text-background transition-all active:scale-90 shadow-sm"
               >
-                <Activity className="w-4 h-4" /> Mapa Processual
+                <Sidebar className="w-5 h-5" />
               </button>
             )}
-            {onExit && (
-               <button 
-                 onClick={onExit}
-                 className="flex items-center gap-3 text-[10px] font-sans font-bold tracking-[0.15em] text-muted-foreground/50 hover:text-foreground transition-colors uppercase"
-               >
-                 <X className="w-4 h-4" /> Encerrar Pregação
-               </button>
-            )}
-            
-            <AnimatePresence>
-               {activeParentVerse ? (
-                <motion.div
-                  initial={{ y: -20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: -20, opacity: 0 }}
-                  className="max-w-md pointer-events-auto mt-4"
-                >
-                  <div className="px-5 py-3 border border-border/50 bg-surface/50 backdrop-blur-md rounded-lg shadow-sm">
-                    <span className="text-[9px] font-mono tracking-widest uppercase text-muted-foreground mb-1 block">Contexto Base Atual</span>
-                    <p className="font-serif text-muted-foreground text-sm line-clamp-2 italic">
-                      &quot;{activeParentVerse.content}&quot;
-                    </p>
-                  </div>
-                </motion.div>
-              ) : <div />}
-            </AnimatePresence>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-2xl font-serif font-black italic tracking-tight leading-none">{sermonMeta?.title || 'Mensagem'}</h2>
+              <div className="flex items-center gap-3 text-[10px] font-black tracking-[0.4em] uppercase opacity-40">
+                <span className="text-emerald-500 flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse shadow-[0_0_8px_rgb(16,185,129)]" /> AO VIVO</span>
+                <span className="opacity-20">•</span>
+                <span>{sermonMeta?.category}</span>
+              </div>
+            </div>
           </div>
 
-          {/* Kinetic Status Timer */}
-          <div className="flex flex-col items-end gap-1 pointer-events-auto">
-            {(() => {
-              const totalSeconds = targetTime * 60;
-              const elapsed = totalSeconds - timer;
-              const percentage = Math.min(100, Math.max(0, (elapsed / totalSeconds) * 100));
-              const currentHue = Math.max(0, 120 - (percentage / 100) * 120);
+          <div className="flex items-center gap-10">
+            <div 
+              onClick={() => setIsHudOpen(true)}
+              className="group cursor-pointer flex items-center gap-4 bg-foreground/5 border border-border rounded-full py-2.5 px-6 hover:border-foreground/30 transition-all active:scale-95 shadow-sm"
+            >
+              <Search className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+              <span className="text-[11px] font-sans font-black tracking-[0.2em] uppercase text-muted-foreground group-hover:text-foreground transition-colors">Busca <span className="opacity-30 ml-2 font-mono">⌘K</span></span>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className={cn(
+                "flex flex-col items-end",
+                timeLeft < 300 ? "text-red-500 animate-pulse" : "text-foreground"
+              )}>
+                 <span className="text-4xl font-mono font-bold tracking-tighter tabular-nums leading-none">{formatTime(timeLeft)}</span>
+                 <span className="text-[9px] font-black uppercase tracking-[0.2em] opacity-30">CRONÔMETRO</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* MAIN CANVAS - THE PREACHING VIEW */}
+        <div className="flex-1 relative flex flex-col items-center justify-center px-12 pb-64 overflow-hidden" {...bind()}>
+          <AnimatePresence mode="wait">
+             <motion.div 
+               key={activeBlockIndex}
+               initial={{ y: 30, opacity: 0, scale: 0.98 }}
+               animate={{ y: 0, opacity: 1, scale: 1 }}
+               exit={{ y: -30, opacity: 0, scale: 0.98 }}
+               transition={{ type: 'spring', damping: 25, stiffness: 120 }}
+               className="max-w-6xl w-full flex flex-col items-center gap-10 text-center z-10"
+             >
+                <div className="flex flex-col items-center gap-10">
+                  <div className="px-8 py-3 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-indigo-500 text-[12px] font-black tracking-[0.4em] uppercase flex items-center gap-4 shadow-sm">
+                     <Zap className="w-5 h-5 fill-current" /> {activeBlock?.type || 'BLOCO'}
+                  </div>
+                  
+                  <h1 className={cn(
+                    "text-4xl md:text-6xl lg:text-7xl font-serif font-black italic leading-tight text-foreground transition-all duration-700 select-none drop-shadow-sm break-words whitespace-pre-wrap",
+                    activeBlock?.metadata?.font || 'font-serif'
+                  )}>
+                    {activeBlock?.content}
+                  </h1>
+
+                  {finalVerseId && (
+                    <button 
+                      onClick={() => setShowContextPeek(!showContextPeek)} 
+                      className={cn(
+                        "mt-6 px-12 py-6 rounded-full font-sans font-black text-[13px] tracking-[0.3em] uppercase transition-all shadow-2xl flex items-center gap-4 border", 
+                        showContextPeek 
+                          ? "bg-indigo-600 text-white border-indigo-500" 
+                          : "bg-surface/50 backdrop-blur-xl hover:bg-foreground/5 text-foreground/40 hover:text-foreground border-white/5"
+                      )}
+                    >
+                      <Book className="w-6 h-6" /> {finalSource?.reference?.toUpperCase() || 'REF'}:{finalVerseId}
+                    </button>
+                  )}
+                </div>
+             </motion.div>
+          </AnimatePresence>
+
+          {/* PULPIT NAVIGATION RIBBON - PREMIUM INTEGRATED */}
+          <div className="fixed bottom-12 left-1/2 -translate-x-1/2 w-full max-w-6xl px-12 z-50">
+            <div className="relative group">
+              {/* Premium Glass Card */}
+              <div className="absolute inset-0 bg-background/60 backdrop-blur-3xl rounded-[3rem] border border-white/10 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)]" />
               
-              return (
-                <motion.div 
-                  animate={{ 
-                    color: isWrappingUp ? '#ff4444' : '#ffffff',
-                    backgroundColor: `hsla(${currentHue}, 70%, 50%, 0.15)`,
-                    borderColor: `hsla(${currentHue}, 70%, 50%, 0.3)`
-                  }}
-                  className="px-6 py-3 rounded-full border shadow-sm font-mono text-4xl tracking-tighter flex items-center gap-4 cursor-pointer hover:opacity-80 transition-opacity backdrop-blur-md"
-                  onClick={() => setIsEditingTimer(true)}
+              <div className="relative flex items-center h-32 px-12 gap-12">
+                {/* Anterior */}
+                <button 
+                  onClick={handlePrev}
+                  disabled={activeBlockIndex === 0}
+                  className="flex-1 flex flex-col items-start gap-2 group/btn disabled:opacity-0 transition-all duration-500 cursor-pointer"
                 >
-                  {isWrappingUp && <motion.div animate={{ opacity: [1, 0.2, 1] }} transition={{ repeat: Infinity, duration: 1 }}><AlertCircle className="w-6 h-6" /></motion.div>}
-              {isEditingTimer ? (
-                <input 
-                  type="number" 
-                  className="bg-transparent border-b border-border w-24 text-right outline-none text-foreground" 
-                  defaultValue={Math.floor(timer / 60)} 
-                  autoFocus 
-                  onBlur={(e) => {
-                    const mins = parseInt(e.target.value);
-                    if (!isNaN(mins) && mins > 0) setTimer(mins * 60);
-                    setIsEditingTimer(false);
-                    setIsWrappingUp(false);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') e.currentTarget.blur();
-                  }}
-                />
-              ) : formatTime(timer)}
-            </motion.div>
-            );
-            })()}
-            
-            <div className="flex items-center gap-2 text-[10px] font-mono tracking-widest uppercase opacity-40">
-              <Activity className="w-3 h-3" />
-              Pulse: {Math.round(congregationHeat)}%
+                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-500 flex items-center gap-2 mb-1">
+                    <ArrowLeft className="w-4 h-4 group-hover/btn:-translate-x-1 transition-transform" /> ANTERIOR
+                  </span>
+                  <p className="text-lg font-serif italic text-left line-clamp-1 max-w-[200px] opacity-20 group-hover/btn:opacity-60 transition-opacity">
+                    {blocks[activeBlockIndex - 1]?.content || 'Início'}
+                  </p>
+                </button>
+
+                {/* Central Step Indicator */}
+                <div className="flex flex-col items-center justify-center px-12 border-x border-white/5">
+                  <div className="text-6xl font-mono font-black tracking-tighter tabular-nums text-foreground leading-none">
+                    {activeBlockIndex + 1}
+                    <span className="text-xl opacity-20 ml-2 font-medium">/ {blocks.length}</span>
+                  </div>
+                  <div className="w-16 h-1.5 bg-indigo-500 mt-4 rounded-full shadow-[0_0_15px_rgba(99,102,241,0.6)]" />
+                  <span className="text-[9px] font-black uppercase tracking-[0.5em] opacity-30 mt-3">PASSO</span>
+                </div>
+
+                {/* Próximo */}
+                <button 
+                  onClick={handleNext}
+                  disabled={activeBlockIndex === blocks.length - 1}
+                  className="flex-[2] flex flex-col items-end gap-2 group/btn disabled:opacity-0 transition-all duration-500 cursor-pointer"
+                >
+                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-500 flex items-center gap-2 mb-1">
+                    PRÓXIMO <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                  </span>
+                  <p className="text-2xl font-serif font-bold italic text-right leading-tight text-foreground group-hover:text-indigo-400 transition-colors">
+                    {blocks[activeBlockIndex + 1]?.content || 'Fim'}
+                  </p>
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Focus Stage Active Block */}
-        <div className="w-full max-w-5xl relative z-20">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeBlock.id}
-              initial={{ x: 30, opacity: 0, filter: 'blur(5px)' }}
-              animate={{ x: 0, opacity: 1, filter: 'blur(0px)' }}
-              exit={{ x: -30, opacity: 0, filter: 'blur(5px)' }}
-              transition={{ type: 'spring', stiffness: 120, damping: 25 }}
-              className="w-full"
-              onDoubleClick={() => !editingBlockId && markAsPreached(activeBlock.id)}
+        <AnimatePresence>
+          {showContextPeek && finalVerseId && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 50 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 50 }}
+              className="absolute bottom-48 left-1/2 -translate-x-1/2 w-full max-w-4xl glass p-12 rounded-[3.5rem] shadow-[0_50px_100px_rgba(0,0,0,0.6)] z-[60] flex flex-col gap-10 border border-white/10"
             >
-              <div className="relative p-12">
-                
-                {/* Tone Line Indicator for Main Canvas */}
-                <motion.div 
-                  layoutId="active-stage-tone"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 h-2/3 w-1.5 rounded-full"
-                  style={{ backgroundColor: activeToneColor, boxShadow: `0 0 20px ${activeToneColor}` }}
-                />
-
-                {/* Edit Toggle */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingBlockId(editingBlockId === activeBlock.id ? null : activeBlock.id);
-                  }}
-                  className="absolute top-0 right-0 p-3 rounded-full bg-surface border border-border text-muted-foreground hover:text-foreground backdrop-blur-md opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity z-50 cursor-pointer"
-                  style={{ opacity: editingBlockId === activeBlock.id ? 1 : undefined }}
-                >
-                  {editingBlockId === activeBlock.id ? <X className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
-                </button>
-
-                <div className={cn(
-                  "relative mx-auto text-left pl-8",
-                  activeBlock.type === 'TEXTO_BASE' ? "max-w-4xl" : "max-w-3xl"
-                )}>
-                  {activeBlock.type === 'TEXTO_BASE' && <Quote className="absolute -top-8 -left-2 w-16 h-16 text-foreground opacity-5 -z-10" />}
-
-                  {editingBlockId === activeBlock.id ? (
-                    <div className="flex flex-col gap-6 items-start w-full">
-                      <textarea
-                        defaultValue={activeBlock.content}
-                        className={cn(
-                          "w-full bg-transparent border-b border-border text-left outline-none resize-none pb-4 transition-all focus:border-[var(--color-exegesis)] overflow-hidden",
-                          activeBlock.metadata.font || CATEGORY_MAP[activeBlock.type].defFont,
-                          activeBlock.type === 'TEXTO_BASE' ? "text-[4.5rem] leading-[1.1] text-foreground" : "text-4xl leading-tight text-muted-foreground font-light"
-                        )}
-                        rows={3}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && e.shiftKey) {
-                            e.preventDefault();
-                            saveBlockEdits(activeBlock.id, e.currentTarget.value, activeBlock.metadata.customColor || '');
-                          }
-                        }}
-                        onBlur={(e) => saveBlockEdits(activeBlock.id, e.target.value, activeToneColor)}
-                      />
-                      
-                      <div className="flex items-center gap-6 w-full mt-2">
-                        <div className="flex gap-2">
-                          {['#64748b', '#a8a29e', '#737373', '#e2e8f0', '#d6d3d1'].map(color => (
-                            <button
-                              key={color}
-                              onClick={(e) => { e.stopPropagation(); saveBlockEdits(activeBlock.id, activeBlock.content, color); }}
-                              className={cn("w-6 h-6 rounded-full border-2 transition-transform hover:scale-125", activeToneColor === color ? "scale-125 border-foreground" : "border-transparent")}
-                              style={{ backgroundColor: color }}
-                            />
-                          ))}
-                        </div>
-                        <div className="flex gap-2 overflow-x-auto hide-scrollbar">
-                           {['font-sans', 'font-serif', 'font-modern', 'font-theological', 'font-mono'].map(f => (
-                             <button
-                               key={f}
-                               onClick={(e) => { e.stopPropagation(); saveBlockEdits(activeBlock.id, activeBlock.content, activeToneColor, f); }}
-                               className={cn(
-                                 "px-3 py-1.5 text-[10px] rounded border transition-all whitespace-nowrap uppercase tracking-widest",
-                                 (activeBlock.metadata.font || CATEGORY_MAP[activeBlock.type].defFont) === f ? "bg-foreground text-background" : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                               )}
-                             >
-                               {f.split('-')[1]?.toUpperCase() || f.toUpperCase()}
-                             </button>
-                           ))}
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">Shift + Enter para salvar rapidamente</p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col relative">
-                      <p className={cn(
-                        "transition-colors duration-700 tracking-tight whitespace-pre-wrap cursor-pointer z-10",
-                        activeBlock.metadata.font || CATEGORY_MAP[activeBlock.type].defFont,
-                        activeBlock.type === 'TEXTO_BASE' ? "text-[4.5rem] leading-[1.1] text-foreground font-medium" : "text-[2.5rem] leading-[1.3] text-foreground/90 font-light"
-                      )}
-                      onClick={() => goToNextBlock()}
-                      >
-                        {activeBlock.content}
-                      </p>
-
-                      {/* Visual Preview of Upcoming Theological Paths */}
-                      {upcomingSubBlocks.length > 0 && (
-                        <div className="mt-20 relative flex flex-col gap-8 pl-12">
-                           
-                           {/* Head of the trail */}
-                           <span className="absolute -top-7 -left-0 text-[9px] font-sans tracking-[0.2em] font-bold uppercase text-muted-foreground/50 flex items-center gap-2 mb-6 z-10">
-                             Trilha Sequencial
-                           </span>
-                           
-                           <div className="flex flex-col gap-6 relative z-10">
-                             {upcomingSubBlocks.map((subBlock, idx) => {
-                               const subColor = subBlock.metadata.customColor || CATEGORY_MAP[subBlock.type].color;
-                               const relativeDepth = (subBlock.metadata.depth || 0) - currentDepth - 1;
-                               const isFirst = idx === 0;
-                               
-                               return (
-                                 <div 
-                                   key={subBlock.id} 
-                                   className="flex items-start gap-8 group cursor-pointer transition-all duration-300 relative" 
-                                   onClick={(e) => { e.stopPropagation(); setActiveIndex(activeIndex + idx + 1); }}
-                                   style={{ marginLeft: `${relativeDepth * 2}rem` }}
-                                 >
-                                   {/* The Neon Bar connector from your screenshot */}
-                                   {isFirst ? (
-                                     <motion.div 
-                                       initial={{ height: 0, opacity: 0 }}
-                                       animate={{ height: '100%', opacity: 1 }}
-                                       className="absolute -left-12 top-2 bottom-0 w-1.5 rounded-full z-20 shadow-[0_0_20px_rgba(0,255,108,0.5)] bg-[#00ff6c]" 
-                                     />
-                                   ) : (
-                                     <div className="absolute -left-12 top-2 bottom-0 w-1 rounded-full z-20 bg-border/20 group-hover:bg-[#00ff6c]/50 transition-colors" />
-                                   )}
-                                   
-                                   
-                                   {/* Plain Clean Text representation instead of boxes */}
-                                   <div className="flex flex-col gap-3 flex-1 max-w-2xl group-hover:translate-x-2 transition-transform duration-500">
-                                     <div className="flex items-center gap-3">
-                                        <div className="flex items-center gap-2 opacity-60">
-                                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: subColor }} />
-                                          <span className="text-[9px] font-sans font-bold tracking-[0.2em] uppercase" style={{ color: subColor }}>
-                                            {CATEGORY_MAP[subBlock.type].label}
-                                          </span>
-                                        </div>
-                                     </div>
-                                     <p className="text-xl font-sans font-light text-muted-foreground line-clamp-3 leading-relaxed opacity-70 group-hover:opacity-100 group-hover:text-foreground transition-all duration-300">
-                                       {subBlock.content}
-                                     </p>
-                                   </div>
-                                 </div>
-                               )
-                             })}
-                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-12 text-left pl-8 opacity-40">
-                  <div className="flex items-center gap-2 text-[11px] tracking-[0.3em] font-mono uppercase text-foreground">
-                    {activeBlock.type !== 'TEXTO_BASE' ? <Sparkles className="w-3 h-3 text-[var(--color-application)]" /> : <MapPin className="w-3 h-3 text-muted-foreground" />}
-                    <span>{CATEGORY_MAP[activeBlock.type].label}</span>
+              <div className="flex items-center justify-between border-b border-white/10 pb-8">
+                <div className="flex items-center gap-6">
+                  <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center">
+                    <Book className="w-7 h-7 text-white" />
                   </div>
+                  <h3 className="text-4xl font-serif font-bold italic">{finalSource?.reference}</h3>
                 </div>
-
+                <button onClick={() => setShowContextPeek(false)} className="w-14 h-14 rounded-full border border-white/10 flex items-center justify-center hover:bg-foreground hover:text-background transition-all active:scale-90 shadow-sm"><X className="w-7 h-7" /></button>
+              </div>
+              <div className="max-h-[40vh] overflow-y-auto custom-scrollbar pr-6">
+                {parseBibleContent(finalSource?.content).map(v => (
+                  <div key={v.v} className={cn(
+                    "text-3xl font-serif leading-[1.4] mb-10 flex gap-8 transition-all duration-500",
+                    String(v.v) === finalVerseId ? "text-foreground opacity-100 italic" : "text-foreground/20"
+                  )}>
+                    <span className="font-mono text-lg opacity-40 shrink-0 mt-3 font-black tabular-nums">{v.v}</span>
+                    <p>{v.text}</p>
+                  </div>
+                ))}
               </div>
             </motion.div>
-          </AnimatePresence>
-        </div>
+          )}
+        </AnimatePresence>
 
-        {/* Global Progress Line Map */}
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-surface flex">
-           {blocks.map((b, i) => (
-             <div 
-               key={'prog-'+b.id} 
-               className="h-full transition-all duration-500" 
-               style={{ 
-                 width: `${100 / blocks.length}%`, 
-                 backgroundColor: i <= activeIndex ? (b.metadata.customColor || CATEGORY_MAP[b.type].color) : 'transparent',
-                 opacity: i === activeIndex ? 1 : 0.3
-               }} 
-             />
-           ))}
+        {/* PROGRESS RIBBON */}
+        <div className="h-1.5 bg-border relative overflow-hidden shrink-0">
+          <motion.div 
+            className="absolute top-0 left-0 h-full bg-indigo-600 shadow-[0_0_15px_rgba(79,70,229,0.5)]"
+            initial={{ width: 0 }}
+            animate={{ width: `${((activeBlockIndex + 1) / blocks.length) * 100}%` }}
+          />
         </div>
-      </section>
-    </main>
+      </main>
+
+      {/* SEARCH HUD - COMMAND CENTER */}
+      <AnimatePresence>
+        {isHudOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-background/95 backdrop-blur-3xl z-[100] p-12 flex flex-col items-center"
+          >
+            <div className="w-full max-w-4xl flex flex-col gap-12">
+               <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-6">
+                    <Sparkles className="w-8 h-8 text-indigo-500" />
+                    <h2 className="text-4xl font-serif font-bold italic tracking-tight">O que você busca?</h2>
+                  </div>
+                  <button onClick={() => { setIsHudOpen(false); setSearchQuery(''); }} className="w-14 h-14 rounded-full border border-border flex items-center justify-center hover:bg-foreground hover:text-background transition-all active:scale-90">
+                    <X className="w-8 h-8" />
+                  </button>
+               </div>
+
+               <div className="relative group">
+                 <Search className="absolute left-10 top-1/2 -translate-y-1/2 w-8 h-8 text-muted-foreground/30 group-focus-within:text-foreground transition-colors" />
+                 <input 
+                   autoFocus
+                   type="text" 
+                   value={searchQuery}
+                   onChange={e => setSearchQuery(e.target.value)}
+                   placeholder="Digite um tema ou versículo..."
+                   className="w-full bg-surface/50 backdrop-blur-3xl border border-border rounded-[3rem] py-10 pl-24 pr-12 text-4xl font-serif italic font-bold outline-none focus:border-indigo-500/50 transition-all shadow-2xl placeholder:opacity-10"
+                 />
+               </div>
+
+               <div className="grid grid-cols-2 gap-10 overflow-y-auto max-h-[50vh] custom-scrollbar p-2">
+                 <div className="flex flex-col gap-6">
+                    <h3 className="text-[11px] font-sans font-black tracking-[0.3em] uppercase opacity-30 px-2 flex items-center gap-3">
+                      <LayoutGrid className="w-4 h-4" /> SERMÃO
+                    </h3>
+                    {searchQuery.length > 0 ? blocks.filter(b => b.content.toLowerCase().includes(searchQuery.toLowerCase())).map((b, idx) => (
+                      <div key={b.id} onClick={() => { setActiveBlockIndex(blocks.indexOf(b)); setIsHudOpen(false); setSearchQuery(''); }} className="p-6 rounded-2xl bg-surface border border-border hover:border-foreground/30 transition-all cursor-pointer group active:scale-95 shadow-sm">
+                         <div className="flex items-center gap-3 mb-2">
+                           <span className="text-[10px] font-black uppercase text-indigo-500">{b.type}</span>
+                           <span className="text-[10px] opacity-20 uppercase font-black">S{blocks.indexOf(b) + 1}</span>
+                         </div>
+                         <p className="text-lg font-serif group-hover:italic transition-all line-clamp-2">{b.content}</p>
+                      </div>
+                    )) : (
+                      <p className="px-2 py-4 text-[11px] opacity-20 italic font-medium uppercase tracking-widest">Aguardando busca...</p>
+                    )}
+                 </div>
+                 <div className="flex flex-col gap-6">
+                   <h3 className="text-[11px] font-sans font-black tracking-[0.3em] uppercase opacity-30 px-2 flex items-center gap-3">
+                     <Book className="w-4 h-4" /> BÍBLIA
+                   </h3>
+                   {searchQuery.length > 2 ? (sermonMeta?.bibleSources || []).map((source: any) => (
+                      parseBibleContent(source.content)
+                        .filter(v => v.text.toLowerCase().includes(searchQuery.toLowerCase()))
+                        .map((verse) => (
+                          <div key={`${source.id}-${verse.v}`} onClick={() => { setIsHudOpen(false); jumpToSourceVerse(source.id, String(verse.v)); setSearchQuery(''); }} className="group/verse flex gap-6 items-start cursor-pointer transition-all bg-surface border border-border hover:border-indigo-500/30 p-6 rounded-2xl shadow-sm active:scale-95">
+                            <span className="text-lg font-mono text-muted-foreground/30 font-bold mt-1 shrink-0">{verse.v}</span>
+                            <div className="flex flex-col gap-2">
+                              <span className="text-[10px] font-black tracking-widest uppercase text-indigo-500">{source.reference}:{verse.v}</span>
+                              <p className="text-lg font-serif text-foreground/80 leading-snug group-hover/verse:text-foreground transition-colors line-clamp-4">{verse.text}</p>
+                            </div>
+                          </div>
+                        ))
+                   )) : (
+                      <p className="px-2 py-4 text-[11px] opacity-20 italic font-medium uppercase tracking-widest">3+ caracteres...</p>
+                   )}
+                 </div>
+               </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

@@ -20,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${playfair.variable} ${outfit.variable} ${lora.variable} ${jetbrains.variable} antialiased font-sans bg-background text-foreground overflow-hidden`}>
+      <body className={`${playfair.variable} ${outfit.variable} ${lora.variable} ${jetbrains.variable} antialiased font-sans bg-background text-foreground`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           {children}
         </ThemeProvider>

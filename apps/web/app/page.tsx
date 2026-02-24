@@ -25,7 +25,7 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-background overflow-hidden relative">
+    <main className="min-h-screen bg-background relative">
       {view === 'dashboard' && (
         <DashboardView 
           onEdit={handleEditSermon} 
@@ -34,26 +34,24 @@ export default function Home() {
       )}
       
       {view === 'study' && activeSermon && (
-        <div className="relative w-full h-full">
-          <SermonCanvas />
-          <Button 
-            onClick={() => setView('dashboard')}
-            className="absolute bottom-6 left-6 rounded-full shadow-2xl h-12 px-6 font-mono font-bold tracking-widest text-[10px] uppercase bg-surface border border-border text-foreground hover:bg-background transition-colors z-[200]"
-          >
-            ← Voltar ao Início
-          </Button>
-          <Button 
-            onClick={() => setView('pulpit')}
-            className="absolute bottom-6 right-6 rounded-full shadow-2xl h-12 px-8 font-mono font-bold tracking-widest text-[10px] uppercase bg-foreground text-background hover:scale-105 transition-transform z-[200]"
-          >
-            Simular Púlpito
-          </Button>
+        <div className="relative w-full">
+          <SermonCanvas 
+            sermonId={activeSermon.id} 
+            initialData={activeSermon}
+            onBack={() => setView('dashboard')} 
+            onStart={() => setView('pulpit')}
+          />
         </div>
       )}
 
-      {view === 'pulpit' && (
+      {view === 'pulpit' && activeSermon && (
         <div className="relative w-full h-full">
-          <PulpitView targetTime={targetTime} onExit={() => setView('dashboard')} />
+          <PulpitView 
+            sermonId={activeSermon.id}
+            targetTime={targetTime} 
+            onExit={() => setView('dashboard')} 
+            onStudy={() => setView('study')}
+          />
         </div>
       )}
     </main>

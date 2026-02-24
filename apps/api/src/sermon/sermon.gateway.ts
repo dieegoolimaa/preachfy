@@ -18,12 +18,11 @@ import { SermonService } from './sermon.service';
   },
 })
 export class SermonGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
-{
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
   private logger: Logger = new Logger('SermonGateway');
 
-  constructor(private sermonService: SermonService) {}
+  constructor(private sermonService: SermonService) { }
 
   afterInit(server: Server) {
     this.logger.log('WebSocket Gateway Initialized');
@@ -45,6 +44,17 @@ export class SermonGateway
     this.logger.log(`Syncing canvas for sermon: ${data.sermonId}`);
     await this.sermonService.syncFullSermon(data.sermonId, data.blocks);
     client.broadcast.emit('canvas-updated', data);
+  }
+
+  @SubscribeMessage('sync-meta')
+  async handleSyncMeta(
+    @MessageBody() data: { sermonId: string; meta: any },
+    @ConnectedSocket() client: Socket,
+  ): Promise<void> {
+    this.logger.log(`Syncing meta for sermon: ${data.sermonId}`);
+    // No need to save to DB here as Study mode handles PATCH, 
+    // but broadcasting ensures the Pulpit view updates instantly
+    client.broadcast.emit('meta-updated', data);
   }
 
   @SubscribeMessage('pulpit-action')

@@ -7,6 +7,7 @@ export const useSermonSocket = (sermonId: string) => {
     const socketRef = useRef<Socket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
     const [latestBlocks, setLatestBlocks] = useState<any[] | null>(null);
+    const [latestMeta, setLatestMeta] = useState<any | null>(null);
     const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
 
     useEffect(() => {
@@ -21,6 +22,12 @@ export const useSermonSocket = (sermonId: string) => {
         socket.on('canvas-updated', (data) => {
             if (data.sermonId === sermonId) {
                 setLatestBlocks(data.blocks);
+            }
+        });
+
+        socket.on('meta-updated', (data) => {
+            if (data.sermonId === sermonId) {
+                setLatestMeta(data.meta);
             }
         });
 
@@ -43,6 +50,12 @@ export const useSermonSocket = (sermonId: string) => {
         }
     };
 
+    const syncMeta = (meta: Record<string, unknown>) => {
+        if (socketRef.current?.connected) {
+            socketRef.current.emit('sync-meta', { sermonId, meta });
+        }
+    };
+
     const pulpitAction = (blockId: string, action: string) => {
         if (socketRef.current?.connected) {
             socketRef.current.emit('pulpit-action', { blockId, action });
@@ -52,8 +65,10 @@ export const useSermonSocket = (sermonId: string) => {
     return {
         isConnected,
         syncCanvas,
+        syncMeta,
         pulpitAction,
         latestBlocks,
+        latestMeta,
         activeBlockId,
         socket: socketRef.current
     };

@@ -52,7 +52,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
   const [sermonMeta, setSermonMeta] = useState<any>(initialData || null);
   const [isSyncing, setIsSyncing] = useState(false);
   
-  const { isConnected, syncCanvas } = useSermonSocket(sermonId);
+  const { isConnected, syncCanvas, syncMeta } = useSermonSocket(sermonId);
 
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [newHistory, setNewHistory] = useState({
@@ -199,7 +199,6 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
         body: JSON.stringify({ blocks })
       });
 
-      serializeToFlowRibbon();
       initialMetaRef.current = JSON.stringify(payload);
     } catch (e) {
       console.error("Failed to manual save", e);
@@ -208,23 +207,35 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
     }
   };
 
-  const serializeToFlowRibbon = useCallback(() => {
-    if (!blocks.length) return;
-    setIsSyncing(true);
-    syncCanvas(blocks.map((n, idx) => ({
-      ...n,
-      id: String(n.id),
-      order: idx,
-      positionX: 0,
-      positionY: 0
-    })));
-    setTimeout(() => setIsSyncing(false), 1000);
+  // Auto-sync blocks to socket whenever they change (Debounced)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (blocks.length > 0) {
+        syncCanvas(blocks.map((n, idx) => ({
+          ...n,
+          id: String(n.id),
+          order: idx,
+          positionX: 0,
+          positionY: 0
+        })));
+      }
+    }, 500);
+    return () => clearTimeout(timer);
   }, [blocks, syncCanvas]);
 
+  // Auto-sync metadata (title, category, bibleSources) to socket (Debounced)
   useEffect(() => {
-    // Initial sync
-    serializeToFlowRibbon();
-  }, [serializeToFlowRibbon]);
+    const timer = setTimeout(() => {
+      if (sermonMeta) {
+        syncMeta({
+          title: sermonMeta.title,
+          category: sermonMeta.category,
+          bibleSources: sermonMeta.bibleSources
+        });
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [sermonMeta, syncMeta]);
 
   const handleAddHistory = async () => {
     if (!newHistory.location) return;
@@ -280,31 +291,24 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
 
         <div className="flex items-center gap-6">
           <div className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-mono border transition-all",
-            isConnected ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/30" : "text-muted-foreground bg-surface border-border"
+            "flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black tracking-widest border transition-all duration-500 shadow-sm",
+            isConnected ? "text-emerald-500 bg-emerald-500/5 border-emerald-500/20" : "text-muted-foreground bg-surface border-border"
           )}>
-            <Cloud className={cn("w-3.5 h-3.5", isConnected && "animate-pulse")} /> <span className="max-sm:hidden">{isConnected ? 'SINC. ATIVA' : 'OFFLINE'}</span>
+            <div className={cn("w-1.5 h-1.5 rounded-full bg-emerald-500", isConnected && "animate-pulse")} /> 
+            <span className="max-sm:hidden">{isConnected ? 'SINC. ATIVA' : 'OFFLINE'}</span>
           </div>
 
           <div className="h-8 w-px bg-border/40" />
           
-          <Button 
-            variant="default"
-            className="font-sans text-[11px] font-bold gap-2 tracking-[0.1em] h-10 px-6 bg-foreground text-background hover:opacity-90 rounded-full transition-all shadow-lg shadow-foreground/10"
-            onClick={serializeToFlowRibbon}
-          >
-            <Share2 className="w-4 h-4" /> SINCRONIZAR PÚLPITO
-          </Button>
-
           <ThemeToggle />
 
           <Button 
             variant="default"
-            className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-11 px-8 bg-indigo-600 text-white hover:bg-indigo-700 rounded-full transition-all shadow-xl shadow-indigo-500/10 active:scale-95"
+            className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-11 px-8 bg-indigo-600 text-white hover:bg-indigo-700 rounded-full transition-all shadow-xl shadow-indigo-500/20 active:scale-95 group"
             onClick={handleSave}
             disabled={isSaving}
           >
-            {isSaving ? <CheckCircle2 className="w-4 h-4 animate-pulse" /> : <Cloud className="w-4 h-4" />}
+            {isSaving ? <CheckCircle2 className="w-4 h-4 animate-pulse" /> : <Cloud className="w-4 h-4 group-hover:scale-110 transition-transform" />}
             {isSaving ? 'SALVANDO...' : 'SALVAR ALTERAÇÕES'}
           </Button>
           
@@ -707,25 +711,14 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
             <span className="text-[10px] font-sans font-black tracking-widest uppercase opacity-60">Sessão Pronta</span>
          </div>
          <Button 
-            variant="ghost" 
-            className={cn(
-              "hover:bg-background/10 text-background flex items-center gap-2 h-10 px-6 rounded-full text-[10px] font-black uppercase tracking-widest transition-all active:scale-95",
-              isSyncing && "opacity-50 pointer-events-none"
-            )}
-            onClick={handleSave}
-          >
-           {isSaving ? <Cloud className="w-4 h-4 animate-bounce" /> : <Cloud className="w-4 h-4" />}
-           {isSaving ? 'Salvando...' : 'Salvar Esboço'}
-         </Button>
-         <Button 
-            className="bg-background text-foreground hover:bg-background/90 flex items-center gap-3 h-10 px-8 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl shadow-background/10 active:scale-95 transition-all"
+            className="bg-background text-foreground hover:bg-background/90 flex items-center gap-3 h-10 px-10 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl shadow-background/10 active:scale-95 transition-all"
             onClick={() => {
               handleSave();
               if (onStart) onStart();
             }}
           >
-           <Play className="w-3.5 h-3.5 fill-current" /> Começar
-         </Button>
+           <Play className="w-3.5 h-3.5 fill-current" /> Começar Sessão
+          </Button>
       </footer>
     </div>
   );

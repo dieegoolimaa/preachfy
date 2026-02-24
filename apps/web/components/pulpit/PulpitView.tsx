@@ -12,6 +12,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useSermonSocket } from '@/hooks/useSermonSocket';
 import { useGesture } from '@use-gesture/react';
+import { BookOpen, HelpCircle, Target, Lightbulb, AlertTriangle } from 'lucide-react';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -24,20 +25,36 @@ interface PulpitViewProps {
   onStudy?: () => void;
 }
 
+// Perspectiva Teológica - Must match SermonCanvas
+const CATEGORY_MAP: Record<string, { label: string, color: string, icon: React.ReactNode }> = {
+  TEXTO_BASE: { label: 'Texto Base', color: 'var(--color-exegesis)', icon: <BookOpen className="w-4 h-4" /> },
+  EXEGESE: { label: 'Exegese', color: '#6366f1', icon: <HelpCircle className="w-4 h-4" /> },
+  APLICACAO: { label: 'Aplicação', color: 'var(--color-application)', icon: <Target className="w-4 h-4" /> },
+  ILUSTRACAO: { label: 'Ilustração', color: '#10b981', icon: <Lightbulb className="w-4 h-4" /> },
+  ENFASE: { label: 'Ênfase', color: 'var(--color-emphasis)', icon: <AlertTriangle className="w-4 h-4" /> },
+  CUSTOMIZAR: { label: 'Custom', color: '#737373', icon: <Sparkles className="w-4 h-4" /> }
+};
+
 const parseBibleContent = (content: string) => {
   if (!content) return [];
   const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
   const verses: { v: number; text: string }[] = [];
   lines.forEach(line => {
     const match = line.match(/^(\d+)\s+(.*)/);
-    if (match) verses.push({ v: parseInt(match[1]), text: match[2] });
-    else if (verses.length > 0) verses[verses.length - 1].text += ' ' + line;
+    if (match && match[1] && match[2]) {
+      verses.push({ v: parseInt(match[1]), text: match[2] });
+    } else {
+      const lastVerse = verses[verses.length - 1];
+      if (lastVerse) {
+        lastVerse.text += ' ' + line;
+      }
+    }
   });
   return verses;
 };
 
 export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: PulpitViewProps) {
-  const { latestBlocks, isConnected } = useSermonSocket(sermonId);
+  const { latestBlocks, latestMeta, isConnected } = useSermonSocket(sermonId);
   const [blocks, setBlocks] = useState<any[]>([]);
   const [sermonMeta, setSermonMeta] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -78,6 +95,16 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
       setBlocks(latestBlocks);
     }
   }, [latestBlocks]);
+
+  // Update local metadata when socket updates
+  useEffect(() => {
+    if (latestMeta && sermonMeta) {
+      setSermonMeta((prev: any) => ({
+        ...prev,
+        ...latestMeta
+      }));
+    }
+  }, [latestMeta]);
 
   // Initial Fetch
   useEffect(() => {
@@ -158,10 +185,13 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
 
   // Effect for Context Peek Auto-scroll
   useEffect(() => {
-    if (showContextPeek && activeVerseRef.current) {
-      setTimeout(() => {
-        activeVerseRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 100);
+    if (showContextPeek) {
+      const activeEl = activeVerseRef.current;
+      if (activeEl) {
+        setTimeout(() => {
+          activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
     }
   }, [showContextPeek, finalVerseId]);
 
@@ -189,12 +219,6 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                 <h2 className="text-xl font-serif font-black italic tracking-tight">Apoio</h2>
                 <p className="text-[10px] font-sans font-black tracking-[0.3em] uppercase opacity-30 mt-0.5">Instrumental</p>
               </div>
-              <button 
-                onClick={() => setIsSidebarOpen(false)}
-                className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-foreground hover:text-background transition-all active:scale-90"
-              >
-                <Sidebar className="w-4 h-4" />
-              </button>
             </div>
 
             <div className="flex border-b border-border bg-foreground/[0.02]">
@@ -297,15 +321,18 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                           isActive ? "bg-foreground/5 border-foreground/15 shadow-sm" : "bg-transparent border-transparent"
                         )}>
                           <div className="flex items-center justify-between">
-                             <span className={cn(
-                               "text-[8px] font-black uppercase tracking-[0.2em]", 
-                               isActive ? "text-indigo-500" : "text-muted-foreground"
-                             )}>
-                               {block.type}
-                             </span>
+                             <div className="flex items-center gap-1.5 min-w-0">
+                               <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: block.metadata?.customColor || CATEGORY_MAP[block.type]?.color || '#888' }} />
+                               <span className={cn(
+                                 "text-[8px] font-black uppercase tracking-[0.2em] truncate", 
+                                 isActive ? "text-indigo-500" : "text-muted-foreground"
+                               )}>
+                                 {block.metadata?.customLabel || CATEGORY_MAP[block.type]?.label || block.type}
+                               </span>
+                             </div>
                           </div>
                           <p className={cn(
-                            "text-[12px] font-bold leading-tight line-clamp-2",
+                            "text-[12px] font-bold leading-tight line-clamp-2 mt-0.5",
                             isActive ? "text-foreground" : "text-foreground/60"
                           )}>
                             {block.content}
@@ -331,16 +358,28 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
         {/* NAV/HUD PULPITO - PREMIUM WORKBENCH */}
         {/* STAGE HEADER - MINIMALIST & FOCUSED */}
         <header className="h-28 px-16 flex items-center justify-between shrink-0 z-[60] relative">
-          <div className="flex flex-col gap-1.5 min-w-0">
-            <h2 className="text-xl font-serif font-black italic tracking-tight line-clamp-1 max-w-xl text-foreground/90">
-              {sermonMeta?.title || 'Mensagem'}
-            </h2>
-            <div className="flex items-center gap-4">
-               <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                 <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500">Ao Vivo</span>
-               </div>
-               <span className="text-[9px] font-black uppercase tracking-[0.3em] opacity-20 text-foreground">{sermonMeta?.category}</span>
+          <div className="flex items-center gap-8 min-w-0">
+            <button 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className={cn(
+                "w-14 h-14 rounded-full flex items-center justify-center transition-all border shadow-2xl active:scale-95 z-[70]",
+                isSidebarOpen ? "bg-indigo-600 text-white border-indigo-500 shadow-indigo-500/20" : "glass border-white/5 text-foreground/40 hover:text-foreground hover:border-white/20"
+              )}
+            >
+              <Layout className="w-6 h-6" />
+            </button>
+
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <h2 className="text-xl font-serif font-black italic tracking-tight line-clamp-1 max-w-xl text-foreground/90">
+                {sermonMeta?.title || 'Mensagem'}
+              </h2>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500">Ao Vivo</span>
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-[0.3em] opacity-20 text-foreground">{sermonMeta?.category}</span>
+              </div>
             </div>
           </div>
 
@@ -359,16 +398,6 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                </span>
                <span className="text-[9px] font-black uppercase tracking-[0.4em] opacity-30 mt-1">Cronômetro</span>
             </div>
-            
-            <button 
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className={cn(
-                "w-14 h-14 rounded-full flex items-center justify-center transition-all border shadow-2xl active:scale-95",
-                isSidebarOpen ? "bg-indigo-600 text-white border-indigo-500 shadow-indigo-500/20" : "glass border-white/5 text-foreground/40"
-              )}
-            >
-              <Layout className="w-6 h-6" />
-            </button>
           </div>
         </header>
 
@@ -395,13 +424,23 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                   <motion.div 
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="px-12 py-3.5 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-indigo-500 text-[14px] font-black tracking-[0.6em] uppercase flex items-center gap-5 shadow-[0_0_25px_rgba(99,102,241,0.08)]"
+                    className="px-12 py-3.5 rounded-full border flex items-center gap-5 shadow-2xl transition-all duration-500"
+                    style={{ 
+                      borderColor: (activeBlock?.metadata?.customColor || CATEGORY_MAP[activeBlock?.type]?.color || '#6366f1') + '40',
+                      backgroundColor: (activeBlock?.metadata?.customColor || CATEGORY_MAP[activeBlock?.type]?.color || '#6366f1') + '10',
+                      color: activeBlock?.metadata?.customColor || CATEGORY_MAP[activeBlock?.type]?.color || '#6366f1'
+                    }}
                   >
-                     <Zap className="w-5 h-5 fill-current" /> {activeBlock?.type || 'BLOCO'}
+                     <div className="w-6 h-6 flex items-center justify-center">
+                        {CATEGORY_MAP[activeBlock?.type]?.icon || <Zap className="w-5 h-5 fill-current" />}
+                     </div>
+                     <span className="text-[14px] font-black tracking-[0.6em] uppercase">
+                       {activeBlock?.metadata?.customLabel || CATEGORY_MAP[activeBlock?.type]?.label || activeBlock?.type}
+                     </span>
                   </motion.div>
                   
                   <h1 className={cn(
-                    "font-serif font-black italic leading-[1.3] text-foreground transition-all duration-200 select-none drop-shadow-2xl break-words whitespace-pre-wrap w-full px-4",
+                    "font-serif font-black italic leading-[1.3] text-foreground transition-all duration-500 select-none drop-shadow-2xl break-words whitespace-pre-wrap w-full px-4",
                     activeBlock?.metadata?.font || 'font-serif',
                     (activeBlock?.content?.length || 0) > 200 ? "text-2xl md:text-3xl lg:text-4xl" :
                     (activeBlock?.content?.length || 0) > 120 ? "text-3xl md:text-4xl lg:text-5xl" :

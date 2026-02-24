@@ -10,6 +10,8 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 import { ThemeToggle } from '@/components/theme-toggle';
+import { useSession } from "next-auth/react";
+import { UserMenu } from "@/components/auth-components";
 
 export interface SermonMeta {
   id: string;
@@ -28,6 +30,7 @@ interface DashboardViewProps {
 }
 
 export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
+  const { data: session } = useSession();
   const [sermons, setSermons] = useState<SermonMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [preparingStartId, setPreparingStartId] = useState<string | null>(null);
@@ -93,16 +96,14 @@ export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
         </h1>
         <div className="flex items-center gap-8">
           <ThemeToggle />
-          <div className="w-10 h-10 rounded-full bg-surface border border-border flex items-center justify-center font-mono text-sm tracking-widest uppercase hover:border-foreground transition-all cursor-pointer">
-            DL
-          </div>
+          <UserMenu />
         </div>
       </header>
 
       <main className="flex-1 w-full max-w-6xl mx-auto mt-16 px-12 pb-32">
         {/* Welcome Section */}
         <div className="mb-16 flex flex-col gap-2">
-          <h2 className="text-4xl font-serif font-bold italic tracking-tight text-foreground">Graça e Paz, Diego.</h2>
+          <h2 className="text-4xl font-serif font-bold italic tracking-tight text-foreground">Graça e Paz, {session?.user?.name?.split(' ')[0] || 'Pregador'}.</h2>
           <p className="text-sm font-sans font-medium text-muted-foreground opacity-60">Sua biblioteca de mensagens está pronta para ser expandida.</p>
         </div>
 

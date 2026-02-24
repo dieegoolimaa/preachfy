@@ -11,4 +11,4 @@ import { SermonController } from './sermon/sermon.controller';
   controllers: [AppController, SermonController],
   providers: [AppService, SermonGateway, PrismaService, SermonService],
 })
-export class AppModule { }
+export class AppModule {}

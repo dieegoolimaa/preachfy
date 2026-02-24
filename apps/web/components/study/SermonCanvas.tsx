@@ -65,8 +65,15 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
   const [isSaving, setIsSaving] = useState(false);
 
   const initialMetaRef = useRef<string | null>(null);
+  const titleRef = useRef<HTMLTextAreaElement>(null);
 
-  // Fetch real sermon data on mount if needed or for refresh
+  // Auto-resize textarea on mount and changes
+  useEffect(() => {
+    if (titleRef.current) {
+      titleRef.current.style.height = 'auto';
+      titleRef.current.style.height = titleRef.current.scrollHeight + 'px';
+    }
+  }, [sermonMeta?.title, loading]);
   useEffect(() => {
     const fetchSermon = async () => {
       try {
@@ -100,6 +107,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
       type: newType, 
       metadata: { ...b.metadata, font: CATEGORY_MAP[newType].defFont, customLabel: newType === 'CUSTOMIZAR' ? (b.metadata.customLabel || 'Meu Título') : undefined } 
     } : b));
+    setActiveDropdown(null);
   };
 
   const handleCustomLabelChange = (id: string, newLabel: string) => {
@@ -108,6 +116,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
 
   const handleFontChange = (id: string, newFont: string) => {
     setBlocks(prev => prev.map(b => b.id === id ? { ...b, metadata: { ...b.metadata, font: newFont } } : b));
+    setActiveDropdown(null);
   };
 
   const deleteBlock = (id: string) => {
@@ -308,15 +317,20 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-4xl mx-auto mt-16 px-12">
+      <main className="flex-1 w-full max-w-4xl mx-auto mt-16 px-12 !overflow-visible">
         {/* Sermon Header (The Theme) - PREMIUM COMPACT */}
         <div className="mb-12 flex flex-col gap-2">
-          <input 
-            type="text"
+          <textarea 
+            ref={titleRef}
             value={sermonMeta?.title || ''}
             onChange={e => handleMetaChange('title', e.target.value)}
             placeholder="Título do Sermão..."
-            className="w-full bg-transparent border-none outline-none font-serif text-5xl md:text-6xl font-bold italic tracking-tight text-foreground placeholder:opacity-10 leading-none focus:placeholder:opacity-5 transition-all"
+            rows={1}
+            onInput={(e) => {
+              e.currentTarget.style.height = 'auto';
+              e.currentTarget.style.height = (e.currentTarget.scrollHeight) + 'px';
+            }}
+            className="w-full bg-transparent border-none outline-none font-serif text-2xl md:text-3xl lg:text-4xl font-bold italic tracking-tight text-foreground placeholder:opacity-10 leading-tight focus:placeholder:opacity-5 transition-all resize-none !overflow-visible"
           />
           <div className="flex items-center gap-3 mt-4 ml-1">
              <span className="text-[10px] font-sans font-black tracking-[0.4em] uppercase opacity-30">Categoria:</span>
@@ -383,7 +397,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
           </div>
         </div>
 
-        <Reorder.Group axis="y" values={blocks} onReorder={setBlocks} className="flex flex-col gap-4">
+        <Reorder.Group axis="y" values={blocks} onReorder={setBlocks} className="flex flex-col gap-4 !overflow-visible">
           <AnimatePresence>
             {blocks.map((block) => {
               const cat = CATEGORY_MAP[block.type as TheologyCategory];
@@ -393,12 +407,19 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
                 <Reorder.Item 
                   key={block.id} 
                   value={block}
-                  className="relative group bg-surface border border-border rounded-[2rem] p-6 shadow-sm hover:shadow-xl hover:border-foreground/10 transition-all duration-500 backdrop-blur-3xl overflow-hidden"
+                  className={cn(
+                    "relative group bg-surface border border-border rounded-[2rem] p-6 shadow-sm hover:shadow-xl hover:border-foreground/10 transition-all duration-500 backdrop-blur-3xl !overflow-visible",
+                    activeDropdown?.id === block.id ? "z-[100]" : "z-10"
+                  )}
                   style={{ 
-                    marginLeft: `${(block.metadata.depth || 0) * 1.5}rem`,
-                    borderLeft: `6px solid ${block.metadata.customColor || CATEGORY_MAP[block.type as TheologyCategory].color}`
+                    marginLeft: `${(block.metadata.depth || 0) * 1.5}rem`
                   }}
                 >
+                  {/* Category Highlight - Integrated with card boundary */}
+                  <div 
+                    className="absolute inset-[0] border-l-[6px] rounded-[2rem] pointer-events-none z-0" 
+                    style={{ borderColor: block.metadata.customColor || CATEGORY_MAP[block.type as TheologyCategory].color }} 
+                  />
                   <div className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-40 cursor-grab active:cursor-grabbing text-muted-foreground p-1 hover:bg-muted rounded-lg transition-all z-20">
                     <GripVertical className="w-4 h-4" />
                   </div>
@@ -406,25 +427,27 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
                   <div className="flex flex-col gap-4 pl-2">
                     <div className="flex items-center justify-between gap-4 flex-wrap">
                       <div className="flex items-center gap-3">
-                        <div 
-                          className="flex items-center border border-border bg-surface hover:bg-muted transition-all px-4 py-1.5 rounded-full gap-2 group/select relative cursor-pointer min-w-[150px] justify-center shadow-sm active:scale-95"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveDropdown(activeDropdown?.id === block.id && activeDropdown?.type === 'category' ? null : { id: block.id, type: 'category' });
-                          }}
-                        >
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] shadow-lg shrink-0" style={{ backgroundColor: cat.color }}>
-                            {cat.icon}
-                          </div>
-                          
-                          <span className="font-sans text-[10px] font-black tracking-widest uppercase text-foreground select-none">
-                            {CATEGORY_MAP[block.type as TheologyCategory].label.split(' ')[0]}
-                          </span>
+                        <div className="relative group/select">
+                          <div 
+                            className="flex items-center border border-border bg-surface hover:bg-muted transition-all px-4 py-1.5 rounded-full gap-2 cursor-pointer min-w-[150px] justify-center shadow-sm active:scale-95"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveDropdown(activeDropdown?.id === block.id && activeDropdown?.type === 'category' ? null : { id: block.id, type: 'category' });
+                            }}
+                          >
+                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] shadow-lg shrink-0" style={{ backgroundColor: cat.color }}>
+                              {cat.icon}
+                            </div>
+                            
+                            <span className="font-sans text-[10px] font-black tracking-widest uppercase text-foreground select-none">
+                              {CATEGORY_MAP[block.type as TheologyCategory].label.split(' ')[0]}
+                            </span>
 
-                          <ChevronDown className={cn(
-                            "w-3.5 h-3.5 opacity-20 group-hover/select:opacity-100 transition-all",
-                            activeDropdown?.id === block.id && activeDropdown?.type === 'category' && "rotate-180 opacity-100"
-                          )} />
+                            <ChevronDown className={cn(
+                              "w-3.5 h-3.5 opacity-20 group-hover/select:opacity-100 transition-all",
+                              activeDropdown?.id === block.id && activeDropdown?.type === 'category' && "rotate-180 opacity-100"
+                            )} />
+                          </div>
 
                           <AnimatePresence>
                             {activeDropdown?.id === block.id && activeDropdown.type === 'category' && (
@@ -432,15 +455,16 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
                                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                className="absolute top-full left-0 right-0 mt-3 bg-surface border border-border rounded-[2rem] shadow-2xl z-[60] overflow-hidden py-3 glass"
+                                className="absolute top-full left-0 w-80 mt-3 bg-background border border-border rounded-[2rem] shadow-2xl z-[60] overflow-hidden py-4"
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 {Object.entries(CATEGORY_MAP).map(([k, v]) => (
                                   <div
                                     key={k}
                                     onClick={() => handleCategoryChange(block.id, k as TheologyCategory)}
                                     className={cn(
-                                      "px-6 py-4 text-[11px] font-black tracking-[0.2em] uppercase transition-all flex items-center justify-between hover:bg-foreground hover:text-background",
-                                      block.type === k ? "text-foreground bg-foreground/5" : "text-muted-foreground/60"
+                                      "px-8 py-4 text-[10px] font-black tracking-[0.2em] uppercase transition-all flex items-center justify-between hover:bg-foreground hover:text-background cursor-pointer",
+                                      block.type === k ? "text-indigo-500 bg-indigo-500/5" : "text-foreground/80"
                                     )}
                                   >
                                     {v.label}
@@ -453,24 +477,24 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
                         </div>
 
                         {/* Link to Bible Source Dropdown */}
-                        <div 
-                          className="relative"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveDropdown(activeDropdown?.id === block.id && activeDropdown?.type === 'link' ? null : { id: block.id, type: 'link' });
-                          }}
-                        >
-                          <div className={cn(
-                            "px-4 py-1.5 rounded-full border text-[9px] font-black tracking-widest uppercase transition-all flex items-center gap-2 cursor-pointer shadow-sm",
-                            block.metadata.parentVerseId ? "bg-indigo-500 text-white border-indigo-600" : "bg-surface border-border text-muted-foreground/60 hover:border-foreground/30 hover:text-foreground"
-                          )}>
+                        <div className="relative">
+                          <div 
+                            className={cn(
+                              "px-4 py-1.5 rounded-full border text-[9px] font-black tracking-widest uppercase transition-all flex items-center gap-2 cursor-pointer shadow-sm",
+                              block.metadata.parentVerseId ? "bg-indigo-500 text-white border-indigo-600" : "bg-surface border-border text-muted-foreground/60 hover:border-foreground/30 hover:text-foreground"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveDropdown(activeDropdown?.id === block.id && activeDropdown?.type === 'link' ? null : { id: block.id, type: 'link' });
+                            }}
+                          >
                              <LinkIcon className="w-3.5 h-3.5" />
                              {block.metadata.parentVerseId ? `${linkedSource?.reference || 'Ref'}:${block.metadata.parentVerseId}` : 'Vincular'}
                           </div>
 
                           <AnimatePresence>
                             {activeDropdown?.id === block.id && activeDropdown.type === 'link' && (
-                              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute top-full left-0 mt-3 w-80 bg-surface border border-border rounded-[2rem] shadow-2xl z-[60] p-6 max-h-[400px] overflow-y-auto custom-scrollbar glass">
+                              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute top-full left-0 mt-3 w-80 bg-background border border-border rounded-[2rem] shadow-2xl z-[60] p-8 max-h-[400px] overflow-y-auto custom-scrollbar" onClick={(e) => e.stopPropagation()}>
                                  {(sermonMeta?.bibleSources || []).map((source: any) => {
                                     const verses = (source.content || '').split('\n').map((l: string) => l.match(/^(\d+)/)?.[1]).filter(Boolean);
                                     return (
@@ -503,14 +527,14 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
                       </div>
 
                       <div className="flex items-center gap-4">
-                        <div 
-                          className="relative group/font flex items-center min-w-[150px]"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveDropdown(activeDropdown?.id === block.id && activeDropdown?.type === 'font' ? null : { id: block.id, type: 'font' });
-                          }}
-                        >
-                          <div className="w-full bg-surface border border-border rounded-lg text-[10px] font-mono text-muted-foreground px-4 py-1.5 hover:border-foreground/30 transition-all cursor-pointer flex items-center justify-between gap-2 shadow-sm">
+                        <div className="relative group/font">
+                          <div 
+                            className="w-full min-w-[150px] bg-surface border border-border rounded-lg text-[10px] font-mono text-muted-foreground px-4 py-1.5 hover:border-foreground/30 transition-all cursor-pointer flex items-center justify-between gap-2 shadow-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveDropdown(activeDropdown?.id === block.id && activeDropdown?.type === 'font' ? null : { id: block.id, type: 'font' });
+                            }}
+                          >
                              <span className="truncate tracking-widest uppercase">
                                {block.metadata.font === 'font-sans' ? 'Outfit' : block.metadata.font === 'font-serif' ? 'Playfair' : block.metadata.font === 'font-modern' ? 'Sans-UI' : block.metadata.font === 'font-theological' ? 'Lora' : block.metadata.font === 'font-mono' ? 'JetBrains' : 'Default'}
                              </span>
@@ -519,11 +543,30 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
 
                           <AnimatePresence>
                             {activeDropdown?.id === block.id && activeDropdown.type === 'font' && (
-                              <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} className="absolute top-full left-0 right-0 mt-3 bg-surface border border-border rounded-[1.5rem] shadow-2xl z-[60] py-3 glass">
-                                {['font-sans', 'font-serif', 'font-modern', 'font-theological', 'font-mono'].map((f) => (
-                                  <div key={f} onClick={() => handleFontChange(block.id, f)} className={cn("px-6 py-3 text-[11px] font-mono transition-all flex items-center justify-between hover:bg-foreground hover:text-background cursor-pointer uppercase tracking-widest", (block.metadata.font || cat.defFont) === f ? "text-foreground bg-foreground/5 font-bold" : "text-muted-foreground/60")}>
-                                    {f.replace('font-', '')}
-                                    {(block.metadata.font || cat.defFont) === f && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                              <motion.div 
+                                initial={{ opacity: 0, scale: 0.95, y: 10 }} 
+                                animate={{ opacity: 1, scale: 1, y: 0 }} 
+                                exit={{ opacity: 0, scale: 0.95, y: 10 }} 
+                                className="absolute top-full left-0 w-80 mt-3 bg-background border border-border rounded-[2rem] shadow-2xl z-[60] py-4"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {[
+                                  { id: 'font-sans', label: 'Outfit' },
+                                  { id: 'font-serif', label: 'Playfair' },
+                                  { id: 'font-modern', label: 'Sans-UI' },
+                                  { id: 'font-theological', label: 'Lora' },
+                                  { id: 'font-mono', label: 'JetBrains' }
+                                ].map((f) => (
+                                  <div 
+                                    key={f.id} 
+                                    onClick={() => handleFontChange(block.id, f.id)} 
+                                    className={cn(
+                                      "px-6 py-3 text-[11px] font-mono transition-all flex items-center justify-between hover:bg-foreground hover:text-background cursor-pointer uppercase tracking-widest", 
+                                      (block.metadata.font || cat.defFont) === f.id ? "text-foreground bg-foreground/5 font-bold" : "text-muted-foreground/60"
+                                    )}
+                                  >
+                                    {f.label}
+                                    {(block.metadata.font || cat.defFont) === f.id && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
                                   </div>
                                 ))}
                               </motion.div>

@@ -18,11 +18,12 @@ import { SermonService } from './sermon.service';
   },
 })
 export class SermonGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer() server: Server;
   private logger: Logger = new Logger('SermonGateway');
 
-  constructor(private sermonService: SermonService) { }
+  constructor(private sermonService: SermonService) {}
 
   afterInit(server: Server) {
     this.logger.log('WebSocket Gateway Initialized');

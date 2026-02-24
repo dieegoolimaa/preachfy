@@ -133,21 +133,19 @@ export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
             <motion.div 
               layout
               key={sermon.id} 
-              className="group relative flex items-center justify-between bg-surface/30 border border-border hover:border-foreground/10 rounded-[2.5rem] p-4 pr-10 hover:shadow-2xl hover:shadow-black/5 transition-all duration-500 overflow-hidden"
+              className="group relative flex items-center justify-between bg-surface/30 border border-border hover:border-foreground/10 rounded-[2.5rem] p-4 pr-10 hover:shadow-2xl hover:shadow-black/5 transition-all duration-500 overflow-hidden min-h-[140px]"
             >
-              <div className="flex items-center flex-1 h-full pl-6 pr-4 gap-12">
-                <div className="flex flex-col gap-1 text-[10px] font-sans font-black uppercase tracking-[0.2em] text-muted-foreground/40 w-32 shrink-0">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-3.5 h-3.5 mb-0.5" /> <span>Postado em</span>
-                  </div>
-                  <span className="text-foreground/60">{sermon.date}</span>
+              <div className="flex items-center flex-1 h-full pl-6 pr-4 gap-12 min-w-0">
+                <div className="flex flex-col gap-1 w-32 shrink-0">
+                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-500/50">Postado</span>
+                  <span className="text-xs font-mono font-bold text-foreground/40">{sermon.date}</span>
                 </div>
 
-                <div className="flex flex-col flex-1 gap-1.5">
-                  <h3 className="text-2xl font-serif font-bold text-foreground line-clamp-1 flex items-center gap-4 group-hover:italic transition-all">
-                    {sermon.title}
+                <div className="flex flex-col flex-1 gap-1.5 min-w-0">
+                  <h3 className="text-2xl font-serif font-black text-foreground flex items-center flex-wrap gap-4 group-hover:italic transition-all leading-tight">
+                    <span className="line-clamp-2">{sermon.title}</span>
                     {sermon.category && (
-                      <span className="text-[10px] font-sans font-black uppercase tracking-widest px-3 py-1 rounded-full bg-foreground/5 border border-border opacity-60">
+                      <span className="text-[10px] font-sans font-black uppercase tracking-widest px-3 py-1 rounded-full bg-foreground/5 border border-border opacity-60 shrink-0">
                         {sermon.category}
                       </span>
                     )}
@@ -179,44 +177,43 @@ export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
                       key="timer-controls"
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      className="flex items-center gap-8 h-full border-l border-border pl-8 bg-surface/40 rounded-r-[2.5rem]"
+                      exit={{ opacity: 0, x: 20 }}
+                      className="flex items-center gap-6 bg-foreground/5 p-2 rounded-full border border-white/5 shadow-inner"
                     >
-                      <button onClick={() => setPreparingStartId(null)} className="p-3 text-muted-foreground/50 hover:text-foreground transition-all hover:bg-muted rounded-full">
+                      <button onClick={() => setPreparingStartId(null)} className="w-10 h-10 flex items-center justify-center text-muted-foreground/30 hover:text-foreground transition-all ml-2">
                          <X className="w-5 h-5" />
                       </button>
                       
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-6">
                         <button 
                           onClick={() => setTargetTime(Math.max(5, targetTime - 5))}
-                          className="w-12 h-12 rounded-full border border-border flex items-center justify-center text-xl text-foreground hover:bg-foreground hover:text-background transition-all"
+                          className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-foreground hover:bg-foreground hover:text-background transition-all shadow-sm active:scale-90"
                         >
                           -
                         </button>
-                        <div className="flex flex-col items-center">
-                          <span className="text-5xl font-sans font-black tracking-tighter text-foreground leading-none">
+                        <div className="flex flex-col items-center min-w-[70px]">
+                          <span className="text-4xl font-mono font-black tracking-tighter text-foreground leading-none">
                             {targetTime}
                           </span>
-                          <span className="text-[9px] font-black uppercase tracking-widest opacity-30">Minutos</span>
+                          <span className="text-[8px] font-black uppercase tracking-[0.3em] opacity-30 mt-1">Minutos</span>
                         </div>
                         <button 
                           onClick={() => setTargetTime(targetTime + 5)}
-                          className="w-12 h-12 rounded-full border border-border flex items-center justify-center text-xl text-foreground hover:bg-foreground hover:text-background transition-all"
+                          className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-foreground hover:bg-foreground hover:text-background transition-all shadow-sm active:scale-90"
                         >
                           +
                         </button>
                       </div>
 
-                      <button 
+                       <button 
                         onClick={() => {
                           setPreparingStartId(null);
                           onStart(sermon, targetTime);
                         }}
-                        className="flex items-center gap-3 px-8 py-3.5 rounded-full bg-foreground text-background font-sans text-[11px] font-black uppercase tracking-[0.1em] hover:scale-105 transition-all shadow-2xl shadow-foreground/20"
+                        className="flex items-center gap-3 px-8 py-4 rounded-full bg-foreground text-background font-sans text-[11px] font-black uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-xl shadow-black/20"
                       >
                         <Play className="w-4 h-4 fill-current" /> Começar
                       </button>
-
                     </motion.div>
                   ) : (
                     <motion.div 

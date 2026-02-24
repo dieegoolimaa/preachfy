@@ -6,7 +6,7 @@ import {
   Share2, Clock, Search, Book, Sidebar, ChevronRight, X, 
   Maximize2, Minimize2, ArrowLeft, ArrowRight, MoreVertical, 
   LayoutGrid, Zap, Sparkles, GripVertical, CheckCircle2,
-  Quote, CornerDownRight, LinkIcon, Trash2
+  Quote, CornerDownRight, LinkIcon, Trash2, Layout
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -48,6 +48,29 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
   const [searchQuery, setSearchQuery] = useState('');
   const [timeLeft, setTimeLeft] = useState(targetTime * 60);
   const [showContextPeek, setShowContextPeek] = useState(false);
+  const [insights, setInsights] = useState<any[]>([]);
+  const [showToast, setShowToast] = useState<string | null>(null);
+
+  // Refs for auto-scroll
+  const hudScrollRef = useRef<HTMLDivElement>(null);
+  const contextScrollRef = useRef<HTMLDivElement>(null);
+  const activeVerseRef = useRef<HTMLDivElement>(null);
+  
+  const saveInsight = (verse: any, source: any) => {
+    const newInsight = {
+      id: Math.random().toString(36).substr(2, 9),
+      verse,
+      sourceReference: source.reference,
+      timestamp: new Date().toISOString(),
+      sermonId
+    };
+    setInsights(prev => [...prev, newInsight]);
+    setShowToast(`Revelação guardada: ${source.reference}:${verse.v}`);
+    setTimeout(() => setShowToast(null), 3000);
+    
+    // In a real app, this would persist to the DB
+    console.log("Insight Saved:", newInsight);
+  };
   
   // Update local blocks when socket updates
   useEffect(() => {
@@ -112,14 +135,11 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
   const [previewSourceId, setPreviewSourceId] = useState<string | null>(null);
   const [previewVerseId, setPreviewVerseId] = useState<string | null>(null);
 
-  if (loading) {
-    return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center gap-6">
-        <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
-        <p className="text-[12px] font-black uppercase tracking-[0.4em] opacity-40">Preparando Altar...</p>
-      </div>
-    );
-  }
+  const finalSource = previewSourceId 
+    ? sermonMeta?.bibleSources?.find((s: any) => s.id === previewSourceId)
+    : activeSource;
+  
+  const finalVerseId = previewVerseId || activeVerseId;
 
   const jumpToSourceVerse = (sourceId: string, vId: string) => {
     const index = blocks.findIndex(b => b.metadata?.parentVerseId === vId && b.metadata?.bibleSourceId === sourceId);
@@ -132,13 +152,27 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
       setPreviewVerseId(vId);
     }
     setShowContextPeek(true);
+    
+    // Auto-scroll logic happens in useEffect
   };
 
-  const finalSource = previewSourceId 
-    ? sermonMeta?.bibleSources?.find((s: any) => s.id === previewSourceId)
-    : activeSource;
-  
-  const finalVerseId = previewVerseId || activeVerseId;
+  // Effect for Context Peek Auto-scroll
+  useEffect(() => {
+    if (showContextPeek && activeVerseRef.current) {
+      setTimeout(() => {
+        activeVerseRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [showContextPeek, finalVerseId]);
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center gap-6">
+        <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+        <p className="text-[12px] font-black uppercase tracking-[0.4em] opacity-40">Preparando Altar...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-background text-foreground flex overflow-hidden font-sans selection:bg-indigo-500/30">
@@ -150,16 +184,16 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
             exit={{ x: -400 }}
             className="w-[400px] h-full border-r border-border bg-surface/50 backdrop-blur-3xl z-40 flex flex-col shadow-2xl"
           >
-            <div className="p-10 border-b border-border flex items-center justify-between">
+            <div className="p-6 border-b border-border flex items-center justify-between bg-foreground/[0.03]">
               <div>
-                <h2 className="text-2xl font-serif font-black italic tracking-tight">Apoio</h2>
-                <p className="text-[10px] font-sans font-black tracking-[0.4em] uppercase opacity-30 mt-1">Instrumental</p>
+                <h2 className="text-xl font-serif font-black italic tracking-tight">Apoio</h2>
+                <p className="text-[10px] font-sans font-black tracking-[0.3em] uppercase opacity-30 mt-0.5">Instrumental</p>
               </div>
               <button 
                 onClick={() => setIsSidebarOpen(false)}
-                className="w-12 h-12 rounded-full border border-border flex items-center justify-center hover:bg-foreground hover:text-background transition-all active:scale-90 shadow-sm"
+                className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-foreground hover:text-background transition-all active:scale-90"
               >
-                <Sidebar className="w-5 h-5" />
+                <Sidebar className="w-4 h-4" />
               </button>
             </div>
 
@@ -218,32 +252,75 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                   )}
                 </div>
               ) : (
-                <div className="p-4 flex flex-col gap-2">
-                  {blocks.map((block, idx) => (
-                    <div 
-                      key={block.id}
-                      onClick={() => { setActiveBlockIndex(idx); setPreviewSourceId(null); setPreviewVerseId(null); }}
-                      className={cn(
-                        "p-3 rounded-lg cursor-pointer transition-all flex flex-col gap-1.5 group relative overflow-hidden active:scale-[0.98]",
-                        activeBlockIndex === idx ? "bg-foreground text-background shadow-md" : "bg-foreground/5 border border-border hover:border-foreground/20"
-                      )}
-                      style={{ marginLeft: `${(block.metadata?.depth || 0) * 0.75}rem` }}
-                    >
-                      {activeBlockIndex === idx && <motion.div layoutId="indicator" className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500" />}
-                      <div className="flex items-center justify-between">
-                         <span className={cn("text-[8px] font-black uppercase tracking-widest", activeBlockIndex === idx ? "text-background/50" : "text-muted-foreground")}>{block.type}</span>
-                         {block.metadata?.parentVerseId && <span className="text-[8px] font-mono font-bold opacity-40">REF {block.metadata.parentVerseId}</span>}
+                <div className="p-3 flex flex-col gap-0.5 relative">
+                  {/* Vertical Roadmap Track */}
+                  <div className="absolute left-[2.25rem] top-8 bottom-8 w-px bg-foreground/[0.08]" />
+                  
+                  {blocks.map((block, idx) => {
+                    const isActive = activeBlockIndex === idx;
+                    const isPast = activeBlockIndex > idx;
+                    const depth = block.metadata?.depth || 0;
+                    
+                    return (
+                      <div 
+                        key={block.id}
+                        onClick={() => { setActiveBlockIndex(idx); setPreviewSourceId(null); setPreviewVerseId(null); }}
+                        className={cn(
+                          "relative flex items-start gap-3 py-1 transition-all cursor-pointer group",
+                          isActive ? "opacity-100" : "opacity-30 hover:opacity-100"
+                        )}
+                        style={{ marginLeft: `${depth * 1.25}rem` }}
+                      >
+                        {/* Step Marker */}
+                        <div className="relative z-10 flex flex-col items-center shrink-0 mt-1">
+                          <div className={cn(
+                            "w-7 h-7 rounded-full border flex items-center justify-center transition-all duration-500",
+                            isActive ? "bg-indigo-600 border-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.3)] scale-110" : 
+                            isPast ? "bg-foreground/10 border-transparent text-indigo-500/50" : "bg-surface border-border"
+                          )}>
+                            {isPast ? (
+                              <CheckCircle2 className="w-4 h-4" />
+                            ) : (
+                              <span className={cn(
+                                "text-[10px] font-mono font-black",
+                                isActive ? "text-white" : "text-muted-foreground"
+                              )}>
+                                {idx + 1}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+        
+                        {/* Content Card */}
+                        <div className={cn(
+                          "flex-1 flex flex-col gap-0.5 px-3 py-1.5 rounded-xl transition-all duration-500 border",
+                          isActive ? "bg-foreground/5 border-foreground/15 shadow-sm" : "bg-transparent border-transparent"
+                        )}>
+                          <div className="flex items-center justify-between">
+                             <span className={cn(
+                               "text-[8px] font-black uppercase tracking-[0.2em]", 
+                               isActive ? "text-indigo-500" : "text-muted-foreground"
+                             )}>
+                               {block.type}
+                             </span>
+                          </div>
+                          <p className={cn(
+                            "text-[12px] font-bold leading-tight line-clamp-2",
+                            isActive ? "text-foreground" : "text-foreground/60"
+                          )}>
+                            {block.content}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-xs font-medium line-clamp-1 leading-tight">{block.content}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
 
-            <div className="p-10 border-t border-border bg-foreground/[0.02]">
-               <button onClick={onExit} className="w-full flex items-center justify-center gap-4 py-5 rounded-full border border-border text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground hover:bg-red-500 hover:text-white hover:border-red-500 transition-all shadow-xl active:scale-95">
-                 <ArrowLeft className="w-5 h-5" /> Encerrar Púlpito
+            <div className="p-6 border-t border-border bg-foreground/[0.03]">
+               <button onClick={onExit} className="w-full flex items-center justify-center gap-3 py-4 rounded-full border border-border text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground hover:bg-red-500 hover:text-white hover:border-red-500 transition-all active:scale-95">
+                 <ArrowLeft className="w-4 h-4" /> Encerrar Púlpito
                </button>
             </div>
           </motion.aside>
@@ -252,167 +329,226 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
 
       <main className="flex-1 flex flex-col relative h-full">
         {/* NAV/HUD PULPITO - PREMIUM WORKBENCH */}
-        <header className="h-24 px-12 border-b border-border bg-surface/40 backdrop-blur-md flex items-center justify-between shrink-0 z-30">
-          <div className="flex items-center gap-6">
-            {!isSidebarOpen && (
-              <button 
-                onClick={() => setIsSidebarOpen(true)}
-                className="w-12 h-12 rounded-full border border-border flex items-center justify-center hover:bg-foreground hover:text-background transition-all active:scale-90 shadow-sm"
-              >
-                <Sidebar className="w-5 h-5" />
-              </button>
-            )}
-            <div className="flex flex-col gap-1">
-              <h2 className="text-2xl font-serif font-black italic tracking-tight leading-none">{sermonMeta?.title || 'Mensagem'}</h2>
-              <div className="flex items-center gap-3 text-[10px] font-black tracking-[0.4em] uppercase opacity-40">
-                <span className="text-emerald-500 flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse shadow-[0_0_8px_rgb(16,185,129)]" /> AO VIVO</span>
-                <span className="opacity-20">•</span>
-                <span>{sermonMeta?.category}</span>
-              </div>
+        {/* STAGE HEADER - MINIMALIST & FOCUSED */}
+        <header className="h-28 px-16 flex items-center justify-between shrink-0 z-[60] relative">
+          <div className="flex flex-col gap-1.5 min-w-0">
+            <h2 className="text-xl font-serif font-black italic tracking-tight line-clamp-1 max-w-xl text-foreground/90">
+              {sermonMeta?.title || 'Mensagem'}
+            </h2>
+            <div className="flex items-center gap-4">
+               <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                 <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500">Ao Vivo</span>
+               </div>
+               <span className="text-[9px] font-black uppercase tracking-[0.3em] opacity-20 text-foreground">{sermonMeta?.category}</span>
             </div>
           </div>
 
           <div className="flex items-center gap-10">
-            <div 
-              onClick={() => setIsHudOpen(true)}
-              className="group cursor-pointer flex items-center gap-4 bg-foreground/5 border border-border rounded-full py-2.5 px-6 hover:border-foreground/30 transition-all active:scale-95 shadow-sm"
-            >
-              <Search className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-              <span className="text-[11px] font-sans font-black tracking-[0.2em] uppercase text-muted-foreground group-hover:text-foreground transition-colors">Busca <span className="opacity-30 ml-2 font-mono">⌘K</span></span>
+            <div onClick={() => setIsHudOpen(true)} className="flex items-center gap-3 cursor-pointer group px-5 py-2.5 rounded-full glass border-white/5 hover:border-white/10 transition-all opacity-40 hover:opacity-100">
+              <Search className="w-4 h-4" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Busca</span>
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className={cn(
-                "flex flex-col items-end",
-                timeLeft < 300 ? "text-red-500 animate-pulse" : "text-foreground"
-              )}>
-                 <span className="text-4xl font-mono font-bold tracking-tighter tabular-nums leading-none">{formatTime(timeLeft)}</span>
-                 <span className="text-[9px] font-black uppercase tracking-[0.2em] opacity-30">CRONÔMETRO</span>
-              </div>
+            <div className="flex flex-col items-end">
+               <span className={cn(
+                 "text-5xl font-mono font-black tabular-nums leading-none tracking-tighter",
+                 timeLeft < 300 ? "text-red-500 animate-pulse" : "text-foreground"
+               )}>
+                 {formatTime(timeLeft)}
+               </span>
+               <span className="text-[9px] font-black uppercase tracking-[0.4em] opacity-30 mt-1">Cronômetro</span>
             </div>
+            
+            <button 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className={cn(
+                "w-14 h-14 rounded-full flex items-center justify-center transition-all border shadow-2xl active:scale-95",
+                isSidebarOpen ? "bg-indigo-600 text-white border-indigo-500 shadow-indigo-500/20" : "glass border-white/5 text-foreground/40"
+              )}
+            >
+              <Layout className="w-6 h-6" />
+            </button>
           </div>
         </header>
 
         {/* MAIN CANVAS - THE PREACHING VIEW */}
-        <div className="flex-1 relative flex flex-col items-center justify-center px-12 pb-64 overflow-hidden" {...bind()}>
-          <AnimatePresence mode="wait">
-             <motion.div 
-               key={activeBlockIndex}
-               initial={{ y: 30, opacity: 0, scale: 0.98 }}
-               animate={{ y: 0, opacity: 1, scale: 1 }}
-               exit={{ y: -30, opacity: 0, scale: 0.98 }}
-               transition={{ type: 'spring', damping: 25, stiffness: 120 }}
-               className="max-w-6xl w-full flex flex-col items-center gap-10 text-center z-10"
+        <div className="flex-1 relative flex flex-col overflow-hidden">
+          <div className="absolute inset-0 z-0" {...bind()} />
+          
+          <div className="flex-1 flex flex-col items-center justify-center transition-all duration-500 pb-32">
+            <AnimatePresence mode="wait">
+               <motion.div 
+                 key={activeBlockIndex}
+                 initial={{ y: 40, opacity: 0 }}
+                 animate={{ 
+                   y: showContextPeek ? -400 : 0, 
+                   opacity: showContextPeek ? 0 : 1,
+                   scale: showContextPeek ? 0.8 : 1,
+                   filter: showContextPeek ? 'blur(30px)' : 'blur(0px)'
+                 }}
+               exit={{ y: -20, opacity: 0 }}
+               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+               className="max-w-7xl w-full flex flex-col items-center gap-16 text-center z-10 origin-center"
              >
-                <div className="flex flex-col items-center gap-10">
-                  <div className="px-8 py-3 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-indigo-500 text-[12px] font-black tracking-[0.4em] uppercase flex items-center gap-4 shadow-sm">
+                <div className="flex flex-col items-center gap-16 w-full">
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="px-12 py-3.5 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-indigo-500 text-[14px] font-black tracking-[0.6em] uppercase flex items-center gap-5 shadow-[0_0_25px_rgba(99,102,241,0.08)]"
+                  >
                      <Zap className="w-5 h-5 fill-current" /> {activeBlock?.type || 'BLOCO'}
-                  </div>
+                  </motion.div>
                   
                   <h1 className={cn(
-                    "text-4xl md:text-6xl lg:text-7xl font-serif font-black italic leading-tight text-foreground transition-all duration-700 select-none drop-shadow-sm break-words whitespace-pre-wrap",
-                    activeBlock?.metadata?.font || 'font-serif'
+                    "font-serif font-black italic leading-[1.3] text-foreground transition-all duration-200 select-none drop-shadow-2xl break-words whitespace-pre-wrap w-full px-4",
+                    activeBlock?.metadata?.font || 'font-serif',
+                    (activeBlock?.content?.length || 0) > 200 ? "text-2xl md:text-3xl lg:text-4xl" :
+                    (activeBlock?.content?.length || 0) > 120 ? "text-3xl md:text-4xl lg:text-5xl" :
+                    (activeBlock?.content?.length || 0) > 60 ? "text-4xl md:text-5xl lg:text-6xl" :
+                    "text-5xl md:text-6xl lg:text-7xl"
                   )}>
                     {activeBlock?.content}
                   </h1>
 
-                  {finalVerseId && (
-                    <button 
-                      onClick={() => setShowContextPeek(!showContextPeek)} 
-                      className={cn(
-                        "mt-6 px-12 py-6 rounded-full font-sans font-black text-[13px] tracking-[0.3em] uppercase transition-all shadow-2xl flex items-center gap-4 border", 
-                        showContextPeek 
-                          ? "bg-indigo-600 text-white border-indigo-500" 
-                          : "bg-surface/50 backdrop-blur-xl hover:bg-foreground/5 text-foreground/40 hover:text-foreground border-white/5"
-                      )}
+                  {!showContextPeek && finalVerseId && (
+                    <motion.button 
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      onClick={() => setShowContextPeek(true)} 
+                      className="mt-8 px-14 py-7 rounded-full font-sans font-black text-[14px] tracking-[0.3em] uppercase transition-all shadow-[0_30px_60px_rgba(0,0,0,0.4)] flex items-center gap-5 border border-white/5 bg-surface/50 backdrop-blur-3xl hover:bg-indigo-600 hover:text-white hover:border-indigo-500 group"
                     >
-                      <Book className="w-6 h-6" /> {finalSource?.reference?.toUpperCase() || 'REF'}:{finalVerseId}
-                    </button>
+                      <Book className="w-6 h-6 group-hover:scale-110 transition-transform" /> 
+                      <span>{finalSource?.reference?.toUpperCase() || 'REF'}:{finalVerseId}</span>
+                    </motion.button>
                   )}
                 </div>
              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          {/* FOCUS CONTEXT LAYER - Immersive Overlay */}
+          <AnimatePresence>
+            {showContextPeek && finalVerseId && (
+              <>
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 bg-background/60 backdrop-blur-2xl z-40" 
+                  onClick={() => setShowContextPeek(false)}
+                />
+                
+                <motion.div 
+                  initial={{ opacity: 0, y: 120, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 120, scale: 0.98 }}
+                  transition={{ type: 'spring', damping: 28, stiffness: 120 }}
+                  className="absolute inset-x-8 top-32 bottom-48 max-w-6xl mx-auto glass-heavy p-16 rounded-[4.5rem] shadow-[0_80px_150px_rgba(0,0,0,0.9)] z-50 flex flex-col gap-12 border border-white/10"
+                >
+                  <div className="flex items-center justify-between border-b border-white/10 pb-10">
+                    <div className="flex items-center gap-8">
+                      <div className="w-16 h-16 rounded-[2rem] bg-indigo-600 flex items-center justify-center shadow-[0_0_30px_rgba(79,70,229,0.5)]">
+                        <Book className="w-8 h-8 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-5xl font-serif font-black italic leading-none tracking-tight">{finalSource?.reference}</h3>
+                        <p className="text-[11px] font-black tracking-[0.5em] uppercase opacity-30 mt-3 text-indigo-400">Contexto de Escritura</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setShowContextPeek(false)} 
+                      className="w-16 h-16 rounded-full border border-white/10 flex items-center justify-center hover:bg-white hover:text-black transition-all active:scale-90 shadow-2xl"
+                    >
+                      <X className="w-8 h-8" />
+                    </button>
+                  </div>
+
+                   <div className="flex-1 overflow-y-auto custom-scrollbar-premium pr-8" ref={contextScrollRef}>
+                    {parseBibleContent(finalSource?.content).map(v => {
+                      const isTarget = String(v.v) === finalVerseId;
+                      return (
+                        <div 
+                          key={v.v} 
+                          ref={isTarget ? activeVerseRef : null}
+                          className={cn(
+                            "text-3xl font-serif leading-[1.6] mb-14 flex gap-12 transition-all duration-1000 relative group/line",
+                            isTarget ? "text-foreground opacity-100 italic" : "text-foreground/15 hover:opacity-40"
+                          )}
+                        >
+                          <span className="font-mono text-2xl opacity-40 shrink-0 mt-3 font-black tabular-nums border-r border-white/5 pr-8 min-w-[80px] text-right">{v.v}</span>
+                          <p className="flex-1">{v.text}</p>
+                          
+                          {/* SAVE INSIGHT BUTTON IN CONTEXT PEEK */}
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); saveInsight(v, finalSource); }}
+                            className="absolute -right-4 top-2 w-12 h-12 rounded-full glass border-white/10 flex items-center justify-center opacity-0 group-hover/line:opacity-100 transition-all hover:bg-indigo-600 hover:text-white"
+                          >
+                            <Sparkles className="w-5 h-5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              </>
+            )}
           </AnimatePresence>
 
-          {/* PULPIT NAVIGATION RIBBON - PREMIUM INTEGRATED */}
-          <div className="fixed bottom-12 left-1/2 -translate-x-1/2 w-full max-w-6xl px-12 z-50">
-            <div className="relative group">
-              {/* Premium Glass Card */}
-              <div className="absolute inset-0 bg-background/60 backdrop-blur-3xl rounded-[3rem] border border-white/10 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)]" />
-              
-              <div className="relative flex items-center h-32 px-12 gap-12">
-                {/* Anterior */}
-                <button 
-                  onClick={handlePrev}
-                  disabled={activeBlockIndex === 0}
-                  className="flex-1 flex flex-col items-start gap-2 group/btn disabled:opacity-0 transition-all duration-500 cursor-pointer"
-                >
-                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-500 flex items-center gap-2 mb-1">
-                    <ArrowLeft className="w-4 h-4 group-hover/btn:-translate-x-1 transition-transform" /> ANTERIOR
-                  </span>
-                  <p className="text-lg font-serif italic text-left line-clamp-1 max-w-[200px] opacity-20 group-hover/btn:opacity-60 transition-opacity">
-                    {blocks[activeBlockIndex - 1]?.content || 'Início'}
-                  </p>
-                </button>
+          {/* PULPIT NAVIGATION RIBBON - CENTERED COCKPIT */}
+          <div className={cn(
+            "fixed bottom-12 left-0 right-0 flex justify-center z-50 transition-all duration-500 pointer-events-none",
+            isSidebarOpen ? "ml-[400px]" : "ml-0"
+          )}>
+            <div className="w-full max-w-6xl px-12 pointer-events-auto">
+              <div className="relative group">
+                {/* Premium Glass Card */}
+                <div className="absolute inset-0 bg-background/60 backdrop-blur-3xl rounded-[3rem] border border-white/10 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)]" />
+                
+                <div className="relative flex items-center h-32 px-12 gap-12">
+                  {/* Anterior */}
+                  <button 
+                    onClick={handlePrev}
+                    disabled={activeBlockIndex === 0}
+                    className="flex-1 flex flex-col items-start gap-2 group/btn disabled:opacity-0 transition-all duration-500 cursor-pointer"
+                  >
+                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-500 flex items-center gap-2 mb-1">
+                      <ArrowLeft className="w-4 h-4 group-hover/btn:-translate-x-1 transition-transform" /> ANTERIOR
+                    </span>
+                    <p className="text-lg font-serif italic text-left line-clamp-1 max-w-[200px] opacity-20 group-hover/btn:opacity-60 transition-opacity">
+                      {blocks[activeBlockIndex - 1]?.content || 'Início'}
+                    </p>
+                  </button>
 
-                {/* Central Step Indicator */}
-                <div className="flex flex-col items-center justify-center px-12 border-x border-white/5">
-                  <div className="text-6xl font-mono font-black tracking-tighter tabular-nums text-foreground leading-none">
-                    {activeBlockIndex + 1}
-                    <span className="text-xl opacity-20 ml-2 font-medium">/ {blocks.length}</span>
+                  {/* Central Step Indicator */}
+                  <div className="flex flex-col items-center justify-center px-12 border-x border-white/5">
+                    <div className="text-6xl font-mono font-black tracking-tighter tabular-nums text-foreground leading-none">
+                      {activeBlockIndex + 1}
+                      <span className="text-xl opacity-20 ml-2 font-medium">/ {blocks.length}</span>
+                    </div>
+                    <div className="w-16 h-1.5 bg-indigo-500 mt-4 rounded-full shadow-[0_0_15px_rgba(99,102,241,0.6)]" />
+                    <span className="text-[9px] font-black uppercase tracking-[0.5em] opacity-30 mt-3">PASSO</span>
                   </div>
-                  <div className="w-16 h-1.5 bg-indigo-500 mt-4 rounded-full shadow-[0_0_15px_rgba(99,102,241,0.6)]" />
-                  <span className="text-[9px] font-black uppercase tracking-[0.5em] opacity-30 mt-3">PASSO</span>
-                </div>
 
-                {/* Próximo */}
-                <button 
-                  onClick={handleNext}
-                  disabled={activeBlockIndex === blocks.length - 1}
-                  className="flex-[2] flex flex-col items-end gap-2 group/btn disabled:opacity-0 transition-all duration-500 cursor-pointer"
-                >
-                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-500 flex items-center gap-2 mb-1">
-                    PRÓXIMO <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-                  </span>
-                  <p className="text-2xl font-serif font-bold italic text-right leading-tight text-foreground group-hover:text-indigo-400 transition-colors">
-                    {blocks[activeBlockIndex + 1]?.content || 'Fim'}
-                  </p>
-                </button>
+                  {/* Próximo */}
+                  <button 
+                    onClick={handleNext}
+                    disabled={activeBlockIndex === blocks.length - 1}
+                    className="flex-[2] flex flex-col items-end gap-2 group/btn disabled:opacity-0 transition-all duration-500 cursor-pointer"
+                  >
+                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-500 flex items-center gap-2 mb-1">
+                      PRÓXIMO <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                    </span>
+                    <p className="text-2xl font-serif font-bold italic text-right leading-tight text-foreground group-hover:text-indigo-400 transition-colors">
+                      {blocks[activeBlockIndex + 1]?.content || 'Fim'}
+                    </p>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <AnimatePresence>
-          {showContextPeek && finalVerseId && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 50 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 50 }}
-              className="absolute bottom-48 left-1/2 -translate-x-1/2 w-full max-w-4xl glass p-12 rounded-[3.5rem] shadow-[0_50px_100px_rgba(0,0,0,0.6)] z-[60] flex flex-col gap-10 border border-white/10"
-            >
-              <div className="flex items-center justify-between border-b border-white/10 pb-8">
-                <div className="flex items-center gap-6">
-                  <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center">
-                    <Book className="w-7 h-7 text-white" />
-                  </div>
-                  <h3 className="text-4xl font-serif font-bold italic">{finalSource?.reference}</h3>
-                </div>
-                <button onClick={() => setShowContextPeek(false)} className="w-14 h-14 rounded-full border border-white/10 flex items-center justify-center hover:bg-foreground hover:text-background transition-all active:scale-90 shadow-sm"><X className="w-7 h-7" /></button>
-              </div>
-              <div className="max-h-[40vh] overflow-y-auto custom-scrollbar pr-6">
-                {parseBibleContent(finalSource?.content).map(v => (
-                  <div key={v.v} className={cn(
-                    "text-3xl font-serif leading-[1.4] mb-10 flex gap-8 transition-all duration-500",
-                    String(v.v) === finalVerseId ? "text-foreground opacity-100 italic" : "text-foreground/20"
-                  )}>
-                    <span className="font-mono text-lg opacity-40 shrink-0 mt-3 font-black tabular-nums">{v.v}</span>
-                    <p>{v.text}</p>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* PROGRESS RIBBON */}
         <div className="h-1.5 bg-border relative overflow-hidden shrink-0">
@@ -456,7 +592,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                  />
                </div>
 
-               <div className="grid grid-cols-2 gap-10 overflow-y-auto max-h-[50vh] custom-scrollbar p-2">
+                <div className="grid grid-cols-2 gap-10 overflow-y-auto max-h-[50vh] custom-scrollbar p-2" ref={hudScrollRef}>
                  <div className="flex flex-col gap-6">
                     <h3 className="text-[11px] font-sans font-black tracking-[0.3em] uppercase opacity-30 px-2 flex items-center gap-3">
                       <LayoutGrid className="w-4 h-4" /> SERMÃO
@@ -481,12 +617,31 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                       parseBibleContent(source.content)
                         .filter(v => v.text.toLowerCase().includes(searchQuery.toLowerCase()))
                         .map((verse) => (
-                          <div key={`${source.id}-${verse.v}`} onClick={() => { setIsHudOpen(false); jumpToSourceVerse(source.id, String(verse.v)); setSearchQuery(''); }} className="group/verse flex gap-6 items-start cursor-pointer transition-all bg-surface border border-border hover:border-indigo-500/30 p-6 rounded-2xl shadow-sm active:scale-95">
-                            <span className="text-lg font-mono text-muted-foreground/30 font-bold mt-1 shrink-0">{verse.v}</span>
-                            <div className="flex flex-col gap-2">
-                              <span className="text-[10px] font-black tracking-widest uppercase text-indigo-500">{source.reference}:{verse.v}</span>
-                              <p className="text-lg font-serif text-foreground/80 leading-snug group-hover/verse:text-foreground transition-colors line-clamp-4">{verse.text}</p>
+                          <div key={`${source.id}-${verse.v}`} className="relative group/search-verse">
+                            <div 
+                              onClick={() => { setIsHudOpen(false); jumpToSourceVerse(source.id, String(verse.v)); setSearchQuery(''); }} 
+                              className="group/verse flex gap-6 items-start cursor-pointer transition-all bg-surface border border-border hover:border-indigo-500/30 p-6 rounded-2xl shadow-sm active:scale-95"
+                            >
+                              <span className="text-lg font-mono text-muted-foreground/30 font-bold mt-1 shrink-0">{verse.v}</span>
+                              <div className="flex flex-col gap-2 flex-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-black tracking-widest uppercase text-indigo-500">{source.reference}:{verse.v}</span>
+                                  {/* Focus Ribbon Indicator for search */}
+                                  {source.id === activeSourceId && String(verse.v) === activeVerseId && (
+                                    <motion.div layoutId="focus-ribbon" className="h-0.5 w-12 bg-indigo-500 rounded-full" />
+                                  )}
+                                </div>
+                                <p className="text-lg font-serif text-foreground/80 leading-snug group-hover/verse:text-foreground transition-colors line-clamp-4">{verse.text}</p>
+                              </div>
                             </div>
+                            
+                            {/* SAVE INSIGHT BUTTON IN SEARCH HUD */}
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); saveInsight(verse, source); }}
+                              className="absolute right-4 top-4 w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center opacity-0 group-hover/search-verse:opacity-100 transition-all shadow-xl hover:scale-110 active:scale-90 z-10"
+                            >
+                              <Sparkles className="w-4 h-4" />
+                            </button>
                           </div>
                         ))
                    )) : (
@@ -495,6 +650,23 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                  </div>
                </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* SUCCESS TOAST - PREMIUM FEEDBACK */}
+      <AnimatePresence>
+        {showToast && (
+          <motion.div 
+            initial={{ y: 100, opacity: 0, scale: 0.9 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 100, opacity: 0, scale: 0.9 }}
+            className="fixed bottom-48 left-1/2 -translate-x-1/2 z-[110] px-8 py-4 glass-heavy border-indigo-500/30 text-indigo-400 rounded-full font-black text-xs uppercase tracking-widest flex items-center gap-4 shadow-2xl"
+          >
+            <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            {showToast}
           </motion.div>
         )}
       </AnimatePresence>

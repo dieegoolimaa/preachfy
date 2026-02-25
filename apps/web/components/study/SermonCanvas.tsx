@@ -496,7 +496,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
                             }}
                           >
                              <LinkIcon className="w-3.5 h-3.5" />
-                             {block.metadata.parentVerseId ? `${linkedSource?.reference || 'Ref'}:${block.metadata.parentVerseId}` : 'Vincular'}
+                             {block.metadata.parentVerseId ? `${linkedSource?.reference || 'Ref'}${block.metadata.parentVerseId === 'ALL' ? '' : ':' + block.metadata.parentVerseId}` : 'Vincular'}
                           </div>
 
                           <AnimatePresence>
@@ -508,6 +508,15 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
                                       <div key={source.id} className="mb-6 last:mb-0">
                                         <div className="text-[10px] font-black tracking-[0.3em] uppercase text-foreground/40 mb-3 px-2 border-l-2 border-border ml-1">{source.reference || 'Sem Ref.'}</div>
                                         <div className="grid grid-cols-5 gap-2">
+                                           <button 
+                                             onClick={() => handleLinkToVerse(block.id, source.id, 'ALL')}
+                                             className={cn(
+                                               "col-span-5 p-2 text-[10px] font-black tracking-widest uppercase rounded-lg hover:bg-foreground hover:text-background transition-all",
+                                               block.metadata.parentVerseId === 'ALL' && block.metadata.bibleSourceId === source.id ? "bg-indigo-500 text-white shadow-lg" : "bg-muted text-foreground/60"
+                                             )}
+                                           >
+                                             Toda a Fonte
+                                           </button>
                                            {verses.map((v: string) => (
                                              <button 
                                                key={v} 

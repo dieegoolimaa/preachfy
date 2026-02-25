@@ -544,12 +544,12 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
 
                    <div className="flex-1 overflow-y-auto custom-scrollbar-premium pr-8 pb-32" ref={contextScrollRef}>
                     <div className="font-serif leading-[1.8] text-justify">
-                      {parseBibleContent(finalSource?.content).map(v => {
-                        const isTarget = String(v.v) === finalVerseId;
+                      {parseBibleContent(finalSource?.content).map((v, index) => {
+                        const isTarget = finalVerseId === 'ALL' || String(v.v) === finalVerseId;
                         return (
                           <span 
                             key={v.v} 
-                            ref={isTarget ? activeVerseRef : null}
+                            ref={isTarget && (finalVerseId !== 'ALL' || index === 0) ? activeVerseRef : null}
                             className={cn(
                               "relative transition-all duration-1000 inline rounded-xl px-2 py-1 group/line cursor-pointer",
                               isTarget ? "text-foreground opacity-100 bg-indigo-500/10 shadow-[inset_0_0_20px_rgba(99,102,241,0.1)]" : "text-foreground/40 hover:opacity-100 hover:bg-white/5"

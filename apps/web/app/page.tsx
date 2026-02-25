@@ -44,6 +44,13 @@ export default function Home() {
   const handleCreateSermonFromBible = async (reference: string, content: string) => {
     if (!session?.user?.id) return;
     try {
+      // Create a single unique ID so both source and block metadata match perfectly
+      const srcId = `src-${Date.now()}`;
+      
+      // If multiple verses were highlighted, link the block to the entire source ('ALL')
+      const hasMultipleVerses = content.includes('\n\n');
+      const parentVerseId = hasMultipleVerses ? 'ALL' : (content.match(/^(\d+)/)?.[1] || undefined);
+
       const res = await fetch(`${environment.apiUrl}/sermons`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -53,7 +60,7 @@ export default function Home() {
           status: 'DRAFT',
           authorId: session.user.id,
           bibleSources: [
-            { id: `src-${Date.now()}`, reference, content }
+            { id: srcId, reference, content }
           ],
           blocks: {
             create: [
@@ -61,7 +68,7 @@ export default function Home() {
                 type: 'TEXTO_BASE',
                 content: content,
                 order: 0,
-                metadata: { reference, bibleSourceId: `src-${Date.now()}` }
+                metadata: { reference, bibleSourceId: srcId, parentVerseId }
               }
             ]
           }

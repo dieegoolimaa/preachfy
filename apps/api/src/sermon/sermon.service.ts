@@ -9,7 +9,9 @@ export class SermonService {
   async createSermon(data: Prisma.SermonCreateInput): Promise<Sermon> {
     return this.prisma.sermon.create({
       data,
-      include: { blocks: true },
+      include: {
+        blocks: { orderBy: { order: 'asc' } }
+      },
     });
   }
 
@@ -17,7 +19,7 @@ export class SermonService {
     return this.prisma.sermon.findMany({
       where: authorId ? { authorId } : {},
       include: {
-        blocks: true,
+        blocks: { orderBy: { order: 'asc' } },
         _count: { select: { history: true } },
       },
       orderBy: { updatedAt: 'desc' },
@@ -41,7 +43,9 @@ export class SermonService {
     return this.prisma.sermon.update({
       where: { id },
       data,
-      include: { blocks: true },
+      include: {
+        blocks: { orderBy: { order: 'asc' } }
+      },
     });
   }
 

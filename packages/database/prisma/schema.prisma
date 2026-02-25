@@ -63,6 +63,7 @@ model Sermon {
   author         User?             @relation(fields: [authorId], references: [id])
   category       String?           // Ex: "Série Fé", "Avivamento"
   status         String            @default("DRAFT") // DRAFT, READY, ARCHIVED
+  bibleVersion   String            @default("nvi")
   bibleSources   Json?             // Array de { id, reference, content }
   blocks         Block[]
   history        MinistryHistory[]

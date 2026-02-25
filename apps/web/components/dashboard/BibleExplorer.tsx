@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Book, X, ChevronLeft, ChevronRight, BookOpen, Check, Copy, Highlighter, List, Columns, ArrowLeft, Plus, Sparkles } from 'lucide-react';
+import { Search, Book, X, ChevronLeft, ChevronRight, BookOpen, Check, Copy, Highlighter, List, Columns, ArrowLeft, Plus, Sparkles, MessageSquare, Palette, Trash2, Save } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -91,6 +91,34 @@ const VERSION_LABELS: Record<string, string> = {
   acf: 'Almeida Corrigida Fiel',
 };
 
+const HI_COLORS = {
+  warm: [
+    { name: 'Red', color: '#fca5a5', label: 'Alerta / Aviso' },
+    { name: 'Orange', color: '#fdba74', label: 'Mandamento' },
+    { name: 'Amber', color: '#fcd34d', label: 'Promessa' },
+    { name: 'Yellow', color: '#fef08a', label: 'Contexto' },
+  ],
+  cold: [
+    { name: 'Emerald', color: '#6ee7b7', label: 'Vida / Crescimento' },
+    { name: 'Teal', color: '#5eead4', label: 'Espírito Santo' },
+    { name: 'Sky', color: '#7dd3fc', label: 'Céu / Divino' },
+    { name: 'Blue', color: '#93c5fd', label: 'Profecia' },
+    { name: 'Indigo', color: '#a5b4fc', label: 'Cristo / Realeza' },
+    { name: 'Violet', color: '#c4b5fd', label: 'Adoração' },
+  ],
+  neutral: [
+    { name: 'Rose', color: '#fda4af', label: 'Amor / Graça' },
+    { name: 'Fuchsia', color: '#f5d0fe', label: 'Pecado / Perdão' },
+    { name: 'Slate', color: '#cbd5e1', label: 'História' },
+  ]
+};
+
+const COLOR_LIST = [
+  ...HI_COLORS.warm,
+  ...HI_COLORS.cold,
+  ...HI_COLORS.neutral
+];
+
 export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () => void, onCreateSermon?: (reference: string, content: string) => void }) {
   const { environment } = require('@/environments');
 
@@ -104,11 +132,23 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
     book: 'Gênesis', abbrev: 'gn', chapter: 1
   });
   const [indexSelectedBook, setIndexSelectedBook] = useState<{ name: string; abbrev: string; chapters: number } | null>(null);
-  const [highlightedVerses, setHighlightedVerses] = useState<Set<string>>(new Set());
+  const [highlights, setHighlights] = useState<Record<string, { color: string, comment?: string }>>({});
+  const [customLabels, setCustomLabels] = useState<Record<string, string>>(() => {
+    const labels: Record<string, string> = {};
+    COLOR_LIST.forEach(c => { labels[c.color] = c.label; });
+    return labels;
+  });
+  const [editingHighlight, setEditingHighlight] = useState<string | null>(null);
+  const [isEditingLabel, setIsEditingLabel] = useState<string | null>(null); // color code being edited
+  const [commentInput, setCommentInput] = useState('');
+  const [selection, setSelection] = useState<{ start: string | null, chapters: number[] } | null>(null);
+  const [multiSelect, setMultiSelect] = useState<Set<string>>(new Set());
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [compareData, setCompareData] = useState<Record<string, any>>({});
+  const [noteOffsets, setNoteOffsets] = useState<Record<string, number>>({});
   const [compareVersions, setCompareVersions] = useState<string[]>(['nvi', 'ra']);
   const [showSidebar, setShowSidebar] = useState(false);
+  const isInitialMount = useRef(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // ── Effects ───────────────────────────────────────────────────
@@ -122,7 +162,65 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
     };
     fetchVersions();
     loadChapter('gn', 1);
+
+    // Persistence: Load from localStorage
+    const saved = localStorage.getItem('preachfy_bible_highlights');
+    if (saved) {
+      try { setHighlights(JSON.parse(saved)); } catch (e) { console.error(e); }
+    }
+    const savedLabels = localStorage.getItem('preachfy_bible_labels');
+    if (savedLabels) {
+      try { setCustomLabels(JSON.parse(savedLabels)); } catch (e) { console.error(e); }
+    }
   }, []);
+
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    localStorage.setItem('preachfy_bible_highlights', JSON.stringify(highlights));
+  }, [highlights]);
+
+  useEffect(() => {
+    if (localStorage.getItem('preachfy_bible_labels')) {
+      localStorage.setItem('preachfy_bible_labels', JSON.stringify(customLabels));
+    }
+  }, [customLabels]);
+
+  useEffect(() => {
+    if (viewMode === 'READ' && results.length > 0) {
+      const updatePositions = () => {
+        const offsets: Record<string, number> = {};
+        const notes = results.filter(v => highlights[verseKey(v)]?.comment);
+        
+        let lastBottom = -20;
+        const padding = 16;
+
+        notes.forEach(v => {
+          const key = verseKey(v);
+          const el = document.getElementById(key);
+          if (el) {
+            let top = el.offsetTop;
+            // Prevent overlap
+            if (top < lastBottom + padding) {
+              top = lastBottom + padding;
+            }
+            offsets[key] = top;
+            lastBottom = top + 120; // Estimated height of a note card
+          }
+        });
+        setNoteOffsets(offsets);
+      };
+
+      const timer = setTimeout(updatePositions, 100);
+      window.addEventListener('resize', updatePositions);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('resize', updatePositions);
+      };
+    }
+  }, [results, highlights, viewMode]);
 
   useEffect(() => {
     if (viewMode === 'READ' && results.length > 0) {
@@ -193,16 +291,90 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
     finally { setLoading(false); }
   };
 
+  const scrollToVerse = (key: string) => {
+    const el = document.getElementById(key);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-indigo-500', 'ring-offset-4');
+      setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-500', 'ring-offset-4'), 2000);
+    }
+  };
+
   // ── Actions ───────────────────────────────────────────────────
   const verseKey = (v: any) => `${v.book?.name || v.book}-${v.chapter}-${v.number}`;
 
-  const toggleHighlight = (verse: any) => {
+  const toggleHighlight = (verse: any, color?: string) => {
     const key = verseKey(verse);
-    setHighlightedVerses(prev => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+    
+    // If we have a multi-selection active
+    if (multiSelect.size > 0) {
+      if (color) {
+        setHighlights(prev => {
+          const next = { ...prev };
+          multiSelect.forEach(k => {
+            next[k] = { ...next[k], color };
+          });
+          return next;
+        });
+        setMultiSelect(new Set());
+      }
+      return;
+    }
+
+    if (highlights[key]) {
+      setEditingHighlight(key);
+      setCommentInput(highlights[key].comment || '');
+      return;
+    }
+    
+    const defaultColor = color || HI_COLORS.warm[2]?.color || '#fcd34d';
+    setHighlights(prev => ({
+      ...prev,
+      [key]: { color: defaultColor, comment: '' }
+    }));
+    setEditingHighlight(key);
+    setCommentInput('');
+  };
+
+  const handleVerseClick = (e: React.MouseEvent, verse: any) => {
+    const key = verseKey(verse);
+    if (e.shiftKey) {
+      setMultiSelect(prev => {
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+      });
+    } else {
+      if (multiSelect.size > 0) {
+        setMultiSelect(new Set());
+      } else {
+        toggleHighlight(verse);
+      }
+    }
+  };
+
+  const updateComment = () => {
+    if (!editingHighlight) return;
+    setHighlights(prev => {
+      const current = prev[editingHighlight];
+      if (!current) return prev;
+      return {
+        ...prev,
+        [editingHighlight]: { ...current, comment: commentInput }
+      };
+    });
+    setEditingHighlight(null);
+    setCommentInput('');
+  };
+
+  const removeHighlight = (key: string) => {
+    setHighlights(prev => {
+      const next = { ...prev };
+      delete next[key];
       return next;
     });
+    setEditingHighlight(null);
   };
 
   const copyVerse = (v: any) => {
@@ -212,7 +384,7 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
   };
 
   const copyHighlightedVerses = () => {
-    const highlighted = results.filter(v => highlightedVerses.has(verseKey(v)));
+    const highlighted = results.filter(v => highlights[verseKey(v)]);
     if (!highlighted.length) return;
     const first = highlighted[0], last = highlighted[highlighted.length - 1];
     const ref = first.number === last.number
@@ -223,21 +395,61 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const createSermonFromSelection = () => {
-    const highlighted = results.filter(v => highlightedVerses.has(verseKey(v)));
-    if (!highlighted.length || !onCreateSermon) return;
-    const first = highlighted[0], last = highlighted[highlighted.length - 1];
-    const ref = first.number === last.number
-      ? `${first.book.name} ${first.chapter}:${first.number}`
-      : `${first.book.name} ${first.chapter}:${first.number}-${last.number}`;
-    const text = highlighted.map(v => `${v.number} ${v.text}`).join('\n\n');
-    onCreateSermon(ref, text);
+  const createStudyFromInsights = async () => {
+    if (!onCreateSermon) return;
+    
+    const chapterHighlights = results.filter(v => highlights[verseKey(v)]);
+    if (chapterHighlights.length === 0) return;
+
+    setLoading(true);
+    let chapterText = '';
+    
+    try {
+      // Always try to fetch the full chapter to ensure we have context even if we are in SEARCH mode
+      const abbrev = chapterHighlights[0].book.abbrev || currentInfo.abbrev;
+      const chapter = chapterHighlights[0].chapter || currentInfo.chapter;
+      
+      const res = await fetch(`${environment.apiUrl}/bible/chapter/${version}/${abbrev}/${chapter}`);
+      if (res.ok) {
+        const data = await res.json();
+        chapterText = data.verses.map((v: any) => `${v.number} ${v.text}`).join('\n');
+      } else {
+        // Fallback to current results if API fails
+        chapterText = results.map(v => `${v.number} ${v.text}`).join('\n');
+      }
+    } catch (e) {
+      console.error("Failed to get full chapter context for study", e);
+      chapterText = results.map(v => `${v.number} ${v.text}`).join('\n');
+    } finally {
+      setLoading(false);
+    }
+
+    // 2. Prepare structured blocks data
+    const studyData = {
+      type: 'structured-study',
+      chapterText: chapterText,
+      book: currentInfo.book,
+      chapter: currentInfo.chapter,
+      blocks: chapterHighlights.map(v => {
+        const h = highlights[verseKey(v)];
+        if (!h) return null;
+        return {
+          verseNumber: v.number,
+          verseText: v.text,
+          category: customLabels[h.color] || 'Outros',
+          comment: h.comment || '',
+          color: h.color
+        };
+      }).filter(Boolean)
+    };
+
+    // Pass as JSON string to the callback
+    onCreateSermon(`${currentInfo.book} ${currentInfo.chapter}`, JSON.stringify(studyData));
   };
 
   const changeChapter = (offset: number) => {
     const next = currentInfo.chapter + offset;
     if (next < 1) return;
-    setHighlightedVerses(new Set());
     if (viewMode === 'COMPARE') {
       loadCompare(currentInfo.abbrev, next);
     } else {
@@ -247,7 +459,6 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
 
   const openBookFromIndex = (abbrev: string, chapter: number) => {
     setQuery('');
-    setHighlightedVerses(new Set());
     setIndexSelectedBook(null);
     setShowSidebar(false);
     loadChapter(abbrev, chapter);
@@ -263,7 +474,7 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
     });
   };
 
-  const highlightedCount = results.filter(v => highlightedVerses.has(verseKey(v))).length;
+  const highlightedCount = results.filter(v => highlights[verseKey(v)]).length;
   const maxCompareVerses = compareVersions.reduce((max, ver) =>
     Math.max(max, (compareData[ver]?.verses || []).length), 0);
 
@@ -441,18 +652,18 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
             <div className="flex items-center justify-between max-w-3xl">
               <span className="text-xs font-bold text-indigo-500">
                 <Highlighter className="w-3.5 h-3.5 inline mr-1.5" />
-                {highlightedCount} versículo{highlightedCount > 1 ? 's' : ''} destacado{highlightedCount > 1 ? 's' : ''}
+                {Object.keys(highlights).length} versículo{Object.keys(highlights).length > 1 ? 's' : ''} destacado{Object.keys(highlights).length > 1 ? 's' : ''}
               </span>
               <div className="flex items-center gap-2">
                 {onCreateSermon && (
-                  <button onClick={createSermonFromSelection} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-[#FFF7D6] hover:text-white px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 transition-all active:scale-95 shadow-md">
-                    <Sparkles className="w-3 h-3" /> Criar Sermão
+                  <button onClick={createStudyFromInsights} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-indigo-50 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 transition-all active:scale-95 shadow-md">
+                    <Sparkles className="w-3.5 h-3.5" /> Gerar Estudo Pronto
                   </button>
                 )}
                 <button onClick={copyHighlightedVerses} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 transition-all active:scale-95">
                   {copiedId === 'range' ? <><Check className="w-3 h-3" /> Copiado!</> : <><Copy className="w-3 h-3" /> Copiar Seleção</>}
                 </button>
-                <button onClick={() => setHighlightedVerses(new Set())} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg border border-border hover:bg-foreground/5 transition-all">
+                <button onClick={() => setHighlights({})} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg border border-border hover:bg-foreground/5 transition-all">
                   Limpar
                 </button>
               </div>
@@ -534,50 +745,103 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
                   </div>
                 )}
               </div>
-
-            /* ── READ MODE ───────────────────────────────── */
-            ) : viewMode === 'READ' && results.length > 0 ? (
-              <div className="max-w-3xl mx-auto py-6 px-4">
-                <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-xl py-3 -mx-4 px-4">
+            ) : (viewMode === 'READ' && results.length > 0) ? (
+              <div className="max-w-6xl mx-auto py-12 px-8">
+                <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-xl py-6 -mx-8 px-8 border-b border-border/10 mb-8">
                   <div className="text-center">
                     <span className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-500 block">Capítulo {currentInfo.chapter} · {version.toUpperCase()}</span>
                     <h3 className="text-2xl font-serif font-bold italic">{currentInfo.book}</h3>
-                    <div className="w-12 h-0.5 bg-indigo-500/20 mx-auto rounded-full mt-1.5" />
+                <div className="w-12 h-0.5 bg-indigo-500/20 mx-auto rounded-full mt-1.5" />
                   </div>
                 </div>
 
-                <div className="mt-6 font-serif leading-[1.8] text-foreground/90 text-justify">
-                  {results.map((verse, idx) => {
-                    const key = verseKey(verse);
-                    const isHighlighted = highlightedVerses.has(key);
-                    const isCopied = copiedId === key;
-                    return (
-                      <span
-                        key={idx}
-                        className={cn(
-                          "relative cursor-pointer transition-all inline p-1 rounded-md px-1.5",
-                          isHighlighted ? "bg-amber-300/30 dark:bg-amber-500/20 hover:bg-amber-300/40" : "hover:bg-indigo-500/5"
-                        )}
-                        onClick={() => toggleHighlight(verse)}
-                        onDoubleClick={() => copyVerse(verse)}
-                        title="Clique para destacar · Duplo clique para copiar"
-                      >
-                        <span className="text-xs font-bold text-indigo-500 mr-1.5 select-none align-super">{verse.number}</span>
-                        <span className="text-xl">{verse.text} </span>
-                        {isCopied && (
-                          <motion.span
-                            initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
-                            className="absolute -top-7 left-1/2 -translate-x-1/2 bg-foreground text-background text-[10px] px-3 py-1 rounded-full font-bold uppercase shadow-xl whitespace-nowrap z-10"
-                          >✓ Copiado</motion.span>
-                        )}
-                      </span>
-                    );
-                  })}
+                <div className="flex gap-16 relative items-start">
+                  {/* Text Column */}
+                  <div className="max-w-3xl flex-1 mt-6 font-serif leading-[2.2] text-foreground/90 text-justify">
+                    {results.map((verse, idx) => {
+                      const key = verseKey(verse);
+                      const highlight = highlights[key];
+                      const isCopied = copiedId === key;
+                      const isEditing = editingHighlight === key;
+                      const isMultiSelected = multiSelect.has(key);
+                      
+                      return (
+                        <span
+                          key={idx}
+                          id={key}
+                          className={cn(
+                            "relative cursor-pointer transition-all inline p-1 rounded-md px-1.5 group/verse my-0.5",
+                            highlight ? "" : "hover:bg-indigo-500/5",
+                            isMultiSelected ? "ring-2 ring-indigo-500/50 bg-indigo-500/10" : ""
+                          )}
+                          style={highlight ? { backgroundColor: `${highlight.color}40` } : {}}
+                          onClick={(e) => handleVerseClick(e, verse)}
+                          onDoubleClick={() => copyVerse(verse)}
+                        >
+                          <span className="text-xs font-bold text-indigo-500 mr-1.5 select-none align-super">{verse.number}</span>
+                          <span className="text-xl">{verse.text} </span>
+                        </span>
+                      );
+                    })}
+                  </div>
+
+                  {/* Annotations Column */}
+                  <div className="w-[320px] shrink-0 relative mt-6">
+                    <div className="sticky top-24">
+                      <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
+                        <h5 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Anotações & Insights</h5>
+                        <span className="text-[9px] bg-indigo-500/10 text-indigo-500 px-2 py-0.5 rounded-full font-bold">{results.filter(v => highlights[verseKey(v)]?.comment).length}</span>
+                      </div>
+                      
+                      <div className="relative">
+                        <AnimatePresence>
+                          {results.filter(v => highlights[verseKey(v)]?.comment).map(v => {
+                            const h = highlights[verseKey(v)];
+                            if (!h) return null;
+                            const key = verseKey(v);
+                            const top = noteOffsets[key];
+                            if (top === undefined) return null;
+                            
+                            return (
+                              <motion.div 
+                                key={key}
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0, top: top }}
+                                exit={{ opacity: 0, x: 20 }}
+                                style={{ position: 'absolute', width: '100%' }}
+                                onClick={() => scrollToVerse(verseKey(v))}
+                                className="p-5 rounded-[2rem] bg-surface border border-border/60 shadow-sm group cursor-pointer hover:border-indigo-500/40 hover:shadow-xl hover:shadow-indigo-500/5 transition-all overflow-hidden"
+                              >
+                            <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: h.color }} />
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex flex-col">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-indigo-500">Versículo {v.number}</span>
+                                {h.color && (
+                                  <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter">
+                                    {customLabels[h.color]}
+                                  </span>
+                                )}
+                              </div>
+                              <MessageSquare className="w-3.5 h-3.5 opacity-30 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                            <div className="max-h-32 overflow-y-auto custom-scrollbar-thin mb-2">
+                              <p className="text-xs font-serif italic text-foreground/80 leading-relaxed font-medium">"{h.comment}"</p>
+                            </div>
+                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-40 transition-opacity">
+                              <div className="w-1 h-1 rounded-full bg-indigo-500" />
+                              <span className="text-[8px] font-black uppercase tracking-tighter">Clique para navegar</span>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                      </AnimatePresence>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-
-            /* ── SEARCH MODE ─────────────────────────────── */
-            ) : viewMode === 'SEARCH' && results.length > 0 ? (
+            
+            ) : (viewMode === 'SEARCH' && results.length > 0) ? (
               <div className="max-w-3xl mx-auto py-6 px-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-6">
                   {results.length} resultado{results.length > 1 ? 's' : ''} encontrado{results.length > 1 ? 's' : ''}
@@ -629,6 +893,155 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
           )}
         </div>
       </div>
+
+      {/* Floating Bars & Popovers */}
+      <AnimatePresence>
+        {multiSelect.size > 0 && (
+          <motion.div 
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-4 bg-foreground text-background rounded-2xl shadow-2xl flex items-center gap-6 z-[200]"
+          >
+             <div className="flex flex-col">
+               <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Selecionados</span>
+               <span className="text-sm font-bold">{multiSelect.size} versículos</span>
+             </div>
+             <div className="w-px h-8 bg-background/10" />
+             <div className="flex gap-1.5 flex-wrap max-w-md">
+                {[...HI_COLORS.warm, ...HI_COLORS.cold, ...HI_COLORS.neutral].map(c => (
+                  <button
+                    key={c.color}
+                    onClick={() => {
+                      setHighlights(prev => {
+                        const next = { ...prev };
+                        multiSelect.forEach(k => {
+                          next[k] = { ...next[k], color: c.color };
+                        });
+                        return next;
+                      });
+                      setMultiSelect(new Set());
+                    }}
+                    className="w-7 h-7 rounded-full border border-background/20 hover:scale-110 transition-all"
+                    style={{ backgroundColor: c.color }}
+                    title={c.label}
+                  />
+                ))}
+             </div>
+             <button 
+               onClick={() => setMultiSelect(new Set())}
+               className="bg-background/10 hover:bg-background/20 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest"
+             >Cancelar</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {editingHighlight && (
+          <motion.div 
+             initial={{ opacity: 0, scale: 0.95 }}
+             animate={{ opacity: 1, scale: 1 }}
+             className="fixed inset-0 bg-background/20 backdrop-blur-sm z-[205] flex items-center justify-center p-4"
+             onClick={() => setEditingHighlight(null)}
+          >
+             <motion.div 
+               initial={{ y: 20 }} animate={{ y: 0 }}
+               className="w-full max-w-sm bg-surface border border-border rounded-[2.5rem] shadow-[0_50px_100px_rgba(0,0,0,0.1)] p-8 flex flex-col gap-6"
+               onClick={e => e.stopPropagation()}
+             >
+                <div className="flex items-center justify-between">
+                   <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500 flex items-center gap-2">
+                      <Palette className="w-4 h-4" /> Personalizar Destaque
+                   </span>
+                   <button onClick={() => setEditingHighlight(null)} className="w-10 h-10 rounded-full hover:bg-foreground/5 flex items-center justify-center">
+                      <X className="w-5 h-5" />
+                   </button>
+                </div>
+                <div className="space-y-4">
+                   <div>
+                     <label className="text-[9px] font-black uppercase tracking-widest opacity-30 mb-2 block">Paleta de Cores</label>
+                     <div className="grid grid-cols-5 gap-3">
+                       {COLOR_LIST.map(c => (
+                         <div key={c.color} className="relative group/color">
+                           <button 
+                             onClick={() => setHighlights(prev => ({ ...prev, [editingHighlight!]: { ...prev[editingHighlight!], color: c.color } }))}
+                             className={cn(
+                               "w-10 h-10 rounded-xl border-2 transition-all hover:scale-110 flex items-center justify-center",
+                               highlights[editingHighlight!]?.color === c.color ? "border-indigo-500 shadow-lg scale-110" : "border-transparent"
+                             )}
+                             style={{ backgroundColor: c.color }}
+                             title={customLabels[c.color]}
+                           >
+                              {highlights[editingHighlight!]?.color === c.color && <Check className="w-4 h-4 text-white mix-blend-difference" />}
+                           </button>
+                           <button 
+                             onClick={(e) => { e.stopPropagation(); setIsEditingLabel(c.color); }}
+                             className="absolute -top-1 -right-1 w-4 h-4 bg-white border shadow-sm rounded-full opacity-0 group-hover/color:opacity-100 flex items-center justify-center transition-all hover:scale-110 z-10"
+                           >
+                             <Palette className="w-2 h-2 text-indigo-500" />
+                           </button>
+                         </div>
+                       ))}
+                     </div>
+                     <div className="mt-4 flex flex-col items-center">
+                       {isEditingLabel ? (
+                         <div className="flex items-center gap-2 bg-indigo-500/5 p-2 rounded-xl border border-indigo-500/20">
+                           <input 
+                             autoFocus
+                             className="bg-transparent text-[10px] font-bold outline-none text-center"
+                             value={customLabels[isEditingLabel]}
+                             onChange={e => setCustomLabels(prev => ({ ...prev, [isEditingLabel]: e.target.value }))}
+                             onBlur={() => setIsEditingLabel(null)}
+                             onKeyDown={e => e.key === 'Enter' && setIsEditingLabel(null)}
+                           />
+                           <Check className="w-3 h-3 text-indigo-500 cursor-pointer" onClick={() => setIsEditingLabel(null)} />
+                         </div>
+                       ) : highlights[editingHighlight!]?.color && (
+                         <p className="text-[10px] font-bold text-indigo-500/60 uppercase tracking-widest italic flex items-center gap-2 group cursor-pointer" onClick={() => setIsEditingLabel(highlights[editingHighlight!]?.color)}>
+                           {customLabels[highlights[editingHighlight!]?.color]}
+                           <Palette className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                         </p>
+                       )}
+                     </div>
+                   </div>
+                   <div className="bg-foreground/5 p-4 rounded-3xl space-y-3">
+                     <span className="text-[9px] font-black uppercase tracking-widest opacity-30 flex items-center gap-2">
+                       <BookOpen className="w-3 h-3" /> Exegese Rápida
+                     </span>
+                     <div className="space-y-2">
+                       {ALL_VERSIONS.map(v => (
+                         <div key={v} className="flex items-center justify-between text-[11px]">
+                           <span className="font-bold opacity-40 uppercase">{v}</span>
+                           <span className="text-foreground/70 italic line-clamp-1">Versão alternativa disponível no modo Comparar</span>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                   <div className="flex flex-col gap-2">
+                     <label className="text-[9px] font-black uppercase tracking-widest opacity-30">Insight / Revelação</label>
+                     <textarea 
+                       autoFocus
+                       value={commentInput}
+                       onChange={e => setCommentInput(e.target.value)}
+                       placeholder="O que esta passagem ministrou ao seu coração?"
+                       className="w-full bg-foreground/5 border border-border rounded-2xl p-4 text-base font-serif italic outline-none focus:border-indigo-500/30 min-h-[120px] resize-none"
+                     />
+                   </div>
+                </div>
+                <div className="flex gap-3">
+                   <button 
+                     onClick={updateComment}
+                     className="flex-1 bg-indigo-500 text-white rounded-2xl py-4 font-black uppercase tracking-widest text-[12px] shadow-xl shadow-indigo-500/20 hover:bg-indigo-600 active:scale-95 transition-all"
+                   >Salvar Insight</button>
+                   <button 
+                     onClick={() => removeHighlight(editingHighlight)}
+                     className="w-14 h-14 rounded-2xl border border-red-500/20 flex items-center justify-center text-red-500 hover:bg-red-50 transition-all"
+                   ><Trash2 className="w-5 h-5" /></button>
+                </div>
+             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

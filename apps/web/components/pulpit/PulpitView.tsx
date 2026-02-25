@@ -27,12 +27,12 @@ interface PulpitViewProps {
 
 // Perspectiva Teológica - Must match SermonCanvas
 const CATEGORY_MAP: Record<string, { label: string, color: string, icon: React.ReactNode }> = {
-  TEXTO_BASE: { label: 'Texto Base', color: 'var(--color-exegesis)', icon: <BookOpen className="w-4 h-4" /> },
-  EXEGESE: { label: 'Exegese', color: '#6366f1', icon: <HelpCircle className="w-4 h-4" /> },
-  APLICACAO: { label: 'Aplicação', color: 'var(--color-application)', icon: <Target className="w-4 h-4" /> },
-  ILUSTRACAO: { label: 'Ilustração', color: '#10b981', icon: <Lightbulb className="w-4 h-4" /> },
-  ENFASE: { label: 'Ênfase', color: 'var(--color-emphasis)', icon: <AlertTriangle className="w-4 h-4" /> },
-  CUSTOMIZAR: { label: 'Custom', color: '#737373', icon: <Sparkles className="w-4 h-4" /> }
+  TEXTO_BASE: { label: 'Texto Base', color: 'var(--color-texto)', icon: <BookOpen className="w-4 h-4" /> },
+  EXEGESE: { label: 'Exegese', color: 'var(--color-exegese)', icon: <HelpCircle className="w-4 h-4" /> },
+  APLICACAO: { label: 'Aplicação', color: 'var(--color-aplicacao)', icon: <Target className="w-4 h-4" /> },
+  ILUSTRACAO: { label: 'Ilustração', color: 'var(--color-ilustracao)', icon: <Lightbulb className="w-4 h-4" /> },
+  ENFASE: { label: 'Ênfase', color: 'var(--color-enfase)', icon: <AlertTriangle className="w-4 h-4" /> },
+  CUSTOMIZAR: { label: 'Custom', color: 'var(--color-custom)', icon: <Sparkles className="w-4 h-4" /> }
 };
 
 const parseBibleContent = (content: string) => {
@@ -54,18 +54,17 @@ const parseBibleContent = (content: string) => {
 };
 
 export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: PulpitViewProps) {
-  const { latestBlocks, latestMeta, isConnected } = useSermonSocket(sermonId);
+  const { latestBlocks, latestMeta, isConnected, syncCanvas } = useSermonSocket(sermonId);
   const [blocks, setBlocks] = useState<any[]>([]);
   const [sermonMeta, setSermonMeta] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeBlockIndex, setActiveBlockIndex] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [sidebarTab, setSidebarTab] = useState<'BIBLIA' | 'ESTRUTURA'>('ESTRUTURA');
+  const [sidebarTab, setSidebarTab] = useState<'BIBLIA' | 'ESTRUTURA' | 'INSIGHTS'>('ESTRUTURA');
   const [isHudOpen, setIsHudOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [timeLeft, setTimeLeft] = useState(targetTime * 60);
   const [showContextPeek, setShowContextPeek] = useState(false);
-  const [insights, setInsights] = useState<any[]>([]);
   const [showToast, setShowToast] = useState<string | null>(null);
   const [searchMode, setSearchMode] = useState<'SERMON' | 'GLOBAL'>('SERMON');
   const [bibleResults, setBibleResults] = useState<any[]>([]);
@@ -86,7 +85,10 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
     const { environment } = require('@/environments');
     try {
       const res = await fetch(`${environment.apiUrl}/bible/search?version=${selectedVersion}&text=${encodeURIComponent(query)}`);
-      if (!res.ok) throw new Error('Bible search failed');
+      if (!res.ok) {
+        setBibleResults([]);
+        return;
+      }
       const data = await res.json();
       setBibleResults(data.verses || []);
     } catch (e) {
@@ -105,19 +107,48 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
   }, [searchQuery, searchMode, selectedVersion]);
   
   const saveInsight = (verse: any, source: any) => {
-    const newInsight = {
-      id: Math.random().toString(36).substr(2, 9),
-      verse,
-      sourceReference: source.reference,
-      timestamp: new Date().toISOString(),
-      sermonId
-    };
-    setInsights(prev => [...prev, newInsight]);
-    setShowToast(`Revelação guardada: ${source.reference}:${verse.v}`);
-    setTimeout(() => setShowToast(null), 3000);
+    const reference = `${source?.reference?.split(' (')[0]}:${verse.v}`;
     
-    // In a real app, this would persist to the DB
-    console.log("Insight Saved:", newInsight);
+    // Create a persistent block instead of just local state
+    const newBlock = {
+      id: `insight-${Date.now()}`,
+      type: 'CUSTOMIZAR',
+      content: `${verse.text}`,
+      order: blocks.length,
+      metadata: {
+        customLabel: 'NOVA REVELAÇÃO',
+        customColor: 'var(--color-aplicacao)',
+        reference: reference,
+        verseText: verse.text,
+        isInsight: true,
+        insightStatus: 'PENDING' // PENDING or COMPLETED
+      }
+    };
+
+    const updatedBlocks = [...blocks, newBlock];
+    setBlocks(updatedBlocks);
+    syncCanvas(updatedBlocks as any);
+
+    setShowToast(`Revelação Guardada: ${reference}`);
+    setIsSidebarOpen(true);
+    setSidebarTab('INSIGHTS');
+    setTimeout(() => setShowToast(null), 3000);
+  };
+  
+  const handleUpdateInsight = (blockId: string, newRevelation: string, finalize = false) => {
+    const updatedBlocks = blocks.map(b => b.id === blockId ? {
+      ...b,
+      content: newRevelation || b.content,
+      metadata: {
+        ...b.metadata,
+        revelation: newRevelation,
+        insightStatus: finalize ? 'COMPLETED' : 'PENDING'
+      }
+    } : b);
+    
+    setBlocks(updatedBlocks);
+    syncCanvas(updatedBlocks as any);
+    if (finalize) setShowToast("Insight integrado ao Estudo!");
   };
   
   // Update local blocks when socket updates
@@ -187,45 +218,101 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
   };
 
   const activeBlock = blocks[activeBlockIndex] || null;
+  
+  // Find the nearest preceding block at depth 0 (The "Context Father")
+  const findContextParent = () => {
+    if (!activeBlock || activeBlock.metadata?.depth === 0) return null;
+    for (let i = activeBlockIndex - 1; i >= 0; i--) {
+      if (blocks[i].metadata?.depth === 0 || blocks[i].type === 'TEXTO_BASE') {
+        return blocks[i];
+      }
+    }
+    return null;
+  };
+
+  const contextParent = findContextParent();
   const activeVerseId = activeBlock?.metadata?.parentVerseId;
   const activeSourceId = activeBlock?.metadata?.bibleSourceId;
   const activeSource = sermonMeta?.bibleSources?.find((s: any) => s.id === activeSourceId) || (sermonMeta?.bibleSources?.[0]);
 
-  const [previewSourceId, setPreviewSourceId] = useState<string | null>(null);
-  const [previewVerseId, setPreviewVerseId] = useState<string | null>(null);
-
-  const finalSource = previewSourceId 
-    ? sermonMeta?.bibleSources?.find((s: any) => s.id === previewSourceId)
-    : activeSource;
-  
-  const finalVerseId = previewVerseId || activeVerseId;
+  const finalSource = activeSource;
+  const finalVerseId = activeVerseId;
 
   const jumpToSourceVerse = (sourceId: string, vId: string) => {
     const index = blocks.findIndex(b => b.metadata?.parentVerseId === vId && b.metadata?.bibleSourceId === sourceId);
     if (index !== -1) {
       setActiveBlockIndex(index);
-      setPreviewSourceId(null);
-      setPreviewVerseId(null);
-    } else {
-      setPreviewSourceId(sourceId);
-      setPreviewVerseId(vId);
     }
-    setShowContextPeek(true);
-    
-    // Auto-scroll logic happens in useEffect
   };
+
+  const [fullChapterVerses, setFullChapterVerses] = useState<{ v: number; text: string }[]>([]);
+  const [isLoadingContext, setIsLoadingContext] = useState(false);
+
+  useEffect(() => {
+    if (!showContextPeek || !finalSource?.reference) {
+      setFullChapterVerses([]);
+      return;
+    }
+
+    const loadContext = async () => {
+      setIsLoadingContext(true);
+      
+      // 1. ESTRATÉGIA DE ALTA VELOCIDADE: Verificar se o conteúdo local já é o capítulo completo
+      // Se salvamos via "Gerar Estudo", o conteúdo já virá com o capítulo todo.
+      if (finalSource.reference.includes('(Completo)') && finalSource.content) {
+        const localVerses = parseBibleContent(finalSource.content);
+        if (localVerses.length > 5) { // Heurística: se tem mais de 5 versos, provavelmente é o capítulo todo
+          setFullChapterVerses(localVerses);
+          setIsLoadingContext(false);
+          return;
+        }
+      }
+
+      // 2. ESTRATÉGIA DE API: Buscar o capítulo limpo
+      try {
+        const { environment } = require('@/environments');
+        
+        // Regex robusto: Extrai apenas Livro e Capítulo, ignorando versículos e outros sufixos
+        // Ex: "1 Samuel 17:45:45 (Completo)" -> "1 Samuel 17"
+        // Ex: "João 3:16" -> "João 3"
+        const refParts = finalSource.reference.match(/^([1-3]?\s?[a-zA-Z\u00C0-\u00FF\s]+)\s(\d+)/);
+        const bookAndChapter = refParts ? `${refParts[1].trim()} ${refParts[2]}` : null;
+        
+        if (bookAndChapter) {
+          const res = await fetch(`${environment.apiUrl}/bible/search?version=${selectedVersion}&text=${encodeURIComponent(bookAndChapter)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.verses && data.verses.length > 0) {
+              setFullChapterVerses(data.verses.map((v: any) => ({ v: v.number, text: v.text })));
+              setIsLoadingContext(false);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Critical failure loading chapter context", e);
+      }
+
+      // 3. FALLBACK: Usar o que tivermos disponível
+      setFullChapterVerses(parseBibleContent(finalSource.content));
+      setIsLoadingContext(false);
+    };
+
+    loadContext();
+  }, [showContextPeek, finalSource, selectedVersion]);
 
   // Effect for Context Peek Auto-scroll
   useEffect(() => {
-    if (showContextPeek) {
+    if (showContextPeek && !isLoadingContext && fullChapterVerses.length > 0) {
       const activeEl = activeVerseRef.current;
       if (activeEl) {
+        // Aumentamos o delay para garantir que o DOM renderizou a lista inteira
         setTimeout(() => {
           activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 100);
+        }, 400);
       }
     }
-  }, [showContextPeek, finalVerseId]);
+  }, [showContextPeek, finalVerseId, isLoadingContext, fullChapterVerses.length]);
 
   if (loading) {
     return (
@@ -246,12 +333,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
             exit={{ x: -400 }}
             className="w-[400px] h-full border-r border-border bg-surface/50 backdrop-blur-3xl z-40 flex flex-col shadow-2xl"
           >
-            <div className="p-6 border-b border-border flex items-center justify-between bg-foreground/[0.03]">
-              <div>
-                <h2 className="text-3xl font-serif font-black italic tracking-tight">Apoio</h2>
-                <p className="text-[15px] font-sans font-black tracking-[0.3em] uppercase opacity-30 mt-0.5">Instrumental</p>
-              </div>
-            </div>
+
 
             <div className="flex border-b border-border bg-foreground/[0.02]">
               <button 
@@ -266,11 +348,26 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
               <button 
                 onClick={() => setSidebarTab('ESTRUTURA')}
                 className={cn(
-                  "flex-1 py-4 text-[16px] font-black tracking-[0.3em] uppercase transition-all flex items-center justify-center gap-3",
+                  "flex-1 py-4 text-[13px] font-black tracking-[0.2em] uppercase transition-all flex items-center justify-center gap-2",
                   sidebarTab === 'ESTRUTURA' ? "text-foreground bg-foreground/5 shadow-[inset_0_-2px_0_var(--foreground)]" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <LayoutGrid className="w-4 h-4" /> Mapa
+                <LayoutGrid className="w-3.5 h-3.5" /> Mapa
+              </button>
+              <button 
+                onClick={() => setSidebarTab('INSIGHTS')}
+                className={cn(
+                  "flex-1 py-4 text-[13px] font-black tracking-[0.2em] uppercase transition-all flex items-center justify-center gap-2",
+                  sidebarTab === 'INSIGHTS' ? "text-foreground bg-foreground/5 shadow-[inset_0_-2px_0_var(--foreground)]" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Insights</span>
+                {blocks.filter(b => b.metadata?.isInsight && b.metadata?.insightStatus !== 'COMPLETED').length > 0 && (
+                  <span className="flex items-center justify-center bg-indigo-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black min-w-[20px] shadow-lg shadow-indigo-500/20">
+                    {blocks.filter(b => b.metadata?.isInsight && b.metadata?.insightStatus !== 'COMPLETED').length}
+                  </span>
+                )}
               </button>
             </div>
 
@@ -288,15 +385,14 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                          {parseBibleContent(source.content).map(v => (
                            <div
                              key={`${source.id}-${v.v}`}
-                             onClick={() => jumpToSourceVerse(source.id, String(v.v))}
                              className={cn(
-                               "py-2.5 px-3 rounded-lg cursor-pointer transition-all flex items-start gap-3 group active:scale-95",
-                               (String(v.v) === activeVerseId && source.id === activeSourceId) || (String(v.v) === previewVerseId && source.id === previewSourceId)
+                               "py-2.5 px-3 rounded-lg transition-all flex items-start gap-3 group",
+                               (String(v.v) === activeVerseId && source.id === activeSourceId)
                                 ? "bg-foreground text-background shadow-lg" 
                                 : "text-foreground/80 hover:bg-foreground/5 border border-transparent hover:border-border"
                              )}
                            >
-                             <span className={cn("text-[18px] font-mono font-medium mt-0.5", (String(v.v) === activeVerseId && source.id === activeSourceId) || (String(v.v) === previewVerseId && source.id === previewSourceId) ? "opacity-100" : "opacity-20")}>{v.v}</span>
+                             <span className={cn("text-[18px] font-mono font-medium mt-0.5", (String(v.v) === activeVerseId && source.id === activeSourceId) ? "opacity-100" : "opacity-20")}>{v.v}</span>
                              <span className="text-[21px] leading-relaxed font-serif">{v.text}</span>
                            </div>
                          ))}
@@ -307,39 +403,49 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                     <div className="py-20 text-center opacity-20 text-[16px] font-black tracking-widest uppercase italic">Nenhum texto bíblico importado</div>
                   )}
                 </div>
-              ) : (
-                <div className="p-3 flex flex-col gap-0.5 relative">
-                  {/* Vertical Roadmap Track */}
-                  <div className="absolute left-[2.25rem] top-8 bottom-8 w-px bg-foreground/[0.08]" />
+              ) : sidebarTab === 'ESTRUTURA' ? (
+                <div className="p-3 flex flex-col gap-1 relative">
+                  {/* Vertical Roadmap Track - More prominent */}
+                  <div className="absolute left-[2.25rem] top-8 bottom-8 w-[2px] bg-foreground/[0.05]" />
                   
-                  {blocks.map((block, idx) => {
+                  {[...blocks].sort((a,b) => (a.order ?? 0) - (b.order ?? 0)).map((block, idx) => {
                     const isActive = activeBlockIndex === idx;
                     const isPast = activeBlockIndex > idx;
                     const depth = block.metadata?.depth || 0;
+                    const isNested = depth > 0;
                     
+                    // Extract reference from metadata for the card title
+                    const refDisplay = block.metadata?.reference?.split(' (')[0];
+                    const category = (CATEGORY_MAP[block.type] || CATEGORY_MAP.CUSTOMIZAR) as { label: string, color: string, icon: React.ReactNode };
+
                     return (
                       <div 
-                        key={block.id}
-                        onClick={() => { setActiveBlockIndex(idx); setPreviewSourceId(null); setPreviewVerseId(null); }}
+                        key={block.id || idx}
+                        onClick={() => { setActiveBlockIndex(idx); }}
                         className={cn(
-                          "relative flex items-start gap-3 py-1 transition-all cursor-pointer group",
+                          "relative flex items-start gap-4 py-1.5 transition-all cursor-pointer group pr-2",
                           isActive ? "opacity-100" : 
-                          block.type === 'TEXTO_BASE' ? "opacity-80" : "opacity-30 hover:opacity-100"
+                          block.type === 'TEXTO_BASE' ? "opacity-70" : "opacity-30 hover:opacity-100"
                         )}
-                        style={{ marginLeft: `${depth * 1.25}rem` }}
+                        style={{ paddingLeft: `${depth * 1.5}rem` }}
                       >
+                        {/* Nesting Link Line (Vertical component) */}
+                        {isNested && (
+                          <div className="absolute left-[-1.25rem] top-0 bottom-1/2 w-4 border-l-2 border-b-2 border-indigo-500/15 rounded-bl-[1.5rem] -mb-1" />
+                        )}
+
                         {/* Step Marker */}
-                        <div className="relative z-10 flex flex-col items-center shrink-0 mt-1">
+                        <div className="relative z-10 flex flex-col items-center shrink-0 mt-2">
                           <div className={cn(
-                            "w-7 h-7 rounded-full border flex items-center justify-center transition-all duration-500",
-                            isActive ? "bg-indigo-600 border-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.3)] scale-110" : 
-                            isPast ? "bg-foreground/10 border-transparent text-indigo-500/50" : "bg-surface border-border"
+                            "w-8 h-8 rounded-full border flex items-center justify-center transition-all duration-500 shadow-sm",
+                            isActive ? "bg-indigo-600 border-indigo-500 shadow-[0_0_20px_rgba(79,70,229,0.4)] scale-110 z-20" : 
+                            isPast ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-500" : "bg-surface border-border"
                           )}>
                             {isPast ? (
-                              <CheckCircle2 className="w-4 h-4" />
+                              <CheckCircle2 className="w-5 h-5 stroke-[2.5px]" />
                             ) : (
                                <span className={cn(
-                                 "text-[15px] font-mono font-black",
+                                 "text-[14px] font-mono font-black",
                                  isActive ? "text-white" : "text-muted-foreground"
                                )}>
                                  {idx + 1}
@@ -348,26 +454,30 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                           </div>
                         </div>
         
-                        {/* Content Card */}
+                        {/* Enhanced Content Card - Mirroring Editor Aesthetics */}
                         <div className={cn(
-                          "flex-1 flex flex-col gap-0.5 px-3 py-1.5 rounded-xl transition-all duration-500 border",
-                          isActive ? "bg-foreground/5 border-foreground/15 shadow-sm" : "bg-transparent border-transparent"
+                          "flex-1 flex flex-col gap-1.5 px-4 py-3 rounded-[1.8rem] transition-all duration-500 border",
+                          isActive ? "bg-surface border-foreground/15 shadow-xl ring-1 ring-black/5" : "bg-transparent border-transparent"
                         )}>
-                          <div className="flex items-center justify-between">
-                             <div className="flex items-center gap-1.5 min-w-0">
-                               <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: block.metadata?.customColor || CATEGORY_MAP[block.type]?.color || '#888' }} />
+                          <div className="flex items-center justify-between gap-2 overflow-hidden">
+                             <div className="flex items-center gap-2 min-w-0">
                                <span className={cn(
-                                 "text-[12px] font-black uppercase tracking-[0.2em] truncate", 
-                                 isActive ? "text-indigo-500" : "text-muted-foreground"
+                                 "text-[9px] font-black uppercase tracking-[0.25em] truncate", 
+                                 isActive ? "text-indigo-500" : "text-muted-foreground/60"
                                )}>
-                                 {block.metadata?.customLabel || CATEGORY_MAP[block.type]?.label || block.type}
+                                 {block.metadata?.customLabel || category.label || block.type}
                                </span>
                              </div>
+                             {refDisplay && (
+                               <div className="px-2 py-0.5 rounded-md bg-foreground/[0.03] border border-foreground/[0.05] shrink-0">
+                                 <span className="text-[8px] font-mono font-bold opacity-30 uppercase tracking-tighter">{refDisplay}</span>
+                               </div>
+                             )}
                           </div>
                            <p className={cn(
-                             "text-[18px] font-medium leading-tight line-clamp-2 mt-0.5 transition-colors",
+                             "text-[16px] font-medium leading-tight line-clamp-2 transition-colors",
                              isActive ? "text-foreground" : 
-                             block.type === 'TEXTO_BASE' ? "text-indigo-400/80 italic" : "text-foreground/60"
+                             block.type === 'TEXTO_BASE' ? "text-indigo-400/70 italic font-serif" : "text-foreground/50"
                            )}>
                             {block.content}
                           </p>
@@ -375,6 +485,83 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                       </div>
                     );
                   })}
+                  
+                  {blocks.length === 0 && (
+                     <div className="py-20 text-center flex flex-col items-center gap-4 px-10">
+                        <div className="w-12 h-12 rounded-2xl bg-foreground/5 flex items-center justify-center">
+                          <Layout className="w-6 h-6 opacity-20" />
+                        </div>
+                        <p className="text-[10px] font-black tracking-widest uppercase opacity-20">Trilha de estudo vazia</p>
+                     </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-6 flex flex-col gap-6">
+                  <div className="flex flex-col gap-2">
+                    <h3 className="text-2xl font-serif font-black italic text-foreground/90">Novas Revelações</h3>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500 opacity-60">Capturadas durante o Altar</p>
+                  </div>
+                  
+                  <div className="flex flex-col gap-4">
+                    {blocks.filter(b => b.metadata?.isInsight).reverse().map((block, idx) => (
+                      <motion.div 
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        key={block.id} 
+                        className="bg-surface border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-all group flex flex-col gap-4"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-mono font-bold text-indigo-500 uppercase tracking-tighter bg-indigo-500/10 px-2 py-0.5 rounded">
+                            {block.metadata.reference}
+                          </span>
+                          {block.metadata.insightStatus === 'PENDING' ? (
+                            <span className="text-[9px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-1.5 animate-pulse">
+                              <Clock className="w-3 h-3" /> Pendente
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500 flex items-center gap-1.5">
+                              <Layout className="w-3 h-3" /> No Estudo
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="flex flex-col gap-3">
+                          <p className="text-[14px] font-serif italic leading-relaxed text-foreground opacity-60 line-clamp-2">
+                             "{block.metadata.verseText}"
+                          </p>
+                          
+                          <div className="flex flex-col gap-3">
+                            <textarea
+                              placeholder="Digite aqui a revelação recebida..."
+                              value={block.metadata.revelation || ''}
+                              onChange={(e) => handleUpdateInsight(block.id, e.target.value)}
+                              className="w-full bg-foreground/[0.03] border border-border rounded-xl p-3 text-sm font-sans text-foreground outline-none focus:border-indigo-500/30 transition-all min-h-[80px] resize-none"
+                            />
+                            
+                            <button 
+                              onClick={() => handleUpdateInsight(block.id, block.metadata.revelation, true)}
+                              disabled={block.metadata.insightStatus === 'COMPLETED'}
+                              className={cn(
+                                "w-full py-2.5 rounded-xl font-sans text-[10px] font-black uppercase tracking-widest transition-all select-none",
+                                block.metadata.insightStatus === 'COMPLETED'
+                                  ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 pointer-events-none" 
+                                  : "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 hover:scale-[1.02] active:scale-[0.98]"
+                              )}
+                            >
+                              {block.metadata.insightStatus === 'COMPLETED' ? "Enviado ao Estudo" : "Concluir e Inserir no Estudo"}
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                    
+                    {blocks.filter(b => b.metadata?.isInsight).length === 0 && (
+                      <div className="py-20 text-center flex flex-col items-center gap-4 opacity-20">
+                        <Sparkles className="w-8 h-8" />
+                        <p className="text-[10px] font-black tracking-widest uppercase">Nenhum insight capturado ainda</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -444,7 +631,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
         <div className="flex-1 relative flex flex-col overflow-hidden">
           <div className="absolute inset-0 z-0" {...bind()} />
           
-          <div className="flex-1 flex flex-col items-center justify-center transition-all duration-500 pb-32">
+          <div className="flex-1 flex flex-col items-center justify-center transition-all duration-500 pb-48">
             <AnimatePresence mode="wait">
                <motion.div 
                  key={activeBlockIndex}
@@ -463,41 +650,86 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                   <motion.div 
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="px-12 py-3.5 rounded-full border flex items-center gap-5 shadow-2xl transition-all duration-500"
-                    style={{ 
-                      borderColor: (activeBlock?.metadata?.customColor || CATEGORY_MAP[activeBlock?.type]?.color || '#6366f1') + '40',
-                      backgroundColor: (activeBlock?.metadata?.customColor || CATEGORY_MAP[activeBlock?.type]?.color || '#6366f1') + '10',
-                      color: activeBlock?.metadata?.customColor || CATEGORY_MAP[activeBlock?.type]?.color || '#6366f1'
-                    }}
+                    className="px-8 py-2.5 rounded-full border border-border flex items-center gap-4 shadow-sm transition-all duration-500 bg-surface/80"
                   >
-                     <div className="w-6 h-6 flex items-center justify-center">
-                        {CATEGORY_MAP[activeBlock?.type]?.icon || <Zap className="w-5 h-5 fill-current" />}
+                     <div 
+                       className="w-4 h-4 flex items-center justify-center" 
+                       style={{ color: activeBlock?.metadata?.customColor || CATEGORY_MAP[activeBlock?.type]?.color || '#888' }}
+                     >
+                        {CATEGORY_MAP[activeBlock?.type]?.icon || <BookOpen className="w-4 h-4 fill-current" />}
                      </div>
-                     <span className="text-[14px] font-black tracking-[0.6em] uppercase">
+                     <span 
+                       className="text-[10px] font-sans font-black tracking-[0.4em] uppercase"
+                       style={{ color: activeBlock?.metadata?.customColor || CATEGORY_MAP[activeBlock?.type]?.color || '#888' }}
+                     >
                        {activeBlock?.metadata?.customLabel || CATEGORY_MAP[activeBlock?.type]?.label || activeBlock?.type}
                      </span>
                   </motion.div>
                   
-                  <h1 className={cn(
-                    "font-serif font-black italic leading-[1.3] text-foreground transition-all duration-500 select-none drop-shadow-2xl break-words whitespace-pre-wrap w-full px-4",
-                    activeBlock?.metadata?.font || 'font-serif',
-                    (activeBlock?.content?.length || 0) > 200 ? "text-2xl md:text-3xl lg:text-4xl" :
-                    (activeBlock?.content?.length || 0) > 120 ? "text-3xl md:text-4xl lg:text-5xl" :
-                    (activeBlock?.content?.length || 0) > 60 ? "text-4xl md:text-5xl lg:text-6xl" :
-                    "text-5xl md:text-6xl lg:text-7xl"
-                  )}>
-                    {activeBlock?.content}
-                  </h1>
+                  <div className="flex flex-col items-center gap-10 w-full px-4 max-w-6xl">
+                    {/* INHERITED CONTEXT (THE PARENT VERSE/TEXT) */}
+                    {(activeBlock?.metadata?.verseText || contextParent) && activeBlock?.type !== 'TEXTO_BASE' && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex flex-col gap-4 opacity-50 hover:opacity-100 transition-opacity max-w-4xl"
+                      >
+                         <p className="text-2xl md:text-3xl font-serif italic text-foreground tracking-tight text-center leading-relaxed">
+                           <span className="font-mono font-bold mr-3 text-indigo-500 text-xl">
+                             {activeBlock?.metadata?.parentVerseId || contextParent?.metadata?.parentVerseId}
+                           </span>
+                           "{activeBlock?.metadata?.verseText || contextParent?.content}"
+                         </p>
+                         <div className="flex items-center gap-3 justify-center">
+                            <div className="h-px w-12 bg-indigo-500/20" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500/20" />
+                            <div className="h-px w-12 bg-indigo-500/20" />
+                         </div>
+                      </motion.div>
+                    )}
+
+                    {/* MAIN CONTENT (THE ACTIVE INSIGHT OR VERSE) */}
+                    {activeBlock?.type === 'TEXTO_BASE' && parseBibleContent(activeBlock?.content).length > 0 ? (
+                      <div className="flex flex-col gap-10 w-full text-center items-center">
+                        {parseBibleContent(activeBlock?.content).map(v => (
+                          <p key={v.v} className="font-sans font-black italic text-foreground leading-[1.2] text-4xl md:text-5xl lg:text-6xl drop-shadow-sm select-none break-words tracking-tighter w-full">
+                            <span className="text-3xl md:text-4xl lg:text-5xl font-extrabold mr-4 opacity-80 text-indigo-500">{v.v}</span>
+                            {v.text}
+                          </p>
+                        ))}
+                      </div>
+                    ) : (
+                      <h1 className={cn(
+                        "font-sans font-black italic leading-[1.1] text-foreground transition-all duration-500 select-none drop-shadow-sm break-words whitespace-pre-wrap w-full tracking-tighter text-center",
+                        (activeBlock?.content?.length || 0) > 200 ? "text-4xl md:text-5xl lg:text-5xl" :
+                        (activeBlock?.content?.length || 0) > 120 ? "text-5xl md:text-6xl lg:text-6xl" :
+                        (activeBlock?.content?.length || 0) > 60 ? "text-6xl md:text-7xl lg:text-7xl" :
+                        "text-7xl md:text-8xl lg:text-8xl"
+                      )}>
+                        {activeBlock?.content}
+                      </h1>
+                    )}
+                  </div>
 
                   {!showContextPeek && finalVerseId && (
                     <motion.button 
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       onClick={() => setShowContextPeek(true)} 
-                      className="mt-8 px-14 py-7 rounded-full font-sans font-black text-[14px] tracking-[0.3em] uppercase transition-all shadow-[0_30px_60px_rgba(0,0,0,0.4)] flex items-center gap-5 border border-white/5 bg-surface/50 backdrop-blur-3xl hover:bg-indigo-600 hover:text-white hover:border-indigo-500 group"
+                      className="mt-4 px-10 py-4 rounded-full font-sans font-black text-[11px] tracking-[0.3em] uppercase transition-all shadow-xl flex items-center gap-4 border border-border bg-surface text-foreground hover:scale-105 active:scale-95 group"
                     >
-                      <Book className="w-6 h-6 group-hover:scale-110 transition-transform" /> 
-                      <span>{finalSource?.reference?.toUpperCase() || 'REF'}:{finalVerseId}</span>
+                      <BookOpen className="w-5 h-5 text-foreground/80 group-hover:text-foreground transition-colors" /> 
+                      <span className="text-foreground/90 pt-0.5">
+                        {(() => {
+                          const base = finalSource?.reference?.split(' (')[0] || 'REF';
+                          const vId = finalVerseId !== 'ALL' ? finalVerseId : '';
+                          // Only append verse if it's not already at the end of the base reference
+                          if (vId && !base.endsWith(`:${vId}`)) {
+                             return `${base}:${vId}`.toUpperCase();
+                          }
+                          return base.toUpperCase();
+                        })()}
+                      </span>
                     </motion.button>
                   )}
                 </div>
@@ -513,7 +745,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="absolute inset-0 bg-background/60 backdrop-blur-2xl z-40" 
+                  className="absolute inset-0 bg-background/70 backdrop-blur-3xl z-40" 
                   onClick={() => setShowContextPeek(false)}
                 />
                 
@@ -522,105 +754,138 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 120, scale: 0.98 }}
                   transition={{ type: 'spring', damping: 28, stiffness: 120 }}
-                  className="absolute inset-x-8 top-32 bottom-48 max-w-6xl mx-auto glass-heavy p-16 rounded-[4.5rem] shadow-[0_80px_150px_rgba(0,0,0,0.9)] z-50 flex flex-col gap-12 border border-white/10"
+                  className="absolute inset-x-8 top-12 bottom-44 max-w-5xl mx-auto bg-surface p-16 rounded-[4.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.2)] z-50 flex flex-col gap-10 border border-border"
                 >
-                  <div className="flex items-center justify-between border-b border-white/10 pb-10">
-                    <div className="flex items-center gap-8">
-                      <div className="w-16 h-16 rounded-[2rem] bg-indigo-600 flex items-center justify-center shadow-[0_0_30px_rgba(79,70,229,0.5)]">
-                        <Book className="w-8 h-8 text-white" />
+                  <div className="flex items-center justify-between pb-4 shrink-0">
+                    <div className="flex items-center gap-6">
+                      <div className="w-[4.5rem] h-[4.5rem] rounded-full bg-indigo-600 flex items-center justify-center shadow-[0_0_30px_rgba(79,70,229,0.3)]">
+                        <BookOpen className="w-8 h-8 text-white" />
                       </div>
-                      <div>
-                        <h3 className="text-5xl font-serif font-black italic leading-none tracking-tight">{finalSource?.reference}</h3>
-                        <p className="text-[11px] font-black tracking-[0.5em] uppercase opacity-30 mt-3 text-indigo-400">Contexto de Escritura</p>
+                      <div className="flex flex-col">
+                        <h3 className="text-[2.5rem] font-sans font-black italic leading-none tracking-tight text-foreground">
+                          {finalSource?.reference?.split(' (')[0].replace(/:\d+.*$/, '')}
+                        </h3>
+                        <p className="text-[10px] font-black tracking-[0.4em] uppercase opacity-30 mt-2 text-indigo-500">Capítulo Completo</p>
                       </div>
                     </div>
                     <button 
                       onClick={() => setShowContextPeek(false)} 
-                      className="w-16 h-16 rounded-full border border-white/10 flex items-center justify-center hover:bg-white hover:text-black transition-all active:scale-90 shadow-2xl"
+                      className="w-16 h-16 rounded-full bg-surface border border-border flex items-center justify-center hover:scale-105 transition-all shadow-sm active:scale-95 text-foreground/40 hover:text-foreground"
                     >
                       <X className="w-8 h-8" />
                     </button>
                   </div>
 
-                   <div className="flex-1 overflow-y-auto custom-scrollbar-premium pr-8 pb-32" ref={contextScrollRef}>
-                    <div className="font-serif leading-[1.8] text-justify">
-                      {parseBibleContent(finalSource?.content).map((v, index) => {
-                        const isTarget = finalVerseId === 'ALL' || String(v.v) === finalVerseId;
-                        return (
-                          <span 
-                            key={v.v} 
-                            ref={isTarget && (finalVerseId !== 'ALL' || index === 0) ? activeVerseRef : null}
-                            className={cn(
-                              "relative transition-all duration-1000 inline rounded-xl px-2 py-1 group/line cursor-pointer",
-                              isTarget ? "text-foreground opacity-100 bg-indigo-500/10 shadow-[inset_0_0_20px_rgba(99,102,241,0.1)]" : "text-foreground/40 hover:opacity-100 hover:bg-white/5"
-                            )}
-                          >
-                            <span className="text-2xl font-bold text-indigo-500 mr-2 select-none align-super">{v.v}</span>
-                            <span className="text-4xl leading-relaxed">{v.text} </span>
-                            
-                            {/* SAVE INSIGHT BUTTON IN CONTEXT PEEK */}
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); saveInsight(v, finalSource); }}
-                              className="absolute -top-12 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full glass border-white/10 flex items-center justify-center opacity-0 group-hover/line:opacity-100 transition-all hover:bg-indigo-600 hover:text-white hover:scale-110 active:scale-90 shadow-2xl z-20"
-                              title="Salvar como Insight"
+                   <div className="flex-1 overflow-y-auto custom-scrollbar-premium pr-8 pb-32 scroll-pt-20" ref={contextScrollRef}>
+                    {isLoadingContext ? (
+                      <div className="h-full flex flex-col items-center justify-center gap-4 opacity-40">
+                        <div className="w-10 h-10 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+                        <p className="text-[10px] font-black uppercase tracking-widest">Alimentando Altar con Escritura...</p>
+                      </div>
+                    ) : (
+                      <div className="font-sans font-medium text-foreground/60 leading-[2.2] text-justify">
+                        {fullChapterVerses.map((v, index) => {
+                          const isTarget = finalVerseId === 'ALL' || String(v.v) === finalVerseId;
+                          const currentRef = `${finalSource?.reference?.split(' (')[0].replace(/:\d+.*$/, '')}:${v.v}`;
+                          const isSaved = blocks.some(b => b.metadata?.isInsight && b.metadata?.reference === currentRef);
+                          
+                          return (
+                            <span 
+                              key={v.v} 
+                              ref={isTarget && (finalVerseId !== 'ALL' || index === 0) ? activeVerseRef : null}
+                              className={cn(
+                                "relative transition-all duration-1000 inline rounded-[1.5rem] px-3 py-1.5 group/line cursor-pointer",
+                                isSaved ? "bg-emerald-500/10 text-emerald-500 shadow-[inset_0_0_15px_rgba(16,185,129,0.1)]" :
+                                isTarget ? "text-foreground opacity-100 bg-indigo-500/10 shadow-[inset_0_0_20px_rgba(99,102,241,0.1)]" : "text-foreground/30 hover:text-foreground/80 hover:bg-foreground/5"
+                              )}
                             >
-                              <Sparkles className="w-5 h-5" />
-                            </button>
-                          </span>
-                        );
-                      })}
-                    </div>
+                              <span className={cn(
+                                "text-[1.1rem] font-bold mr-3 select-none align-baseline opacity-90 transition-colors",
+                                isSaved ? "text-emerald-500" : "text-indigo-500"
+                              )}>{v.v}</span>
+                              <span className="text-[1.6rem] leading-relaxed tracking-tight">{v.text} </span>
+                              
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); if(!isSaved) saveInsight(v, finalSource); }}
+                                className={cn(
+                                  "absolute -top-12 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full border flex items-center justify-center transition-all shadow-xl z-20",
+                                  isSaved 
+                                    ? "bg-emerald-500 text-white border-emerald-400 opacity-100 pointer-events-none scale-0" 
+                                    : "bg-surface border-border opacity-0 group-hover/line:opacity-100 hover:bg-indigo-600 hover:text-white hover:scale-110 active:scale-90 text-foreground/60"
+                                )}
+                                title={isSaved ? "Revelação Guardada" : "Salvar como Insight"}
+                              >
+                                <Sparkles className="w-5 h-5" />
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               </>
             )}
           </AnimatePresence>
 
-          {/* PULPIT NAVIGATION RIBBON - CENTERED COCKPIT */}
+          {/* PULPIT NAVIGATION RIBBON - REDESIGNED */}
           <div className={cn(
-            "fixed bottom-12 left-0 right-0 flex justify-center z-50 transition-all duration-500 pointer-events-none",
+            "fixed bottom-8 left-0 right-0 flex justify-center z-50 transition-all duration-500 pointer-events-none",
             isSidebarOpen ? "ml-[400px]" : "ml-0"
           )}>
-            <div className="w-full max-w-6xl px-12 pointer-events-auto">
-              <div className="relative group">
-                {/* Premium Glass Card */}
-                <div className="absolute inset-0 bg-background/60 backdrop-blur-3xl rounded-[3rem] border border-white/10 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)]" />
-                
-                <div className="relative flex items-center h-32 px-12 gap-12">
+            <div className="w-full max-w-5xl px-12 pointer-events-auto">
+              <div className="relative group shadow-[0_30px_60px_rgba(0,0,0,0.08)] rounded-[2.5rem] bg-surface/90 backdrop-blur-3xl border border-border overflow-hidden">
+                <div className="relative flex items-center h-[7.5rem] px-10 gap-8">
                   {/* Anterior */}
                   <button 
                     onClick={handlePrev}
                     disabled={activeBlockIndex === 0}
-                    className="flex-1 flex flex-col items-start gap-2 group/btn disabled:opacity-0 transition-all duration-500 cursor-pointer"
+                    className="flex-[1.5] flex flex-col items-start gap-1 group/btn disabled:opacity-0 transition-all duration-500 cursor-pointer text-left w-full overflow-hidden"
                   >
-                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-500 flex items-center gap-2 mb-1">
-                      <ArrowLeft className="w-4 h-4 group-hover/btn:-translate-x-1 transition-transform" /> ANTERIOR
+                    <span className="text-[9px] font-black uppercase tracking-[0.4em] text-indigo-500 flex items-center gap-3">
+                      <span className="flex items-center gap-1.5"><ArrowLeft className="w-3.5 h-3.5 group-hover/btn:-translate-x-1 transition-transform" /> ANTERIOR</span>
+                      {blocks[activeBlockIndex - 1] && (
+                        <>
+                          <span className="opacity-30">•</span>
+                          <span className="text-foreground/40">
+                            {blocks[activeBlockIndex - 1]?.metadata?.customLabel || CATEGORY_MAP[blocks[activeBlockIndex - 1]?.type || '']?.label || blocks[activeBlockIndex - 1]?.type}
+                          </span>
+                        </>
+                      )}
                     </span>
-                    <p className="text-lg font-serif italic text-left line-clamp-1 max-w-[200px] opacity-20 group-hover/btn:opacity-60 transition-opacity">
+                    <p className="text-[15px] leading-tight font-sans mt-1 max-w-[90%] font-black italic line-clamp-2 opacity-20 group-hover/btn:opacity-60 transition-opacity">
                       {blocks[activeBlockIndex - 1]?.content || 'Início'}
                     </p>
                   </button>
 
                   {/* Central Step Indicator */}
-                  <div className="flex flex-col items-center justify-center px-12 border-x border-white/5">
-                    <div className="text-6xl font-mono font-black tracking-tighter tabular-nums text-foreground leading-none">
+                  <div className="flex flex-col items-center justify-center px-10 shrink-0">
+                    <div className="text-[2.5rem] font-sans font-black tracking-tighter tabular-nums text-foreground leading-none flex items-baseline">
                       {activeBlockIndex + 1}
-                      <span className="text-xl opacity-20 ml-2 font-medium">/ {blocks.length}</span>
+                      <span className="text-xl opacity-20 ml-1 font-medium">/{blocks.length}</span>
                     </div>
-                    <div className="w-16 h-1.5 bg-indigo-500 mt-4 rounded-full shadow-[0_0_15px_rgba(99,102,241,0.6)]" />
-                    <span className="text-[9px] font-black uppercase tracking-[0.5em] opacity-30 mt-3">PASSO</span>
+                    <div className="w-10 h-1 bg-indigo-500 mt-2.5 rounded-full" />
+                    <span className="text-[7px] font-black uppercase tracking-[0.4em] opacity-30 mt-2">PASSO</span>
                   </div>
 
                   {/* Próximo */}
                   <button 
                     onClick={handleNext}
                     disabled={activeBlockIndex === blocks.length - 1}
-                    className="flex-[2] flex flex-col items-end gap-2 group/btn disabled:opacity-0 transition-all duration-500 cursor-pointer"
+                    className="flex-[1.5] flex flex-col items-end gap-1 group/btn disabled:opacity-0 transition-all duration-500 cursor-pointer text-right w-full overflow-hidden"
                   >
-                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-500 flex items-center gap-2 mb-1">
-                      PRÓXIMO <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                    <span className="text-[9px] font-black uppercase tracking-[0.4em] text-emerald-500 flex items-center gap-3">
+                      {blocks[activeBlockIndex + 1] && (
+                        <>
+                          <span className="text-foreground/40">
+                            {blocks[activeBlockIndex + 1]?.metadata?.customLabel || CATEGORY_MAP[blocks[activeBlockIndex + 1]?.type || '']?.label || blocks[activeBlockIndex + 1]?.type}
+                          </span>
+                          <span className="opacity-30">•</span>
+                        </>
+                      )}
+                      <span className="flex items-center gap-1.5">PRÓXIMO <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" /></span>
                     </span>
-                    <p className="text-2xl font-serif font-bold italic text-right leading-tight text-foreground group-hover:text-indigo-400 transition-colors">
+                    <p className="text-[17px] leading-tight font-sans mt-1 max-w-[90%] font-black italic transition-colors line-clamp-2">
                       {blocks[activeBlockIndex + 1]?.content || 'Fim'}
                     </p>
                   </button>
@@ -648,25 +913,25 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-background/95 backdrop-blur-3xl z-[100] p-12 flex flex-col items-center"
+            className="fixed inset-0 bg-background/95 backdrop-blur-3xl z-[100] p-12 flex flex-col items-center overflow-y-auto custom-scrollbar"
           >
-            <div className="w-full max-w-4xl flex flex-col gap-12">
+            <div className="w-full max-w-4xl flex flex-col gap-12 mt-10">
                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-6">
                     <Sparkles className="w-8 h-8 text-indigo-500" />
-                    <h2 className="text-4xl font-serif font-bold italic tracking-tight">O que você busca?</h2>
+                    <h2 className="text-4xl font-sans font-black italic tracking-tight">O que você busca?</h2>
                   </div>
-                  <button onClick={() => { setIsHudOpen(false); setSearchQuery(''); }} className="w-14 h-14 rounded-full border border-border flex items-center justify-center hover:bg-foreground hover:text-background transition-all active:scale-90">
-                    <X className="w-8 h-8" />
+                  <button onClick={() => { setIsHudOpen(false); setSearchQuery(''); }} className="w-14 h-14 rounded-full bg-foreground text-background flex items-center justify-center hover:scale-105 transition-all active:scale-95 shadow-xl">
+                    <X className="w-6 h-6" />
                   </button>
                </div>
 
-               <div className="flex items-center gap-6 mb-8">
-                 <div className="flex bg-surface/50 backdrop-blur-xl rounded-full p-1 border border-white/5">
+               <div className="flex items-center gap-6 mb-2">
+                 <div className="flex items-center gap-2 bg-surface backdrop-blur-xl rounded-full p-1.5 border border-border shadow-sm">
                    <button 
                      onClick={() => setSearchMode('SERMON')}
                      className={cn(
-                       "px-8 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
+                       "px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
                        searchMode === 'SERMON' ? "bg-indigo-600 text-white shadow-lg" : "text-foreground/40 hover:text-foreground"
                      )}
                    >
@@ -675,7 +940,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                    <button 
                      onClick={() => setSearchMode('GLOBAL')}
                      className={cn(
-                       "px-8 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
+                       "px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
                        searchMode === 'GLOBAL' ? "bg-indigo-600 text-white shadow-lg" : "text-foreground/40 hover:text-foreground"
                      )}
                    >
@@ -683,33 +948,30 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                    </button>
                  </div>
 
-                 {searchMode === 'GLOBAL' && (
-                   <div className="flex items-center gap-2 bg-surface/50 backdrop-blur-xl rounded-full p-1 border border-white/5">
-                     {['nvi', 'ra', 'acf'].map(v => (
-                       <button 
-                         key={v}
-                         onClick={() => setSelectedVersion(v)}
-                         className={cn(
-                           "w-12 h-8 rounded-full text-[9px] font-black uppercase transition-all",
-                           selectedVersion === v ? "bg-foreground/10 text-foreground" : "text-foreground/20 hover:text-foreground/60"
-                         )}
-                       >
-                         {v}
-                       </button>
-                     ))}
-                   </div>
-                 )}
+                 <div className="flex items-center gap-2 bg-surface/50 backdrop-blur-xl rounded-full p-1 border border-border">
+                   {['nvi', 'ra', 'acf'].map(v => (
+                     <button 
+                       key={v}
+                       onClick={() => { setSelectedVersion(v); setSearchMode('GLOBAL'); }}
+                       className={cn(
+                         "w-14 h-9 rounded-full text-[10px] font-black uppercase transition-all flex items-center justify-center",
+                         selectedVersion === v && searchMode === 'GLOBAL' ? "bg-foreground/10 text-foreground" : "text-foreground/20 hover:text-foreground/60"
+                       )}
+                     >
+                       {v}
+                     </button>
+                   ))}
+                 </div>
                </div>
 
-               <div className="relative group">
-                 <Search className="absolute left-10 top-1/2 -translate-y-1/2 w-8 h-8 text-muted-foreground/30 group-focus-within:text-foreground transition-colors" />
+               <div className="relative group flex justify-center w-full">
                  <input 
                    autoFocus
                    type="text" 
                    value={searchQuery}
                    onChange={e => setSearchQuery(e.target.value)}
-                   placeholder={searchMode === 'SERMON' ? "Busque temas, versículos ou notas..." : "Pesquisar na Bíblia toda (ex: Amor, Fé, Jesus)..."}
-                   className="w-full bg-surface/50 backdrop-blur-3xl border border-border rounded-[3rem] py-10 pl-24 pr-12 text-4xl font-serif italic font-bold outline-none focus:border-indigo-500/50 transition-all shadow-2xl placeholder:opacity-10"
+                   placeholder={searchMode === 'SERMON' ? "ex: Introdução..." : "ex: marcos 5..."}
+                   className="w-full bg-surface/80 border border-border/80 rounded-[3rem] py-10 px-12 text-center text-4xl font-sans italic font-black outline-none focus:border-indigo-500/50 transition-all shadow-xl placeholder:opacity-20"
                  />
                  {isBibleSearching && (
                    <div className="absolute right-10 top-1/2 -translate-y-1/2">
@@ -718,7 +980,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                  )}
                </div>
 
-                <div className="w-full overflow-y-auto max-h-[55vh] custom-scrollbar p-2" ref={hudScrollRef}>
+                <div className="w-full flex-1" ref={hudScrollRef}>
                   {searchMode === 'SERMON' ? (
                     <div className="grid grid-cols-2 gap-10">
                       <div className="flex flex-col gap-6">
@@ -783,37 +1045,33 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-col gap-6">
-                      <h3 className="text-[11px] font-sans font-black tracking-[0.3em] uppercase opacity-30 px-2 flex items-center gap-3">
-                        <Sparkles className="w-4 h-4" /> RESULTADOS BÍBLIA GLOBAL ({selectedVersion.toUpperCase()})
-                      </h3>
-                      <div className="grid grid-cols-2 gap-8">
+                    <div className="flex flex-col gap-6 w-full -mx-4 px-4 pb-12">
+                      <div className="w-full h-px bg-border mt-2 mb-2 relative">
+                         <div className="absolute -top-3 left-0 bg-background pr-4 flex items-center gap-3">
+                            <Sparkles className="w-4 h-4 text-foreground/30" />
+                            <span className="text-[10px] font-sans font-black tracking-[0.3em] uppercase text-foreground/40">
+                              RESULTADOS BÍBLIA GLOBAL ({selectedVersion.toUpperCase()})
+                            </span>
+                         </div>
+                      </div>
+                      <div className="flex flex-col w-full max-w-2xl mx-auto">
                         {bibleResults.length > 0 ? bibleResults.map((verse: any, idx: number) => (
                           <div 
                             key={idx}
-                            onClick={() => {
-                              const tempSource = { id: `global-${Date.now()}`, reference: `${verse.book.name} ${verse.chapter}:${verse.number}`, content: `${verse.number} ${verse.text}` };
-                              setSermonMeta((prev: any) => ({
-                                ...prev,
-                                bibleSources: [...(prev.bibleSources || []), tempSource]
-                              }));
-                              jumpToSourceVerse(tempSource.id, String(verse.number));
-                              setIsHudOpen(false);
-                            }}
-                            className="p-8 rounded-3xl bg-surface/30 border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group active:scale-95 shadow-xl backdrop-blur-md"
+                            className="mb-6 pb-6 border-b border-border/30 last:border-0 group hover:bg-indigo-500/[0.02] rounded-xl px-4 py-3 -mx-4 transition-all"
                           >
-                             <div className="flex items-center justify-between mb-4">
-                               <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500">
-                                 {verse.book.name} {verse.chapter}:${verse.number}
-                               </span>
-                               <span className="text-[10px] opacity-20 font-black">{selectedVersion.toUpperCase()}</span>
-                             </div>
-                             <p className="text-xl font-serif text-foreground/80 leading-snug group-hover:text-foreground transition-colors italic">"{verse.text}"</p>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500">
+                                {verse.book?.name || verse.book_name} {verse.chapter}:{verse.number || verse.verse}
+                              </span>
+                              <span className="text-[9px] opacity-20 font-black tracking-widest">{selectedVersion.toUpperCase()}</span>
+                            </div>
+                            <p className="text-xl font-serif text-foreground/80 leading-relaxed italic block mt-1">"{verse.text}"</p>
                           </div>
                         )) : (
-                          <div className="col-span-2 py-32 text-center">
+                          <div className="col-span-1 py-20 text-center">
                              <p className="text-[11px] opacity-20 italic font-medium uppercase tracking-widest">
-                               {searchQuery.length < 3 ? 'Digite ao menos 3 letras para pesquisar na Bíblia toda...' : 'Nenhum versículo encontrado.'}
+                               {searchQuery.length < 3 ? 'Digite ao menos 3 letras...' : 'Nenhum versículo encontrado.'}
                              </p>
                           </div>
                         )}

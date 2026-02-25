@@ -44,12 +44,71 @@ export default function Home() {
   const handleCreateSermonFromBible = async (reference: string, content: string) => {
     if (!session?.user?.id) return;
     try {
-      // Create a single unique ID so both source and block metadata match perfectly
       const srcId = `src-${Date.now()}`;
-      
-      // If multiple verses were highlighted, link the block to the entire source ('ALL')
-      const hasMultipleVerses = content.includes('\n\n');
-      const parentVerseId = hasMultipleVerses ? 'ALL' : (content.match(/^(\d+)/)?.[1] || undefined);
+      let finalBibleSourceContent = content;
+      let blocksToCreate = [];
+
+      // Category mapping utility
+      const mapLabelToCategory = (label: string): string => {
+        const l = label.toLowerCase();
+        if (l.includes('texto') || l.includes('base')) return 'TEXTO_BASE';
+        if (l.includes('hermeneutica') || l.includes('exegese') || l.includes('estudo')) return 'EXEGESE';
+        if (l.includes('aplicacao') || l.includes('pratica') || l.includes('vida')) return 'APLICACAO';
+        if (l.includes('ilustracao') || l.includes('exemplo')) return 'ILUSTRACAO';
+        if (l.includes('enfase') || l.includes('aviso') || l.includes('alerta') || l.includes('chamada') || l.includes('importante')) return 'ENFASE';
+        return 'CUSTOMIZAR';
+      };
+
+      try {
+        const data = JSON.parse(content);
+        if (data.type === 'structured-study' && data.blocks) {
+          finalBibleSourceContent = data.chapterText;
+          
+          let currentOrder = 0;
+          
+          // For each highlighted verse, create a verse block and its companion insight block in sequence
+          data.blocks.forEach((b: any) => {
+            // 1. Create the Verse Block (TEXTO_BASE)
+            blocksToCreate.push({
+              type: 'TEXTO_BASE',
+              content: `${b.verseNumber} ${b.verseText}`,
+              order: currentOrder++,
+              metadata: { 
+                reference: `${reference}:${b.verseNumber}`, 
+                bibleSourceId: srcId, 
+                parentVerseId: b.verseNumber.toString() 
+              }
+            });
+
+            // 2. Create the Insight Block if there is a comment
+            if (b.comment) {
+              const blockType = mapLabelToCategory(b.category);
+              blocksToCreate.push({
+                type: blockType,
+                content: b.comment,
+                order: currentOrder++,
+                metadata: { 
+                  reference: `${reference}:${b.verseNumber}`, 
+                  bibleSourceId: srcId, 
+                  parentVerseId: b.verseNumber.toString(),
+                  customLabel: b.category,
+                  customColor: b.color,
+                  verseText: b.verseText,
+                  depth: 1 // Nest this block under the verse
+                }
+              });
+            }
+          });
+        }
+      } catch (e) {
+        // Fallback for simple markdown content
+        blocksToCreate.push({
+          type: 'TEXTO_BASE',
+          content: content,
+          order: 0,
+          metadata: { reference, bibleSourceId: srcId, parentVerseId: 'ALL' }
+        });
+      }
 
       const res = await fetch(`${environment.apiUrl}/sermons`, {
         method: 'POST',
@@ -60,20 +119,14 @@ export default function Home() {
           status: 'DRAFT',
           authorId: session.user.id,
           bibleSources: [
-            { id: srcId, reference, content }
+            { id: srcId, reference: `${reference} (Completo)`, content: finalBibleSourceContent }
           ],
           blocks: {
-            create: [
-              {
-                type: 'TEXTO_BASE',
-                content: content,
-                order: 0,
-                metadata: { reference, bibleSourceId: srcId, parentVerseId }
-              }
-            ]
+            create: blocksToCreate
           }
         })
       });
+
       if (res.ok) {
         const newSermon = await res.json();
         setActiveSermon(newSermon);

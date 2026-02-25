@@ -20,31 +20,49 @@
 }
 
 :root {
-  /* LIGHT THEME (Pristine Apple White) */
-  --bg-primary: #ffffff;
-  --bg-surface: #f9f9fb;
-  --text-primary: #121213;
-  --text-secondary: #6e6e73;
-  --border-color: #e5e5ea;
-  --glow-opacity: 0.05;
-  --glass-bg: rgba(255, 255, 255, 0.75);
+  /* LIGHT THEME (Premium Studio White) */
+  --bg-primary: #f8fafc;
+  --bg-surface: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --border-color: #e2e8f0;
+  --glow-opacity: 0.1;
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  
+  /* Unified Theological Palette - Light Optimized */
+  --color-texto: #6366f1;      
+  --color-exegese: #4f46e5;    
+  --color-aplicacao: #d97706;  
+  --color-ilustracao: #059669; 
+  --color-enfase: #e11d48;     
+  --color-custom: #64748b;     
 }
 
 .dark {
-  /* DARK THEME (Midnight Premium) */
-  --bg-primary: #050505; /* Deep Midnight */
-  --bg-surface: #0c0c0e; /* Slightly lighter surface */
-  --text-primary: #fcfcfc;
-  --text-secondary: #9a9a9e;
-  --border-color: #1a1a1d;
-  --glow-opacity: 0.2;
-  --glass-bg: rgba(10, 10, 12, 0.7);
+  /* DARK THEME (Sophisticated Ink & Slate) */
+  --bg-primary: #0a0b0d;   /* Deep charcoal ink */
+  --bg-surface: #121418;   /* Elevated surface */
+  --text-primary: #f8fafc;  /* Pristine text for readability */
+  --text-secondary: #94a3b8; /* Slate grey for hierarchy */
+  --border-color: #262933;  /* Well-defined boundaries */
+  --glow-opacity: 0.3;
+  --glass-bg: rgba(10, 11, 13, 0.8);
+  
+  /* Unified Theological Palette - Dark Optimized */
+  --color-texto: #818cf8;      
+  --color-exegese: #6366f1;    
+  --color-aplicacao: #fbbf24;  
+  --color-ilustracao: #10b981; 
+  --color-enfase: #f43f5e;     
+  --color-custom: #94a3b8;     
 }
 
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 @layer base {

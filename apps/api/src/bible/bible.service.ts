@@ -107,6 +107,30 @@ export class BibleService {
         return results;
     }
 
+    private lookupBookAbbrev(name: string): string | null {
+        const normalized = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+        const map = {
+            'genesis': 'gn', 'exodo': 'ex', 'levitico': 'lv', 'numeros': 'nm', 'deuteronomio': 'dt',
+            'josue': 'js', 'juizes': 'jz', 'rute': 'rt', '1samuel': '1sm', '2samuel': '2sm',
+            '1reis': '1rs', '2reis': '2rs', '1cronicas': '1cr', '2cronicas': '2cr',
+            'esdras': 'ed', 'neemias': 'ne', 'ester': 'et', 'job': 'job', 'salmos': 'sl',
+            'proverbios': 'pv', 'eclesiastes': 'ec', 'cantares': 'ct', 'isaias': 'is',
+            'jeremias': 'jr', 'lamentacoes': 'lm', 'ezequiel': 'ez', 'daniel': 'dn',
+            'oseias': 'os', 'joel': 'jl', 'amos': 'am', 'obadias': 'ob', 'jonas': 'jn',
+            'miqueias': 'mq', 'naum': 'na', 'habacuque': 'hc', 'sofonias': 'sf', 'ageu': 'ag',
+            'zacarias': 'zc', 'malaquias': 'ml', 'mateus': 'mt', 'marcos': 'mc', 'lucas': 'lc',
+            'joao': 'jo', 'atos': 'at', 'romanos': 'rm', '1corintios': '1co', '2corintios': '2co',
+            'galatas': 'gl', 'efesios': 'ef', 'filipenses': 'fp', 'colossenses': 'cl',
+            '1tessalonicenses': '1ts', '2tessalonicenses': '2ts', '1timoteo': '1tm', '2timoteo': '2tm',
+            'tito': 'tt', 'filemon': 'fm', 'hebreus': 'hb', 'tiago': 'tg', '1pedro': '1pe',
+            '2pedro': '2pe', '1joao': '1jo', '2joao': '2jo', '3joao': '3jo', 'judas': 'jd', 'apocalipse': 'ap'
+        };
+        const exact = map[normalized as keyof typeof map];
+        if (exact) return exact;
+        const partial = Object.entries(map).find(([k]) => k.startsWith(normalized));
+        return partial ? partial[1] : null;
+    }
+
     async search(version: string, text: string) {
         const query = text.trim();
         // If text looks like a reference (e.g. "Genesis 1" or "João 3:16")
@@ -115,25 +139,36 @@ export class BibleService {
 
         if (match) {
             try {
-                const passage = encodeURIComponent(query);
-                const res = await axios.get(`${this.fallbackUrl}/${passage}?translation=almeida`);
-                if (res.data && res.data.verses && res.data.verses.length > 0) {
-                    return {
-                        occurrence: res.data.verses.length,
-                        verses: res.data.verses.map((v: any) => ({
-                            book: { name: v.book_name, abbrev: v.book_id },
-                            chapter: v.chapter,
-                            number: v.verse,
-                            text: v.text.trim()
-                        }))
-                    };
+                const bookName = match[1];
+                const chapter = parseInt(match[2]);
+                const verse = match[3] ? parseInt(match[3]) : null;
+
+                const abbrev = this.lookupBookAbbrev(bookName);
+                if (abbrev) {
+                    const chapterData = await this.getChapter(version, abbrev, chapter);
+                    if (chapterData && chapterData.verses) {
+                        let matchingVerses = chapterData.verses;
+                        if (verse) {
+                            matchingVerses = matchingVerses.filter((v: any) => v.number == verse);
+                        }
+
+                        return {
+                            occurrence: matchingVerses.length,
+                            verses: matchingVerses.map((v: any) => ({
+                                book: { name: chapterData.book?.name || bookName, abbrev: abbrev },
+                                chapter: chapter,
+                                number: v.number,
+                                text: v.text.trim()
+                            }))
+                        };
+                    }
                 }
             } catch (e) {
-                console.warn("Search as passage failed, continuing to full-text search", e.message);
+                console.warn("Search as passage by getChapter failed", e.message);
             }
         }
 
-        // Full-text search (Thematic) - abibliadigital is best for this
+        // Full-text// Full-text search (Thematic) - abibliadigital is best for this
         try {
             const response = await axios.post(`${this.baseUrl}/verses/search`, {
                 version,

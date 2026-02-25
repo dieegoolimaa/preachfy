@@ -38,11 +38,14 @@ export class SermonService {
 
   async updateSermon(
     id: string,
-    data: Prisma.SermonUpdateInput,
+    data: Prisma.SermonUpdateInput | any,
   ): Promise<Sermon> {
+    // Remove invalid injected properties from partial payloads sent by sockets or front-end
+    const { id: _id, authorId, createdAt, updatedAt, blocks, history, _count, ...safeData } = data as any;
+
     return this.prisma.sermon.update({
       where: { id },
-      data,
+      data: safeData,
       include: {
         blocks: { orderBy: { order: 'asc' } }
       },

@@ -301,7 +301,7 @@ export default function DashboardView({ onEdit, onStart, onBible }: DashboardVie
 
                       <button 
                         onClick={() => handleDeleteSermon(sermon.id, sermon.title)}
-                        className="w-12 h-12 flex items-center justify-center rounded-[1.25rem] glass text-red-500 hover:bg-red-500 hover:text-white border-white/5 transition-all active:scale-95"
+                        className="w-12 h-12 flex items-center justify-center rounded-[1.25rem] bg-surface border border-border text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all active:scale-95 shadow-sm"
                         title="Deletar Sermão"
                       >
                         <Trash2 className="w-4 h-4" />

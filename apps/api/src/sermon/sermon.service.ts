@@ -46,6 +46,14 @@ export class SermonService {
   }
 
   async deleteSermon(id: string): Promise<Sermon> {
+    // Apaga os registros dependentes para evitar erro P2014
+    await this.prisma.ministryHistory.deleteMany({
+      where: { sermonId: id },
+    });
+    await this.prisma.block.deleteMany({
+      where: { sermonId: id },
+    });
+
     return this.prisma.sermon.delete({
       where: { id },
     });

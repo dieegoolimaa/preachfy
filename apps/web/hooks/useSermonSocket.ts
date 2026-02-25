@@ -11,7 +11,8 @@ export const useSermonSocket = (sermonId: string) => {
     const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
 
     useEffect(() => {
-        const socket = io('http://localhost:3001');
+        const { environment } = require('@/environments');
+        const socket = io(environment.apiUrl);
         socketRef.current = socket;
 
         socket.on('connect', () => {

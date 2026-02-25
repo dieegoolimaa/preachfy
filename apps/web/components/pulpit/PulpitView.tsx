@@ -67,11 +67,42 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
   const [showContextPeek, setShowContextPeek] = useState(false);
   const [insights, setInsights] = useState<any[]>([]);
   const [showToast, setShowToast] = useState<string | null>(null);
+  const [searchMode, setSearchMode] = useState<'SERMON' | 'GLOBAL'>('SERMON');
+  const [bibleResults, setBibleResults] = useState<any[]>([]);
+  const [selectedVersion, setSelectedVersion] = useState('nvi');
+  const [isBibleSearching, setIsBibleSearching] = useState(false);
 
   // Refs for auto-scroll
   const hudScrollRef = useRef<HTMLDivElement>(null);
   const contextScrollRef = useRef<HTMLDivElement>(null);
   const activeVerseRef = useRef<HTMLDivElement>(null);
+
+  const handleGlobalSearch = async (query: string) => {
+    if (query.length < 3) {
+      setBibleResults([]);
+      return;
+    }
+    setIsBibleSearching(true);
+    const { environment } = require('@/environments');
+    try {
+      const res = await fetch(`${environment.apiUrl}/bible/search?version=${selectedVersion}&text=${encodeURIComponent(query)}`);
+      if (!res.ok) throw new Error('Bible search failed');
+      const data = await res.json();
+      setBibleResults(data.verses || []);
+    } catch (e) {
+      console.error("Bible search error", e);
+      setBibleResults([]);
+    } finally {
+      setIsBibleSearching(false);
+    }
+  };
+
+  useEffect(() => {
+    if (searchMode === 'GLOBAL' && searchQuery.length > 2) {
+      const timer = setTimeout(() => handleGlobalSearch(searchQuery), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [searchQuery, searchMode, selectedVersion]);
   
   const saveInsight = (verse: any, source: any) => {
     const newInsight = {
@@ -108,9 +139,10 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
 
   // Initial Fetch
   useEffect(() => {
+    const { environment } = require('@/environments');
     const fetchSermon = async () => {
       try {
-        const res = await fetch(`http://localhost:3001/sermons/${sermonId}`);
+        const res = await fetch(`${environment.apiUrl}/sermons/${sermonId}`);
         const data = await res.json();
         setSermonMeta(data);
         if (data && data.blocks) {
@@ -510,31 +542,34 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                     </button>
                   </div>
 
-                   <div className="flex-1 overflow-y-auto custom-scrollbar-premium pr-8" ref={contextScrollRef}>
-                    {parseBibleContent(finalSource?.content).map(v => {
-                      const isTarget = String(v.v) === finalVerseId;
-                      return (
-                        <div 
-                          key={v.v} 
-                          ref={isTarget ? activeVerseRef : null}
-                          className={cn(
-                            "text-3xl font-serif leading-[1.6] mb-14 flex gap-12 transition-all duration-1000 relative group/line",
-                            isTarget ? "text-foreground opacity-100 italic" : "text-foreground/15 hover:opacity-40"
-                          )}
-                        >
-                          <span className="font-mono text-2xl opacity-40 shrink-0 mt-3 font-black tabular-nums border-r border-white/5 pr-8 min-w-[80px] text-right">{v.v}</span>
-                          <p className="flex-1">{v.text}</p>
-                          
-                          {/* SAVE INSIGHT BUTTON IN CONTEXT PEEK */}
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); saveInsight(v, finalSource); }}
-                            className="absolute -right-4 top-2 w-12 h-12 rounded-full glass border-white/10 flex items-center justify-center opacity-0 group-hover/line:opacity-100 transition-all hover:bg-indigo-600 hover:text-white"
+                   <div className="flex-1 overflow-y-auto custom-scrollbar-premium pr-8 pb-32" ref={contextScrollRef}>
+                    <div className="font-serif leading-[1.8] text-justify">
+                      {parseBibleContent(finalSource?.content).map(v => {
+                        const isTarget = String(v.v) === finalVerseId;
+                        return (
+                          <span 
+                            key={v.v} 
+                            ref={isTarget ? activeVerseRef : null}
+                            className={cn(
+                              "relative transition-all duration-1000 inline rounded-xl px-2 py-1 group/line cursor-pointer",
+                              isTarget ? "text-foreground opacity-100 bg-indigo-500/10 shadow-[inset_0_0_20px_rgba(99,102,241,0.1)]" : "text-foreground/40 hover:opacity-100 hover:bg-white/5"
+                            )}
                           >
-                            <Sparkles className="w-5 h-5" />
-                          </button>
-                        </div>
-                      );
-                    })}
+                            <span className="text-2xl font-bold text-indigo-500 mr-2 select-none align-super">{v.v}</span>
+                            <span className="text-4xl leading-relaxed">{v.text} </span>
+                            
+                            {/* SAVE INSIGHT BUTTON IN CONTEXT PEEK */}
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); saveInsight(v, finalSource); }}
+                              className="absolute -top-12 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full glass border-white/10 flex items-center justify-center opacity-0 group-hover/line:opacity-100 transition-all hover:bg-indigo-600 hover:text-white hover:scale-110 active:scale-90 shadow-2xl z-20"
+                              title="Salvar como Insight"
+                            >
+                              <Sparkles className="w-5 h-5" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
                   </div>
                 </motion.div>
               </>
@@ -626,6 +661,46 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                   </button>
                </div>
 
+               <div className="flex items-center gap-6 mb-8">
+                 <div className="flex bg-surface/50 backdrop-blur-xl rounded-full p-1 border border-white/5">
+                   <button 
+                     onClick={() => setSearchMode('SERMON')}
+                     className={cn(
+                       "px-8 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
+                       searchMode === 'SERMON' ? "bg-indigo-600 text-white shadow-lg" : "text-foreground/40 hover:text-foreground"
+                     )}
+                   >
+                     Meu Sermão
+                   </button>
+                   <button 
+                     onClick={() => setSearchMode('GLOBAL')}
+                     className={cn(
+                       "px-8 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
+                       searchMode === 'GLOBAL' ? "bg-indigo-600 text-white shadow-lg" : "text-foreground/40 hover:text-foreground"
+                     )}
+                   >
+                     Bíblia Global
+                   </button>
+                 </div>
+
+                 {searchMode === 'GLOBAL' && (
+                   <div className="flex items-center gap-2 bg-surface/50 backdrop-blur-xl rounded-full p-1 border border-white/5">
+                     {['nvi', 'ra', 'acf'].map(v => (
+                       <button 
+                         key={v}
+                         onClick={() => setSelectedVersion(v)}
+                         className={cn(
+                           "w-12 h-8 rounded-full text-[9px] font-black uppercase transition-all",
+                           selectedVersion === v ? "bg-foreground/10 text-foreground" : "text-foreground/20 hover:text-foreground/60"
+                         )}
+                       >
+                         {v}
+                       </button>
+                     ))}
+                   </div>
+                 )}
+               </div>
+
                <div className="relative group">
                  <Search className="absolute left-10 top-1/2 -translate-y-1/2 w-8 h-8 text-muted-foreground/30 group-focus-within:text-foreground transition-colors" />
                  <input 
@@ -633,68 +708,119 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                    type="text" 
                    value={searchQuery}
                    onChange={e => setSearchQuery(e.target.value)}
-                   placeholder="Digite um tema ou versículo..."
+                   placeholder={searchMode === 'SERMON' ? "Busque temas, versículos ou notas..." : "Pesquisar na Bíblia toda (ex: Amor, Fé, Jesus)..."}
                    className="w-full bg-surface/50 backdrop-blur-3xl border border-border rounded-[3rem] py-10 pl-24 pr-12 text-4xl font-serif italic font-bold outline-none focus:border-indigo-500/50 transition-all shadow-2xl placeholder:opacity-10"
                  />
+                 {isBibleSearching && (
+                   <div className="absolute right-10 top-1/2 -translate-y-1/2">
+                     <div className="w-8 h-8 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+                   </div>
+                 )}
                </div>
 
-                <div className="grid grid-cols-2 gap-10 overflow-y-auto max-h-[50vh] custom-scrollbar p-2" ref={hudScrollRef}>
-                 <div className="flex flex-col gap-6">
-                    <h3 className="text-[11px] font-sans font-black tracking-[0.3em] uppercase opacity-30 px-2 flex items-center gap-3">
-                      <LayoutGrid className="w-4 h-4" /> SERMÃO
-                    </h3>
-                    {searchQuery.length > 0 ? blocks.filter(b => b.content.toLowerCase().includes(searchQuery.toLowerCase())).map((b, idx) => (
-                      <div key={b.id} onClick={() => { setActiveBlockIndex(blocks.indexOf(b)); setIsHudOpen(false); setSearchQuery(''); }} className="p-6 rounded-2xl bg-surface border border-border hover:border-foreground/30 transition-all cursor-pointer group active:scale-95 shadow-sm">
-                         <div className="flex items-center gap-3 mb-2">
-                           <span className="text-[10px] font-black uppercase text-indigo-500">{b.type}</span>
-                           <span className="text-[10px] opacity-20 uppercase font-black">S{blocks.indexOf(b) + 1}</span>
-                         </div>
-                         <p className="text-lg font-serif group-hover:italic transition-all line-clamp-2">{b.content}</p>
-                      </div>
-                    )) : (
-                      <p className="px-2 py-4 text-[11px] opacity-20 italic font-medium uppercase tracking-widest">Aguardando busca...</p>
-                    )}
-                 </div>
-                 <div className="flex flex-col gap-6">
-                   <h3 className="text-[11px] font-sans font-black tracking-[0.3em] uppercase opacity-30 px-2 flex items-center gap-3">
-                     <Book className="w-4 h-4" /> BÍBLIA
-                   </h3>
-                   {searchQuery.length > 2 ? (sermonMeta?.bibleSources || []).map((source: any) => (
-                      parseBibleContent(source.content)
-                        .filter(v => v.text.toLowerCase().includes(searchQuery.toLowerCase()))
-                        .map((verse) => (
-                          <div key={`${source.id}-${verse.v}`} className="relative group/search-verse">
-                            <div 
-                              onClick={() => { setIsHudOpen(false); jumpToSourceVerse(source.id, String(verse.v)); setSearchQuery(''); }} 
-                              className="group/verse flex gap-6 items-start cursor-pointer transition-all bg-surface border border-border hover:border-indigo-500/30 p-6 rounded-2xl shadow-sm active:scale-95"
-                            >
-                              <span className="text-lg font-mono text-muted-foreground/30 font-bold mt-1 shrink-0">{verse.v}</span>
-                              <div className="flex flex-col gap-2 flex-1">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[10px] font-black tracking-widest uppercase text-indigo-500">{source.reference}:{verse.v}</span>
-                                  {/* Focus Ribbon Indicator for search */}
-                                  {source.id === activeSourceId && String(verse.v) === activeVerseId && (
-                                    <motion.div layoutId="focus-ribbon" className="h-0.5 w-12 bg-indigo-500 rounded-full" />
-                                  )}
-                                </div>
-                                <p className="text-lg font-serif text-foreground/80 leading-snug group-hover/verse:text-foreground transition-colors line-clamp-4">{verse.text}</p>
-                              </div>
-                            </div>
-                            
-                            {/* SAVE INSIGHT BUTTON IN SEARCH HUD */}
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); saveInsight(verse, source); }}
-                              className="absolute right-4 top-4 w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center opacity-0 group-hover/search-verse:opacity-100 transition-all shadow-xl hover:scale-110 active:scale-90 z-10"
-                            >
-                              <Sparkles className="w-4 h-4" />
-                            </button>
+                <div className="w-full overflow-y-auto max-h-[55vh] custom-scrollbar p-2" ref={hudScrollRef}>
+                  {searchMode === 'SERMON' ? (
+                    <div className="grid grid-cols-2 gap-10">
+                      <div className="flex flex-col gap-6">
+                        <h3 className="text-[11px] font-sans font-black tracking-[0.3em] uppercase opacity-30 px-2 flex items-center gap-3">
+                          <LayoutGrid className="w-4 h-4" /> SERMÃO
+                        </h3>
+                        {searchQuery.length > 0 ? blocks.filter(b => 
+                          b.content.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          b.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          b.metadata?.customLabel?.toLowerCase().includes(searchQuery.toLowerCase())
+                        ).map((b, idx) => (
+                          <div key={b.id} onClick={() => { setActiveBlockIndex(blocks.indexOf(b)); setIsHudOpen(false); setSearchQuery(''); }} className="p-6 rounded-2xl bg-surface border border-border hover:border-foreground/30 transition-all cursor-pointer group active:scale-95 shadow-sm">
+                             <div className="flex items-center gap-3 mb-2">
+                               <span className="text-[10px] font-black uppercase text-indigo-500">{b.type}</span>
+                               <span className="text-[10px] opacity-20 uppercase font-black">S{blocks.indexOf(b) + 1}</span>
+                             </div>
+                             <p className="text-lg font-serif group-hover:italic transition-all line-clamp-2">{b.content}</p>
                           </div>
-                        ))
-                   )) : (
-                      <p className="px-2 py-4 text-[11px] opacity-20 italic font-medium uppercase tracking-widest">3+ caracteres...</p>
-                   )}
-                 </div>
-               </div>
+                        )) : (
+                          <p className="px-2 py-4 text-[11px] opacity-20 italic font-medium uppercase tracking-widest">Aguardando busca...</p>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-6">
+                        <h3 className="text-[11px] font-sans font-black tracking-[0.3em] uppercase opacity-30 px-2 flex items-center gap-3">
+                          <Book className="w-4 h-4" /> BÍBLIA
+                        </h3>
+                        {searchQuery.length > 1 ? (sermonMeta?.bibleSources || []).map((source: any) => (
+                          parseBibleContent(source.content)
+                            .filter(v => 
+                              v.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                              source.reference.toLowerCase().includes(searchQuery.toLowerCase())
+                            )
+                            .map((verse) => (
+                              <div key={`${source.id}-${verse.v}`} className="relative group/search-verse">
+                                <div 
+                                  onClick={() => { setIsHudOpen(false); jumpToSourceVerse(source.id, String(verse.v)); setSearchQuery(''); }} 
+                                  className="group/verse flex gap-6 items-start cursor-pointer transition-all bg-surface border border-border hover:border-indigo-500/30 p-6 rounded-2xl shadow-sm active:scale-95"
+                                >
+                                  <span className="text-lg font-mono text-muted-foreground/30 font-bold mt-1 shrink-0">{verse.v}</span>
+                                  <div className="flex flex-col gap-2 flex-1">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[10px] font-black tracking-widest uppercase text-indigo-500">{source.reference}:{verse.v}</span>
+                                      {/* Focus Ribbon Indicator for search */}
+                                      {source.id === activeSourceId && String(verse.v) === activeVerseId && (
+                                        <motion.div layoutId="focus-ribbon" className="h-0.5 w-12 bg-indigo-500 rounded-full" />
+                                      )}
+                                    </div>
+                                    <p className="text-lg font-serif text-foreground/80 leading-snug group-hover/verse:text-foreground transition-colors line-clamp-4">{verse.text}</p>
+                                  </div>
+                                </div>
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); saveInsight(verse, source); }}
+                                  className="absolute right-4 top-4 w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center opacity-0 group-hover/search-verse:opacity-100 transition-all shadow-xl hover:scale-110 active:scale-90 z-10"
+                                >
+                                  <Sparkles className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))
+                        )) : (
+                          <p className="px-2 py-4 text-[11px] opacity-20 italic font-medium uppercase tracking-widest">3+ caracteres...</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-6">
+                      <h3 className="text-[11px] font-sans font-black tracking-[0.3em] uppercase opacity-30 px-2 flex items-center gap-3">
+                        <Sparkles className="w-4 h-4" /> RESULTADOS BÍBLIA GLOBAL ({selectedVersion.toUpperCase()})
+                      </h3>
+                      <div className="grid grid-cols-2 gap-8">
+                        {bibleResults.length > 0 ? bibleResults.map((verse: any, idx: number) => (
+                          <div 
+                            key={idx}
+                            onClick={() => {
+                              const tempSource = { id: `global-${Date.now()}`, reference: `${verse.book.name} ${verse.chapter}:${verse.number}`, content: `${verse.number} ${verse.text}` };
+                              setSermonMeta((prev: any) => ({
+                                ...prev,
+                                bibleSources: [...(prev.bibleSources || []), tempSource]
+                              }));
+                              jumpToSourceVerse(tempSource.id, String(verse.number));
+                              setIsHudOpen(false);
+                            }}
+                            className="p-8 rounded-3xl bg-surface/30 border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group active:scale-95 shadow-xl backdrop-blur-md"
+                          >
+                             <div className="flex items-center justify-between mb-4">
+                               <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500">
+                                 {verse.book.name} {verse.chapter}:${verse.number}
+                               </span>
+                               <span className="text-[10px] opacity-20 font-black">{selectedVersion.toUpperCase()}</span>
+                             </div>
+                             <p className="text-xl font-serif text-foreground/80 leading-snug group-hover:text-foreground transition-colors italic">"{verse.text}"</p>
+                          </div>
+                        )) : (
+                          <div className="col-span-2 py-32 text-center">
+                             <p className="text-[11px] opacity-20 italic font-medium uppercase tracking-widest">
+                               {searchQuery.length < 3 ? 'Digite ao menos 3 letras para pesquisar na Bíblia toda...' : 'Nenhum versículo encontrado.'}
+                             </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
             </div>
           </motion.div>
         )}

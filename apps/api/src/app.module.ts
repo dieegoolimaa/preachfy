@@ -6,9 +6,12 @@ import { PrismaService } from './prisma.service';
 import { SermonService } from './sermon/sermon.service';
 import { SermonController } from './sermon/sermon.controller';
 
+import { BibleService } from './bible/bible.service';
+import { BibleController } from './bible/bible.controller';
+
 @Module({
   imports: [],
-  controllers: [AppController, SermonController],
-  providers: [AppService, SermonGateway, PrismaService, SermonService],
+  controllers: [AppController, SermonController, BibleController],
+  providers: [AppService, SermonGateway, PrismaService, SermonService, BibleService],
 })
-export class AppModule {}
+export class AppModule { }

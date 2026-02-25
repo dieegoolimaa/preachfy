@@ -4,13 +4,15 @@ import { useState } from "react";
 import PulpitView from "@/components/pulpit/PulpitView";
 import SermonCanvas from "@/components/study/SermonCanvas";
 import DashboardView, { SermonMeta } from "@/components/dashboard/DashboardView";
+import BibleExplorer from "@/components/dashboard/BibleExplorer";
 import LandingView from "@/components/LandingView";
 import { useSession } from "next-auth/react";
 import { Loader2 } from "lucide-react";
 
-type ViewState = 'dashboard' | 'study' | 'pulpit';
+type ViewState = 'dashboard' | 'study' | 'pulpit' | 'bible';
 
 export default function Home() {
+  const { environment } = require('@/environments');
   const { data: session, status } = useSession();
   const [view, setView] = useState<ViewState>('dashboard');
   const [activeSermon, setActiveSermon] = useState<SermonMeta | null>(null);
@@ -39,12 +41,49 @@ export default function Home() {
     setView('pulpit');
   };
 
+  const handleCreateSermonFromBible = async (reference: string, content: string) => {
+    if (!session?.user?.id) return;
+    try {
+      const res = await fetch(`${environment.apiUrl}/sermons`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `Estudo: ${reference}`,
+          category: 'Estudo Bíblico',
+          status: 'DRAFT',
+          authorId: session.user.id,
+          bibleSources: [
+            { id: `src-${Date.now()}`, reference, content }
+          ],
+          blocks: {
+            create: [
+              {
+                type: 'TEXTO_BASE',
+                content: content,
+                order: 0,
+                metadata: { reference, bibleSourceId: `src-${Date.now()}` }
+              }
+            ]
+          }
+        })
+      });
+      if (res.ok) {
+        const newSermon = await res.json();
+        setActiveSermon(newSermon);
+        setView('study');
+      }
+    } catch (e) {
+      console.error("Failed to create sermon from bible", e);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-background relative">
       {view === 'dashboard' && (
         <DashboardView 
           onEdit={handleEditSermon} 
-          onStart={handleStartPulpit} 
+          onStart={handleStartPulpit}
+          onBible={() => setView('bible')}
         />
       )}
       
@@ -68,6 +107,13 @@ export default function Home() {
             onStudy={() => setView('study')}
           />
         </div>
+      )}
+
+      {view === 'bible' && (
+        <BibleExplorer 
+          onBack={() => setView('dashboard')} 
+          onCreateSermon={handleCreateSermonFromBible}
+        />
       )}
     </main>
   );

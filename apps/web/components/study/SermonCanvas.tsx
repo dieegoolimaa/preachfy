@@ -75,9 +75,10 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
     }
   }, [sermonMeta?.title, loading]);
   useEffect(() => {
+    const { environment } = require('@/environments');
     const fetchSermon = async () => {
       try {
-        const res = await fetch(`http://localhost:3001/sermons/${sermonId}`);
+        const res = await fetch(`${environment.apiUrl}/sermons/${sermonId}`);
         const data = await res.json();
         setSermonMeta(data);
         if (data && data.blocks) {
@@ -185,15 +186,16 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
         bibleSources: sermonMeta.bibleSources,
       };
 
+      const { environment } = require('@/environments');
       // Save metadata
-      await fetch(`http://localhost:3001/sermons/${sermonId}`, {
+      await fetch(`${environment.apiUrl}/sermons/${sermonId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
       // Save blocks (Sync full sermon on backend)
-      await fetch(`http://localhost:3001/sermons/${sermonId}/sync`, {
+      await fetch(`${environment.apiUrl}/sermons/${sermonId}/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ blocks })
@@ -240,7 +242,8 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
   const handleAddHistory = async () => {
     if (!newHistory.location) return;
     try {
-      const res = await fetch(`http://localhost:3001/sermons/${sermonId}/history`, {
+      const { environment } = require('@/environments');
+      const res = await fetch(`${environment.apiUrl}/sermons/${sermonId}/history`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...newHistory })
@@ -662,7 +665,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
                   <div className="grid grid-cols-2 gap-8">
                     <div className="flex flex-col gap-2.5">
                       <label className="text-[11px] font-mono font-bold uppercase tracking-[0.2em] opacity-40 ml-1">Categoria</label>
-                      <select value={sermonMeta?.category || 'Geral'} onChange={e => handleMetaChange('category', e.target.value)} className="w-full bg-surface border border-border rounded-2xl px-5 py-3 text-xs font-black uppercase tracking-widest outline-none focus:border-foreground transition-all">{['Geral', 'Evangelística', 'Expositiva', 'Temática', 'Doutrinária', 'Festiva'].map(c => <option key={c} value={c}>{c}</option>)}</select>
+                      <select value={sermonMeta?.category || 'Geral'} onChange={e => handleMetaChange('category', e.target.value)} className="w-full bg-surface border border-border rounded-2xl px-5 py-3 text-xs font-black uppercase tracking-widest outline-none focus:border-foreground transition-all">{['Geral', 'Evangelística', 'Expositiva', 'Temática', 'Doutrinária', 'Festiva', 'Estudo Bíblico'].map(c => <option key={c} value={c}>{c}</option>)}</select>
                     </div>
                     <div className="flex flex-col gap-2.5">
                       <label className="text-[11px] font-mono font-bold uppercase tracking-[0.2em] opacity-40 ml-1">Status</label>

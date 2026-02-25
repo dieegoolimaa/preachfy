@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit2, Play, Clock, MoreVertical, Calendar, Search, History, Sparkles, ChevronRight, X, Zap, BookOpen, Layout } from 'lucide-react';
+import { Plus, Edit2, Play, Clock, MoreVertical, Calendar, Search, History, Sparkles, ChevronRight, X, Zap, BookOpen, Layout, Trash2 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -12,6 +12,7 @@ function cn(...inputs: ClassValue[]) {
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useSession } from "next-auth/react";
 import { UserMenu } from "@/components/auth-components";
+
 
 export interface SermonMeta {
   id: string;
@@ -27,9 +28,10 @@ export interface SermonMeta {
 interface DashboardViewProps {
   onEdit: (sermon: SermonMeta) => void;
   onStart: (sermon: SermonMeta, timeInMinutes: number) => void;
+  onBible: () => void;
 }
 
-export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
+export default function DashboardView({ onEdit, onStart, onBible }: DashboardViewProps) {
   const { data: session } = useSession();
   const [sermons, setSermons] = useState<SermonMeta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,13 +40,20 @@ export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [newSermonData, setNewSermonData] = useState({ title: '', category: 'Geral' });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+
+  const CATEGORIES = ['Geral', 'Evangelística', 'Expositiva', 'Temática', 'Doutrinária', 'Festiva', 'Estudo Bíblico'];
+
+  const { environment } = require('@/environments');
+  const apiUrl = environment.apiUrl;
 
   useEffect(() => {
     if (!session?.user?.id) return;
     
     const fetchSermons = async () => {
       try {
-        const res = await fetch(`http://localhost:3001/sermons?authorId=${session?.user?.id}`);
+        const res = await fetch(`${apiUrl}/sermons?authorId=${session?.user?.id}`);
         const data = await res.json();
         setSermons(data.map((s: any) => ({
           ...s,
@@ -66,7 +75,7 @@ export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
   const handleCreateNew = async () => {
     if (!newSermonData.title) return;
     try {
-      const res = await fetch('http://localhost:3001/sermons', {
+      const res = await fetch(`${apiUrl}/sermons`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -90,13 +99,27 @@ export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
     }
   };
 
+
+
+  const handleDeleteSermon = async (id: string, title: string) => {
+    if (!confirm(`Tem certeza que deseja deletar "${title}"?`)) return;
+    try {
+      const res = await fetch(`${apiUrl}/sermons/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setSermons(sermons.filter(s => s.id !== id));
+      }
+    } catch (e) {
+      console.error("Failed to delete sermon", e);
+    }
+  };
+
   const handleSeed = async () => {
     if (!session?.user?.id) return;
     setLoading(true);
     try {
-      await fetch(`http://localhost:3001/sermons/seed?authorId=${session.user.id}`, { method: 'POST' });
+      await fetch(`${apiUrl}/sermons/seed?authorId=${session.user.id}`, { method: 'POST' });
       // Refresh
-      const res = await fetch(`http://localhost:3001/sermons?authorId=${session.user.id}`);
+      const res = await fetch(`${apiUrl}/sermons?authorId=${session.user.id}`);
       const data = await res.json();
       setSermons(data.map((s: any) => ({
         ...s,
@@ -118,6 +141,13 @@ export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
         </h1>
         <div className="flex items-center gap-8">
           <ThemeToggle />
+          <button 
+            onClick={onBible}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 hover:bg-indigo-500 hover:text-white transition-all text-[11px] font-black uppercase tracking-widest group"
+          >
+            <BookOpen className="w-4 h-4 group-hover:scale-110 transition-transform" />
+            Bíblia
+          </button>
           <UserMenu />
         </div>
       </header>
@@ -269,6 +299,13 @@ export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
                         <Play className="w-5 h-5 ml-0.5 fill-current" />
                       </button>
 
+                      <button 
+                        onClick={() => handleDeleteSermon(sermon.id, sermon.title)}
+                        className="w-12 h-12 flex items-center justify-center rounded-[1.25rem] glass text-red-500 hover:bg-red-500 hover:text-white border-white/5 transition-all active:scale-95"
+                        title="Deletar Sermão"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -329,8 +366,8 @@ export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
 
                   <div className="flex flex-col gap-4">
                     <label className="text-[11px] font-sans font-black uppercase tracking-[0.3em] opacity-40 ml-1">Selecione a Categoria</label>
-                    <div className="grid grid-cols-3 gap-4">
-                      {['Geral', 'Evangelística', 'Expositiva', 'Temática', 'Doutrinária', 'Festiva'].map(cat => (
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      {CATEGORIES.map(cat => (
                         <button
                           key={cat}
                           onClick={() => setNewSermonData({...newSermonData, category: cat})}
@@ -368,6 +405,8 @@ export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
           </>
         )}
       </AnimatePresence>
+
+
     </div>
   );
 }

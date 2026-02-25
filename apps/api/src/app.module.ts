@@ -8,9 +8,10 @@ import { SermonController } from './sermon/sermon.controller';
 
 import { BibleService } from './bible/bible.service';
 import { BibleController } from './bible/bible.controller';
+import { InsightModule } from './insight/insight.module';
 
 @Module({
-  imports: [],
+  imports: [InsightModule],
   controllers: [AppController, SermonController, BibleController],
   providers: [AppService, SermonGateway, PrismaService, SermonService, BibleService],
 })

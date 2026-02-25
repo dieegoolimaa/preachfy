@@ -13,6 +13,7 @@ import { twMerge } from 'tailwind-merge';
 import { useSermonSocket } from '@/hooks/useSermonSocket';
 import { useGesture } from '@use-gesture/react';
 import { BookOpen, HelpCircle, Target, Lightbulb, AlertTriangle } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -54,6 +55,7 @@ const parseBibleContent = (content: string) => {
 };
 
 export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: PulpitViewProps) {
+  const { data: session } = useSession();
   const { latestBlocks, latestMeta, isConnected, syncCanvas, syncMeta } = useSermonSocket(sermonId);
   const [blocks, setBlocks] = useState<any[]>([]);
   const [sermonMeta, setSermonMeta] = useState<any>(null);
@@ -70,6 +72,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
   const [bibleResults, setBibleResults] = useState<any[]>([]);
   const [selectedVersion, setSelectedVersion] = useState('nvi');
   const [isBibleSearching, setIsBibleSearching] = useState(false);
+  const [isTopicMode, setIsTopicMode] = useState(false);
 
   // Refs for auto-scroll
   const hudScrollRef = useRef<HTMLDivElement>(null);
@@ -149,6 +152,38 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
     setBlocks(updatedBlocks);
     syncCanvas(updatedBlocks as any);
     if (finalize) setShowToast("Insight integrado ao Estudo!");
+  };
+
+  const saveGlobalInsight = async (verse: any) => {
+    if (!session?.user?.id) {
+       setShowToast("Erro: Sessão não encontrada");
+       setTimeout(() => setShowToast(null), 3000);
+       return;
+    }
+    
+    const bookName = verse.book?.name || verse.book_name;
+    const chap = verse.chapter;
+    const num = verse.number || verse.verse;
+    const globalRef = `${bookName} ${chap}:${num}`;
+
+    try {
+      const { environment } = require('@/environments');
+      await fetch(`${environment.apiUrl}/insights`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: session.user.id,
+          reference: globalRef,
+          verseText: verse.text,
+        })
+      });
+      setShowToast(`Devocional Global Salvo!`);
+      setTimeout(() => setShowToast(null), 3000);
+    } catch (e) {
+      console.error(e);
+      setShowToast(`Erro ao salvar insight.`);
+      setTimeout(() => setShowToast(null), 3000);
+    }
   };
   
   // Update local blocks when socket updates
@@ -606,16 +641,30 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
           </div>
 
           <div className="flex items-center gap-10">
+            <button 
+              onClick={() => setIsTopicMode(!isTopicMode)} 
+              className={cn(
+                "flex items-center gap-3 px-5 py-2.5 rounded-full border transition-all",
+                isTopicMode 
+                  ? "bg-foreground text-background border-foreground shadow-[0_0_20px_rgba(255,255,255,0.1)]" 
+                  : "glass border-white/5 text-foreground/40 hover:text-foreground hover:border-white/20"
+              )}
+              title="Modo Tópicos"
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Tópicos</span>
+            </button>
+
             <div onClick={() => setIsHudOpen(true)} className="flex items-center gap-3 cursor-pointer group px-5 py-2.5 rounded-full glass border-white/5 hover:border-white/10 transition-all opacity-40 hover:opacity-100">
               <Search className="w-4 h-4" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Busca</span>
+              <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Busca</span>
             </div>
 
             <div className="flex items-center gap-8">
               <div className="flex flex-col items-end">
                  <span className={cn(
-                   "text-5xl font-mono font-black tabular-nums leading-none tracking-tighter",
-                   timeLeft < 300 ? "text-red-500 animate-pulse" : "text-foreground"
+                   "text-5xl font-mono font-black tabular-nums leading-none tracking-tighter transition-colors",
+                   timeLeft <= 60 ? "text-red-500 animate-pulse" : timeLeft <= 180 ? "text-amber-500" : "text-foreground"
                  )}>
                    {formatTime(timeLeft)}
                  </span>
@@ -707,12 +756,15 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                     ) : (
                       <h1 className={cn(
                         "font-sans font-black italic leading-[1.1] text-foreground transition-all duration-500 select-none drop-shadow-sm break-words whitespace-pre-wrap w-full tracking-tighter text-center",
+                        isTopicMode ? "text-6xl md:text-7xl lg:text-8xl text-indigo-500" :
                         (activeBlock?.content?.length || 0) > 200 ? "text-4xl md:text-5xl lg:text-5xl" :
                         (activeBlock?.content?.length || 0) > 120 ? "text-5xl md:text-6xl lg:text-6xl" :
                         (activeBlock?.content?.length || 0) > 60 ? "text-6xl md:text-7xl lg:text-7xl" :
                         "text-7xl md:text-8xl lg:text-8xl"
                       )}>
-                        {activeBlock?.content}
+                        {isTopicMode 
+                           ? activeBlock?.metadata?.customLabel || CATEGORY_MAP[activeBlock?.type]?.label || activeBlock?.type 
+                           : activeBlock?.content}
                       </h1>
                     )}
                   </div>
@@ -1070,7 +1122,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                         {bibleResults.length > 0 ? bibleResults.map((verse: any, idx: number) => (
                           <div 
                             key={idx}
-                            className="mb-6 pb-6 border-b border-border/30 last:border-0 group hover:bg-indigo-500/[0.02] rounded-xl px-4 py-3 -mx-4 transition-all"
+                            className="mb-6 pb-6 border-b border-border/30 last:border-0 group relative hover:bg-indigo-500/[0.02] rounded-xl px-4 py-3 -mx-4 transition-all"
                           >
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500">
@@ -1078,7 +1130,15 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                               </span>
                               <span className="text-[9px] opacity-20 font-black tracking-widest">{selectedVersion.toUpperCase()}</span>
                             </div>
-                            <p className="text-xl font-serif text-foreground/80 leading-relaxed italic block mt-1">"{verse.text}"</p>
+                            <p className="text-xl font-serif text-foreground/80 leading-relaxed italic block mt-1 pr-12">"{verse.text}"</p>
+                            
+                            <button 
+                              onClick={() => saveGlobalInsight(verse)}
+                              className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-surface border border-border text-foreground/40 hidden group-hover:flex items-center justify-center hover:bg-indigo-600 hover:text-white hover:border-indigo-500 hover:scale-110 active:scale-95 transition-all shadow-sm"
+                              title="Guardar Insight Global"
+                            >
+                              <Sparkles className="w-4 h-4" />
+                            </button>
                           </div>
                         )) : (
                           <div className="col-span-1 py-20 text-center">

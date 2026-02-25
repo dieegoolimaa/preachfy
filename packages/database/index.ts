@@ -6,5 +6,6 @@ export type {
     Account,
     Session,
     VerificationToken,
-    MinistryHistory
+    MinistryHistory,
+    GlobalInsight
 } from '@prisma/client';

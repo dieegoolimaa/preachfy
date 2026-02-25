@@ -16,6 +16,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   sermons       Sermon[]
+  insights      GlobalInsight[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -95,4 +96,16 @@ model Block {
   preached  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model GlobalInsight {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id])
+  reference  String   // Ex: "João 3:16"
+  verseText  String
+  revelation String?
+  tags       String[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }

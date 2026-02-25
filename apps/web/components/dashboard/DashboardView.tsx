@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit2, Play, Clock, MoreVertical, Calendar, Search, History, Sparkles, ChevronRight, X } from 'lucide-react';
+import { Plus, Edit2, Play, Clock, MoreVertical, Calendar, Search, History, Sparkles, ChevronRight, X, Zap, BookOpen, Layout } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -40,9 +40,11 @@ export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
   const [newSermonData, setNewSermonData] = useState({ title: '', category: 'Geral' });
 
   useEffect(() => {
+    if (!session?.user?.id) return;
+    
     const fetchSermons = async () => {
       try {
-        const res = await fetch('http://localhost:3001/sermons');
+        const res = await fetch(`http://localhost:3001/sermons?authorId=${session?.user?.id}`);
         const data = await res.json();
         setSermons(data.map((s: any) => ({
           ...s,
@@ -55,7 +57,7 @@ export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
       }
     };
     fetchSermons();
-  }, []);
+  }, [session?.user?.id]);
 
   const filteredSermons = sermons.filter(s => 
     s.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -70,7 +72,8 @@ export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
         body: JSON.stringify({ 
           title: newSermonData.title, 
           category: newSermonData.category,
-          status: 'DRAFT' 
+          status: 'DRAFT',
+          authorId: session?.user?.id
         })
       });
       const newSermon = await res.json();
@@ -84,6 +87,25 @@ export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
       onEdit(formattedSermon);
     } catch (e) {
       console.error("Failed to create sermon", e);
+    }
+  };
+
+  const handleSeed = async () => {
+    if (!session?.user?.id) return;
+    setLoading(true);
+    try {
+      await fetch(`http://localhost:3001/sermons/seed?authorId=${session.user.id}`, { method: 'POST' });
+      // Refresh
+      const res = await fetch(`http://localhost:3001/sermons?authorId=${session.user.id}`);
+      const data = await res.json();
+      setSermons(data.map((s: any) => ({
+        ...s,
+        date: new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(s.createdAt))
+      })));
+    } catch (e) {
+      console.error("Failed to seed sermons", e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -102,10 +124,10 @@ export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
 
       <main className="flex-1 w-full max-w-6xl mx-auto mt-16 px-12 pb-32">
         {/* Welcome Section */}
-        <div className="mb-16 flex flex-col gap-2">
-          <h2 className="text-4xl font-serif font-bold italic tracking-tight text-foreground">Graça e Paz, {session?.user?.name?.split(' ')[0] || 'Pregador'}.</h2>
-          <p className="text-sm font-sans font-medium text-muted-foreground opacity-60">Sua biblioteca de mensagens está pronta para ser expandida.</p>
-        </div>
+          <div className="flex flex-col gap-2">
+            <h2 className="text-4xl font-serif font-bold italic tracking-tight text-foreground">Graça e Paz, {session?.user?.name?.split(' ')[0] || 'Pregador'}.</h2>
+            <p className="text-sm font-sans font-medium text-muted-foreground opacity-60">Sua biblioteca de mensagens está pronta para ser expandida.</p>
+          </div>
 
         <div className="flex items-center justify-between mb-10">
           <h2 className="text-[11px] font-sans font-black tracking-[0.4em] uppercase text-muted-foreground flex-shrink-0">Meus Sermões</h2>
@@ -121,12 +143,21 @@ export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
             />
           </div>
 
-          <button 
-            onClick={() => setIsCreating(true)}
-            className="flex items-center gap-3 px-8 py-3.5 rounded-full bg-foreground text-background font-sans text-[11px] font-black uppercase tracking-[0.15em] hover:scale-[1.02] active:scale-[0.98] transition-all flex-shrink-0 shadow-xl shadow-foreground/10"
-          >
-            <Plus className="w-4 h-4" /> Criar Novo
-          </button>
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={handleSeed}
+              className="flex items-center gap-3 px-6 py-3.5 rounded-full border border-border text-muted-foreground font-sans text-[11px] font-black uppercase tracking-[0.15em] hover:border-foreground hover:text-foreground transition-all flex-shrink-0"
+            >
+              Exemplo
+            </button>
+
+            <button 
+              onClick={() => setIsCreating(true)}
+              className="flex items-center gap-3 px-8 py-3.5 rounded-full bg-foreground text-background font-sans text-[11px] font-black uppercase tracking-[0.15em] hover:scale-[1.02] active:scale-[0.98] transition-all flex-shrink-0 shadow-xl shadow-foreground/10"
+            >
+              <Plus className="w-4 h-4" /> Criar Novo
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-col gap-4">
@@ -246,9 +277,15 @@ export default function DashboardView({ onEdit, onStart }: DashboardViewProps) {
           ))}
 
           {filteredSermons.length === 0 && !loading && (
-             <div className="py-32 text-center opacity-20 italic">
+             <div className="py-32 text-center opacity-20 italic flex flex-col items-center">
                 <Sparkles className="w-12 h-12 mx-auto mb-6 opacity-40" />
-                <p>Nenhuma pregação encontrada com esses critérios.</p>
+                <p className="mb-8">Nenhuma pregação encontrada com esses critérios.</p>
+                <button 
+                  onClick={handleSeed}
+                  className="px-8 py-4 rounded-full border border-foreground/20 text-foreground text-[11px] font-black uppercase tracking-widest hover:bg-foreground hover:text-background transition-all not-italic opacity-100 group"
+                >
+                  Importar Mensagem de Exemplo
+                </button>
              </div>
           )}
         </div>

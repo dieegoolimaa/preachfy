@@ -6,7 +6,7 @@ import {
   Share2, Clock, Search, Book, Sidebar, ChevronRight, X, 
   Maximize2, Minimize2, ArrowLeft, ArrowRight, MoreVertical, 
   LayoutGrid, Zap, Sparkles, GripVertical, CheckCircle2,
-  Quote, CornerDownRight, LinkIcon, Trash2, Layout
+  Quote, CornerDownRight, LinkIcon, Trash2, Layout, LogOut
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -216,8 +216,8 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
           >
             <div className="p-6 border-b border-border flex items-center justify-between bg-foreground/[0.03]">
               <div>
-                <h2 className="text-xl font-serif font-black italic tracking-tight">Apoio</h2>
-                <p className="text-[10px] font-sans font-black tracking-[0.3em] uppercase opacity-30 mt-0.5">Instrumental</p>
+                <h2 className="text-3xl font-serif font-black italic tracking-tight">Apoio</h2>
+                <p className="text-[15px] font-sans font-black tracking-[0.3em] uppercase opacity-30 mt-0.5">Instrumental</p>
               </div>
             </div>
 
@@ -225,7 +225,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
               <button 
                 onClick={() => setSidebarTab('BIBLIA')}
                 className={cn(
-                  "flex-1 py-4 text-[11px] font-black tracking-[0.3em] uppercase transition-all flex items-center justify-center gap-3",
+                  "flex-1 py-4 text-[16px] font-black tracking-[0.3em] uppercase transition-all flex items-center justify-center gap-3",
                   sidebarTab === 'BIBLIA' ? "text-foreground bg-foreground/5 shadow-[inset_0_-2px_0_var(--foreground)]" : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -234,7 +234,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
               <button 
                 onClick={() => setSidebarTab('ESTRUTURA')}
                 className={cn(
-                  "flex-1 py-4 text-[11px] font-black tracking-[0.3em] uppercase transition-all flex items-center justify-center gap-3",
+                  "flex-1 py-4 text-[16px] font-black tracking-[0.3em] uppercase transition-all flex items-center justify-center gap-3",
                   sidebarTab === 'ESTRUTURA' ? "text-foreground bg-foreground/5 shadow-[inset_0_-2px_0_var(--foreground)]" : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -249,7 +249,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                     <div key={source.id} className="flex flex-col gap-3">
                        <div className="flex items-center gap-2">
                          <div className="h-px flex-1 bg-border/40" />
-                         <div className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-500">{source.reference || 'Texto'}</div>
+                         <div className="text-[14px] font-black uppercase tracking-[0.2em] text-indigo-500">{source.reference || 'Texto'}</div>
                          <div className="h-px flex-1 bg-border/40" />
                        </div>
                        <div className="flex flex-col gap-1.5">
@@ -264,15 +264,15 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                                 : "text-foreground/80 hover:bg-foreground/5 border border-transparent hover:border-border"
                              )}
                            >
-                             <span className={cn("text-xs font-mono font-bold mt-0.5", (String(v.v) === activeVerseId && source.id === activeSourceId) || (String(v.v) === previewVerseId && source.id === previewSourceId) ? "opacity-100" : "opacity-20")}>{v.v}</span>
-                             <span className="text-sm leading-relaxed font-serif">{v.text}</span>
+                             <span className={cn("text-[18px] font-mono font-medium mt-0.5", (String(v.v) === activeVerseId && source.id === activeSourceId) || (String(v.v) === previewVerseId && source.id === previewSourceId) ? "opacity-100" : "opacity-20")}>{v.v}</span>
+                             <span className="text-[21px] leading-relaxed font-serif">{v.text}</span>
                            </div>
                          ))}
                        </div>
                     </div>
                   ))}
                   {(!sermonMeta?.bibleSources || sermonMeta.bibleSources.length === 0) && (
-                    <div className="py-20 text-center opacity-20 text-[11px] font-black tracking-widest uppercase italic">Nenhum texto bíblico importado</div>
+                    <div className="py-20 text-center opacity-20 text-[16px] font-black tracking-widest uppercase italic">Nenhum texto bíblico importado</div>
                   )}
                 </div>
               ) : (
@@ -291,7 +291,8 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                         onClick={() => { setActiveBlockIndex(idx); setPreviewSourceId(null); setPreviewVerseId(null); }}
                         className={cn(
                           "relative flex items-start gap-3 py-1 transition-all cursor-pointer group",
-                          isActive ? "opacity-100" : "opacity-30 hover:opacity-100"
+                          isActive ? "opacity-100" : 
+                          block.type === 'TEXTO_BASE' ? "opacity-80" : "opacity-30 hover:opacity-100"
                         )}
                         style={{ marginLeft: `${depth * 1.25}rem` }}
                       >
@@ -305,12 +306,12 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                             {isPast ? (
                               <CheckCircle2 className="w-4 h-4" />
                             ) : (
-                              <span className={cn(
-                                "text-[10px] font-mono font-black",
-                                isActive ? "text-white" : "text-muted-foreground"
-                              )}>
-                                {idx + 1}
-                              </span>
+                               <span className={cn(
+                                 "text-[15px] font-mono font-black",
+                                 isActive ? "text-white" : "text-muted-foreground"
+                               )}>
+                                 {idx + 1}
+                               </span>
                             )}
                           </div>
                         </div>
@@ -324,17 +325,18 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                              <div className="flex items-center gap-1.5 min-w-0">
                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: block.metadata?.customColor || CATEGORY_MAP[block.type]?.color || '#888' }} />
                                <span className={cn(
-                                 "text-[8px] font-black uppercase tracking-[0.2em] truncate", 
+                                 "text-[12px] font-black uppercase tracking-[0.2em] truncate", 
                                  isActive ? "text-indigo-500" : "text-muted-foreground"
                                )}>
                                  {block.metadata?.customLabel || CATEGORY_MAP[block.type]?.label || block.type}
                                </span>
                              </div>
                           </div>
-                          <p className={cn(
-                            "text-[12px] font-bold leading-tight line-clamp-2 mt-0.5",
-                            isActive ? "text-foreground" : "text-foreground/60"
-                          )}>
+                           <p className={cn(
+                             "text-[18px] font-medium leading-tight line-clamp-2 mt-0.5 transition-colors",
+                             isActive ? "text-foreground" : 
+                             block.type === 'TEXTO_BASE' ? "text-indigo-400/80 italic" : "text-foreground/60"
+                           )}>
                             {block.content}
                           </p>
                         </div>
@@ -345,11 +347,6 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
               )}
             </div>
 
-            <div className="p-6 border-t border-border bg-foreground/[0.03]">
-               <button onClick={onExit} className="w-full flex items-center justify-center gap-3 py-4 rounded-full border border-border text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground hover:bg-red-500 hover:text-white hover:border-red-500 transition-all active:scale-95">
-                 <ArrowLeft className="w-4 h-4" /> Encerrar Púlpito
-               </button>
-            </div>
           </motion.aside>
         )}
       </AnimatePresence>
@@ -389,14 +386,24 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
               <span className="text-[10px] font-black uppercase tracking-widest">Busca</span>
             </div>
 
-            <div className="flex flex-col items-end">
-               <span className={cn(
-                 "text-5xl font-mono font-black tabular-nums leading-none tracking-tighter",
-                 timeLeft < 300 ? "text-red-500 animate-pulse" : "text-foreground"
-               )}>
-                 {formatTime(timeLeft)}
-               </span>
-               <span className="text-[9px] font-black uppercase tracking-[0.4em] opacity-30 mt-1">Cronômetro</span>
+            <div className="flex items-center gap-8">
+              <div className="flex flex-col items-end">
+                 <span className={cn(
+                   "text-5xl font-mono font-black tabular-nums leading-none tracking-tighter",
+                   timeLeft < 300 ? "text-red-500 animate-pulse" : "text-foreground"
+                 )}>
+                   {formatTime(timeLeft)}
+                 </span>
+                 <span className="text-[9px] font-black uppercase tracking-[0.4em] opacity-30 mt-1">Cronômetro</span>
+              </div>
+
+              <button 
+                onClick={onExit}
+                className="w-16 h-16 rounded-full glass border-white/5 flex items-center justify-center text-muted-foreground/40 hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/20 transition-all active:scale-90 group"
+                title="Encerrar Púlpito"
+              >
+                <LogOut className="w-6 h-6 group-hover:scale-110 transition-transform" />
+              </button>
             </div>
           </div>
         </header>

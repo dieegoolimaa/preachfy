@@ -13,8 +13,9 @@ export class SermonService {
     });
   }
 
-  async getAllSermons(): Promise<Sermon[]> {
+  async getAllSermons(authorId?: string): Promise<Sermon[]> {
     return this.prisma.sermon.findMany({
+      where: authorId ? { authorId } : {},
       include: {
         blocks: true,
         _count: { select: { history: true } },
@@ -92,15 +93,20 @@ export class SermonService {
     });
   }
 
-  async seed() {
-    // Clear all
-    await this.prisma.ministryHistory.deleteMany({});
-    await this.prisma.block.deleteMany({});
-    await this.prisma.sermon.deleteMany({});
+  async seed(authorId?: string) {
+    // Clear only sermons for this author if ID provided, or all if not
+    if (authorId) {
+      await this.prisma.sermon.deleteMany({ where: { authorId } });
+    } else {
+      await this.prisma.ministryHistory.deleteMany({});
+      await this.prisma.block.deleteMany({});
+      await this.prisma.sermon.deleteMany({});
+    }
 
     const davidSermon = await this.prisma.sermon.create({
       data: {
         title: 'Davi: Um Coração Segundo o Coração de Deus',
+        authorId,
         category: 'Expositiva',
         status: 'READY',
         bibleSources: [

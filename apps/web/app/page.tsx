@@ -4,14 +4,29 @@ import { useState } from "react";
 import PulpitView from "@/components/pulpit/PulpitView";
 import SermonCanvas from "@/components/study/SermonCanvas";
 import DashboardView, { SermonMeta } from "@/components/dashboard/DashboardView";
-import { Button } from "@/components/ui/button";
+import LandingView from "@/components/LandingView";
+import { useSession } from "next-auth/react";
+import { Loader2 } from "lucide-react";
 
 type ViewState = 'dashboard' | 'study' | 'pulpit';
 
 export default function Home() {
+  const { data: session, status } = useSession();
   const [view, setView] = useState<ViewState>('dashboard');
   const [activeSermon, setActiveSermon] = useState<SermonMeta | null>(null);
   const [targetTime, setTargetTime] = useState<number>(45);
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-10 h-10 animate-spin text-indigo-500 opacity-20" />
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return <LandingView />;
+  }
 
   const handleEditSermon = (sermon: SermonMeta) => {
     setActiveSermon(sermon);

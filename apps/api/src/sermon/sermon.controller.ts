@@ -6,13 +6,14 @@ import {
   Param,
   Patch,
   Delete,
+  Query,
 } from '@nestjs/common';
 import { SermonService } from './sermon.service';
 import { Prisma } from '@preachfy/database';
 
 @Controller('sermons')
 export class SermonController {
-  constructor(private readonly sermonService: SermonService) {}
+  constructor(private readonly sermonService: SermonService) { }
 
   @Post()
   create(@Body() data: Prisma.SermonCreateInput) {
@@ -20,9 +21,9 @@ export class SermonController {
   }
 
   @Get()
-  findAll() {
+  findAll(@Query('authorId') authorId?: string) {
     // Basic implementation, usually we'd want filtration by author
-    return this.sermonService.getAllSermons();
+    return this.sermonService.getAllSermons(authorId);
   }
 
   @Get(':id')
@@ -37,8 +38,8 @@ export class SermonController {
   }
 
   @Post('seed')
-  seed() {
-    return this.sermonService.seed();
+  seed(@Query('authorId') authorId?: string) {
+    return this.sermonService.seed(authorId);
   }
 
   @Post('seed-v2')

@@ -52,8 +52,8 @@ export class SermonGateway
     @ConnectedSocket() client: Socket,
   ): Promise<void> {
     this.logger.log(`Syncing meta for sermon: ${data.sermonId}`);
-    // No need to save to DB here as Study mode handles PATCH, 
-    // but broadcasting ensures the Pulpit view updates instantly
+    // Persist meta changes (like bibleVersion) to DB
+    await this.sermonService.updateSermon(data.sermonId, data.meta);
     client.broadcast.emit('meta-updated', data);
   }
 

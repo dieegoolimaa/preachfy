@@ -1,3 +1,9 @@
+import * as dotenv from 'dotenv';
+import path from 'path';
+
+// Load .env from the current directory (apps/api/.env)
+dotenv.config();
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 

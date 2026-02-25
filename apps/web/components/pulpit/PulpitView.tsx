@@ -54,7 +54,7 @@ const parseBibleContent = (content: string) => {
 };
 
 export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: PulpitViewProps) {
-  const { latestBlocks, latestMeta, isConnected, syncCanvas } = useSermonSocket(sermonId);
+  const { latestBlocks, latestMeta, isConnected, syncCanvas, syncMeta } = useSermonSocket(sermonId);
   const [blocks, setBlocks] = useState<any[]>([]);
   const [sermonMeta, setSermonMeta] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -167,6 +167,12 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
       }));
     }
   }, [latestMeta]);
+
+  useEffect(() => {
+    if (sermonMeta?.bibleVersion) {
+      setSelectedVersion(sermonMeta.bibleVersion);
+    }
+  }, [sermonMeta?.bibleVersion]);
 
   // Initial Fetch
   useEffect(() => {
@@ -952,7 +958,13 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                    {['nvi', 'ra', 'acf'].map(v => (
                      <button 
                        key={v}
-                       onClick={() => { setSelectedVersion(v); setSearchMode('GLOBAL'); }}
+                       onClick={() => { 
+                         setSelectedVersion(v); 
+                         setSearchMode('GLOBAL');
+                         if (sermonMeta) {
+                           syncMeta({ ...sermonMeta, bibleVersion: v });
+                         }
+                       }}
                        className={cn(
                          "w-14 h-9 rounded-full text-[10px] font-black uppercase transition-all flex items-center justify-center",
                          selectedVersion === v && searchMode === 'GLOBAL' ? "bg-foreground/10 text-foreground" : "text-foreground/20 hover:text-foreground/60"

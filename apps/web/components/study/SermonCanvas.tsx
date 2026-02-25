@@ -189,6 +189,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
         title: sermonMeta.title,
         category: sermonMeta.category,
         status: sermonMeta.status,
+        bibleVersion: sermonMeta.bibleVersion || 'nvi',
         bibleSources: sermonMeta.bibleSources,
       };
 
@@ -238,6 +239,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
         syncMeta({
           title: sermonMeta.title,
           category: sermonMeta.category,
+          bibleVersion: sermonMeta.bibleVersion || 'nvi',
           bibleSources: sermonMeta.bibleSources
         });
       }
@@ -769,6 +771,12 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
                       <label className="text-[11px] font-mono font-bold uppercase tracking-[0.2em] opacity-40 ml-1">Status</label>
                       <select value={sermonMeta?.status || 'DRAFT'} onChange={e => handleMetaChange('status', e.target.value)} className="w-full bg-surface border border-border rounded-2xl px-5 py-3 text-xs font-black uppercase tracking-widest outline-none focus:border-foreground transition-all">{['DRAFT', 'READY', 'ARCHIVED'].map(s => <option key={s} value={s}>{s}</option>)}</select>
                     </div>
+                  </div>
+                  <div className="flex flex-col gap-2.5">
+                    <label className="text-[11px] font-mono font-bold uppercase tracking-[0.2em] opacity-40 ml-1">Versão da Bíblia (Preferencial)</label>
+                    <select value={sermonMeta?.bibleVersion || 'nvi'} onChange={e => handleMetaChange('bibleVersion', e.target.value)} className="w-full bg-surface border border-border rounded-2xl px-5 py-3 text-xs font-black uppercase tracking-widest outline-none focus:border-foreground transition-all">
+                      {['nvi', 'ra', 'acf'].map(v => <option key={v} value={v}>{v.toUpperCase()}</option>)}
+                    </select>
                   </div>
                 </div>
                 <div className="h-px bg-border/40 mb-12" />

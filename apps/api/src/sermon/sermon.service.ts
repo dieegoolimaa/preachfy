@@ -85,13 +85,16 @@ export class SermonService {
 
     // Create new blocks
     for (let i = 0; i < blocks.length; i++) {
-      const { id, ...content } = blocks[i];
+      const b = blocks[i];
       await this.prisma.block.create({
         data: {
-          ...content,
+          type: b.type,
+          content: b.content,
+          metadata: b.metadata ?? Prisma.JsonNull,
           order: i,
-          positionX: content.positionX ?? 0,
-          positionY: content.positionY ?? 0,
+          positionX: Number(b.positionX) || 0,
+          positionY: Number(b.positionY) || 0,
+          preached: Boolean(b.preached),
           sermon: { connect: { id: sermonId } },
         },
       });

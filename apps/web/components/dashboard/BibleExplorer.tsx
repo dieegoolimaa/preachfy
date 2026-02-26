@@ -123,30 +123,70 @@ export default function BibleExplorer({
   onBack, 
   onCreateSermon,
   initialHighlights,
-  initialCustomLabels
+  initialCustomLabels,
+  initialBook,
+  initialChapter,
+  initialAbbrev,
+  initialVersion,
+  sermonTitle
 }: { 
   onBack: () => void, 
   onCreateSermon?: (reference: string, content: string) => void,
   initialHighlights?: Record<string, any[]>,
-  initialCustomLabels?: Record<string, string>
+  initialCustomLabels?: Record<string, string>,
+  initialBook?: string,
+  initialChapter?: number,
+  initialAbbrev?: string,
+  initialVersion?: string,
+  sermonTitle?: string
 }) {
   const { environment } = require('@/environments');
+  const isSnapshot = !!initialHighlights;
 
   const [query, setQuery] = useState('');
-  const [version, setVersion] = useState('nvi');
+  const [version, setVersion] = useState(initialVersion || (typeof window !== 'undefined' ? localStorage.getItem('preachfy_bible_version') || 'nvi' : 'nvi'));
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [versions, setVersions] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<'READ' | 'SEARCH' | 'INDEX' | 'COMPARE'>('READ');
   const [currentInfo, setCurrentInfo] = useState<{ book: string; abbrev: string; chapter: number }>({
-    book: 'Gênesis', abbrev: 'gn', chapter: 1
+    book: initialBook || 'Gênesis', 
+    abbrev: initialAbbrev || 'gn', 
+    chapter: initialChapter || 1
   });
   const [indexSelectedBook, setIndexSelectedBook] = useState<{ name: string; abbrev: string; chapters: number } | null>(null);
   const [highlights, setHighlights] = useState<Record<string, Array<{ id: string, color: string, comment?: string }>>>(() => {
     if (typeof window === 'undefined') return {};
-    if (initialHighlights) return initialHighlights;
-    const saved = localStorage.getItem('preachfy_bible_highlights');
-    return saved ? JSON.parse(saved) : {};
+    let data: any = {};
+    if (initialHighlights) {
+      data = initialHighlights;
+    } else {
+      const saved = localStorage.getItem('preachfy_bible_highlights');
+      data = saved ? JSON.parse(saved) : {};
+    }
+
+    // Migration: Transform old "Name-Chapter-Number" keys to "abbrev:chapter:number"
+    const migrated: any = {};
+    const allBooks = [...BIBLE_BOOKS.at, ...BIBLE_BOOKS.nt];
+    Object.keys(data).forEach(key => {
+      if (key.includes(':')) {
+        migrated[key] = data[key];
+      } else {
+        const parts = key.split('-');
+        if (parts.length === 3) {
+          const bName = parts[0]!;
+          const book = allBooks.find(b => b.name === bName || b.abbrev === bName.toLowerCase());
+          if (book) {
+            migrated[`${book.abbrev}:${parts[1]!}:${parts[2]!}`] = data[key];
+          } else {
+            migrated[key] = data[key];
+          }
+        } else {
+          migrated[key] = data[key];
+        }
+      }
+    });
+    return migrated;
   });
 
   const [customLabels, setCustomLabels] = useState<Record<string, string>>(() => {
@@ -170,7 +210,6 @@ export default function BibleExplorer({
   const [multiSelect, setMultiSelect] = useState<Set<string>>(new Set());
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [compareData, setCompareData] = useState<Record<string, any>>({});
-  const [noteOffsets, setNoteOffsets] = useState<Record<string, number>>({});
   const [compareVersions, setCompareVersions] = useState<string[]>(['nvi', 'ra']);
   const [showSidebar, setShowSidebar] = useState(false);
   const isInitialMount = useRef(true);
@@ -197,49 +236,13 @@ export default function BibleExplorer({
       } catch (e) { console.error("Failed to fetch versions", e); }
     };
     fetchVersions();
-    loadChapter('gn', 1);
+    loadChapter(currentInfo.abbrev, currentInfo.chapter);
   }, []);
 
   // Save version to localStorage when it changes
   useEffect(() => {
     localStorage.setItem('preachfy_bible_version', version);
   }, [version]);
-
-
-  useEffect(() => {
-    if (viewMode === 'READ' && results.length > 0) {
-      const updatePositions = () => {
-        const offsets: Record<string, number> = {};
-        const versesWithInsights = results.filter(v => (highlights[verseKey(v)] || []).length > 0);
-        
-        let lastBottom = -20;
-        const padding = 16;
-
-        versesWithInsights.forEach(v => {
-          const key = verseKey(v);
-          const el = document.getElementById(key);
-          if (el) {
-            let top = el.offsetTop;
-            if (top < lastBottom + padding) {
-              top = lastBottom + padding;
-            }
-            offsets[key] = top;
-            // Calculate total height based on number of insights
-            const insightCount = (highlights[key] || []).length;
-            lastBottom = top + (insightCount * 130); 
-          }
-        });
-        setNoteOffsets(offsets);
-      };
-
-      const timer = setTimeout(updatePositions, 100);
-      window.addEventListener('resize', updatePositions);
-      return () => {
-        clearTimeout(timer);
-        window.removeEventListener('resize', updatePositions);
-      };
-    }
-  }, [results, highlights, viewMode]);
 
   useEffect(() => {
     if (viewMode === 'READ' && results.length > 0) {
@@ -264,9 +267,21 @@ export default function BibleExplorer({
       const res = await fetch(`${environment.apiUrl}/bible/chapter/${version}/${abbrev}/${chapter}`);
       if (!res.ok) { setResults([]); return; }
       const data = await res.json();
-      setCurrentInfo({ book: data.book.name, abbrev: data.book.abbrev || abbrev, chapter: data.chapter });
+      
+      const bookAbbrev = (data.book?.abbrev || abbrev).toLowerCase();
+      const bookEntry = [...BIBLE_BOOKS.at, ...BIBLE_BOOKS.nt].find(b => b.abbrev === bookAbbrev);
+      
+      setCurrentInfo({ 
+        book: bookEntry?.name || data.book.name, 
+        abbrev: bookAbbrev, 
+        chapter: data.chapter 
+      });
+
       setResults((data.verses || []).map((v: any) => ({
-        book: data.book, chapter: data.chapter, number: v.number, text: v.text
+        book: { name: bookEntry?.name || data.book.name, abbrev: bookAbbrev }, 
+        chapter: data.chapter, 
+        number: v.number, 
+        text: v.text
       })));
       scrollRef.current?.scrollTo({ top: 0 });
     } catch (e) { console.error("Chapter load failed", e); setResults([]); }
@@ -320,7 +335,12 @@ export default function BibleExplorer({
   };
 
   // ── Actions ───────────────────────────────────────────────────
-  const verseKey = (v: any) => `${v.book?.name || v.book}-${v.chapter}-${v.number}`;
+  const verseKey = (v: any) => {
+    const abbrev = (v.book?.abbrev || v.abbrev || v.book || currentInfo.abbrev).toString().toLowerCase();
+    const chapter = v.chapter || currentInfo.chapter;
+    const number = v.number;
+    return `${abbrev}:${chapter}:${number}`;
+  };
 
   const toggleHighlight = (verse: any, color?: string) => {
     const key = verseKey(verse);
@@ -379,15 +399,15 @@ export default function BibleExplorer({
     // CREATE MODE: Picked a color not yet in this verse
     const newId = `ins-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
     
-    // Safety: prevent clobbering by the auto-sync effect
+    // Safety: prevent clobbering by the auto-sync effect, 
+    // but keep current commentInput so it gets saved into the new object
     setEditingInsightId(null);
-    setCommentInput('');
 
     setHighlights(prev => {
       const list = prev[editingVerseKey] || [];
       return { 
         ...prev, 
-        [editingVerseKey]: [...list, { id: newId, color, comment: '' }] 
+        [editingVerseKey]: [...list, { id: newId, color, comment: commentInput }] 
       };
     });
 
@@ -477,6 +497,8 @@ export default function BibleExplorer({
       chapterText: chapterText,
       book: currentInfo.book,
       chapter: currentInfo.chapter,
+      abbrev: currentInfo.abbrev,
+      version: version,
       rawHighlights: highlights, // The secret sauce for the snapshot
       rawCustomLabels: customLabels,
       blocks: chapterHighlights.flatMap(v => {
@@ -622,7 +644,7 @@ export default function BibleExplorer({
             </button>
             <h1 className="text-lg font-serif font-bold italic">
               <Book className="w-4 h-4 inline mr-2 text-indigo-500" />
-              Bíblia
+              {isSnapshot && sermonTitle ? `Bíblia - ${sermonTitle}` : 'Bíblia'}
             </h1>
             <div className="flex flex-col gap-0.5 ml-2">
               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">
@@ -724,10 +746,12 @@ export default function BibleExplorer({
                 {Object.keys(highlights).length} versículo{Object.keys(highlights).length > 1 ? 's' : ''} destacado{Object.keys(highlights).length > 1 ? 's' : ''}
               </span>
               <div className="flex items-center gap-2">
-                {onCreateSermon && (
-                  <button onClick={createStudyFromInsights} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-indigo-50 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 transition-all active:scale-95 shadow-md">
-                    <Sparkles className="w-3.5 h-3.5" /> Gerar Estudo Pronto
-                  </button>
+                {!isSnapshot && (
+                  onCreateSermon && (
+                    <button onClick={createStudyFromInsights} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-indigo-50 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 transition-all active:scale-95 shadow-md">
+                      <Sparkles className="w-3.5 h-3.5" /> Gerar Estudo Pronto
+                    </button>
+                  )
                 )}
                 <button onClick={copyHighlightedVerses} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-501/20 transition-all active:scale-95">
                   {copiedId === 'range' ? <><Check className="w-3 h-3" /> Copiado!</> : <><Copy className="w-3 h-3" /> Copiar Seleção</>}
@@ -865,63 +889,53 @@ export default function BibleExplorer({
                           {results.reduce((acc, v) => acc + (highlights[verseKey(v)]?.length || 0), 0)}
                         </span>
                       </div>
-                                           <div className="relative">
-                        <AnimatePresence>
-                          {results.map(v => {
-                            const key = verseKey(v);
-                            const verseInsights = highlights[key] || [];
-                            const topOffset = noteOffsets[key];
-                            if (verseInsights.length === 0 || topOffset === undefined) return null;
-                            
-                            return (
-                              <motion.div 
-                                key={key}
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0, top: topOffset }}
-                                exit={{ opacity: 0, x: 20 }}
-                                style={{ position: 'absolute', width: '100%' }}
-                                className="flex flex-col gap-3"
-                              >
-                                {verseInsights.map((h, i) => (
-                                  <div 
-                                    key={h.id}
-                                    onClick={() => {
-                                      setEditingVerseKey(key);
-                                      setEditingInsightId(h.id);
-                                      setCommentInput(h.comment || '');
-                                      scrollToVerse(key);
+                                           <div className="flex flex-col gap-6">
+                        <AnimatePresence mode="popLayout">
+                          {results.flatMap(v => {
+                             const key = verseKey(v);
+                             const verseInsights = highlights[key] || [];
+                             return verseInsights.map(h => ({ ...h, verse: v, key }));
+                          }).map((h) => (
+                            <motion.div 
+                              key={h.id}
+                              layout
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.95 }}
+                              className="p-5 min-h-[120px] rounded-[2rem] bg-surface border border-border/60 shadow-sm group cursor-pointer hover:border-indigo-500/40 hover:shadow-xl hover:shadow-indigo-500/5 transition-all overflow-hidden relative flex flex-col justify-between"
+                              onClick={() => {
+                                setEditingVerseKey(h.key);
+                                setEditingInsightId(h.id);
+                                setCommentInput(h.comment || '');
+                                scrollToVerse(h.key);
+                              }}
+                            >
+                              <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: h.color }} />
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex flex-col">
+                                  <span className="text-[9px] font-black uppercase tracking-widest text-indigo-500">Versículo {h.verse.number}</span>
+                                  <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter">
+                                    {customLabels[h.color]}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      removeInsight(h.key, h.id);
                                     }}
-                                    className="p-5 rounded-[2rem] bg-surface border border-border/60 shadow-sm group cursor-pointer hover:border-indigo-500/40 hover:shadow-xl hover:shadow-indigo-500/5 transition-all overflow-hidden relative"
+                                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-50 text-red-400 hover:text-red-500 rounded-lg transition-all"
                                   >
-                                    <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: h.color }} />
-                                    <div className="flex items-center justify-between mb-2">
-                                      <div className="flex flex-col">
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-indigo-500">Versículo {v.number}</span>
-                                        <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter">
-                                          {customLabels[h.color]}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <button 
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            removeInsight(key, h.id);
-                                          }}
-                                          className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-50 text-red-400 hover:text-red-500 rounded-lg transition-all"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                        <MessageSquare className="w-3.5 h-3.5 opacity-30 group-hover:opacity-100 transition-opacity" />
-                                      </div>
-                                    </div>
-                                    <div className="max-h-32 overflow-y-auto custom-scrollbar-thin mb-2">
-                                      <p className="text-xs font-serif italic text-foreground/80 leading-relaxed font-medium">"{h.comment}"</p>
-                                    </div>
-                                  </div>
-                                ))}
-                              </motion.div>
-                            );
-                          })}
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <MessageSquare className="w-3.5 h-3.5 opacity-30 group-hover:opacity-100 transition-opacity" />
+                                </div>
+                              </div>
+                              <div className="max-h-32 overflow-y-auto custom-scrollbar-thin mb-2">
+                                <p className="text-xs font-serif italic text-foreground/80 leading-relaxed font-medium">"{h.comment}"</p>
+                              </div>
+                            </motion.div>
+                          ))}
                         </AnimatePresence>
                       </div>
                     </div>

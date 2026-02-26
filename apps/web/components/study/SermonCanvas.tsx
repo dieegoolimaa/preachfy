@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Share2, Cloud, BookOpen, Lightbulb, Quote, Target, Trash2, HelpCircle, GripVertical, AlertTriangle, ArrowRight, CornerDownRight, Sparkles, ChevronDown, Info, X, MapPin, History, Plus, CheckCircle2, Link as LinkIcon, ArrowLeft, Play, Maximize2, Clock, Book, ChevronLeft, ChevronRight, Highlighter, Zap, MessageSquare } from 'lucide-react';
+import { Share2, Cloud, BookOpen, Lightbulb, Quote, Target, Trash2, HelpCircle, GripVertical, AlertTriangle, ArrowRight, CornerDownRight, Sparkles, ChevronDown, Info, X, MapPin, History, Plus, CheckCircle2, Link as LinkIcon, ArrowLeft, Play, Maximize2, Clock, Book, ChevronLeft, ChevronRight, Highlighter, Zap, MessageSquare, Download } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useSermonSocket } from '@/hooks/useSermonSocket';
@@ -14,7 +14,10 @@ function cn(...inputs: ClassValue[]) {
 }
 
 // Perspectiva Teológica
-export type TheologyCategory = 'TEXTO_BASE' | 'EXEGESE' | 'APLICACAO' | 'ILUSTRACAO' | 'ENFASE' | 'CUSTOMIZAR';
+export type TheologyCategory = 
+  'TEXTO_BASE' | 'EXEGESE' | 'APLICACAO' | 'ILUSTRACAO' | 'ENFASE' | 'CUSTOMIZAR' | 
+  'ALERTA' | 'MANDAMENTO' | 'PROMESSA' | 'CONTEXTO' | 'VIDA' | 'ESPIRITO_SANTO' | 
+  'CEU' | 'PROFECIA' | 'CRISTO' | 'ADORACAO' | 'AMOR' | 'PECADO' | 'HISTORIA';
 
 export interface SermonBlock {
   id: string;
@@ -39,10 +42,20 @@ const CATEGORY_MAP: Record<string, { label: string, color: string, icon: React.R
   EXEGESE: { label: 'Hermenêutica / Exegese', color: 'var(--color-exegese)', icon: <HelpCircle className="w-4 h-4" /> },
   APLICACAO: { label: 'Aplicação Pastoral', color: 'var(--color-aplicacao)', icon: <Target className="w-4 h-4" /> },
   ILUSTRACAO: { label: 'Ilustração', color: 'var(--color-ilustracao)', icon: <Lightbulb className="w-4 h-4" /> },
-  ENFASE: { label: 'Ênfase / Alerta', color: 'var(--color-enfase)', icon: <AlertTriangle className="w-4 h-4" /> },
-  PROMESSA: { label: 'Promessa', color: '#fcd34d', icon: <Sparkles className="w-4 h-4" /> },
+  ENFASE: { label: 'Ênfase / Alerta', color: '#fca5a5', icon: <AlertTriangle className="w-4 h-4" /> },
+  ALERTA: { label: 'Alerta / Aviso', color: '#fca5a5', icon: <AlertTriangle className="w-4 h-4" /> },
   MANDAMENTO: { label: 'Mandamento', color: '#fdba74', icon: <Highlighter className="w-4 h-4" /> },
-  CRISTO: { label: 'Revelação de Cristo', color: '#a5b4fc', icon: <Zap className="w-4 h-4" /> },
+  PROMESSA: { label: 'Promessa', color: '#fcd34d', icon: <Sparkles className="w-4 h-4" /> },
+  CONTEXTO: { label: 'Contexto', color: '#fef08a', icon: <Info className="w-4 h-4" /> },
+  VIDA: { label: 'Vida / Crescimento', color: '#6ee7b7', icon: <Plus className="w-4 h-4" /> },
+  ESPIRITO_SANTO: { label: 'Espírito Santo', color: '#5eead4', icon: <Zap className="w-4 h-4" /> },
+  CEU: { label: 'Céu / Divino', color: '#7dd3fc', icon: <Cloud className="w-4 h-4" /> },
+  PROFECIA: { label: 'Profecia', color: '#93c5fd', icon: <History className="w-4 h-4" /> },
+  CRISTO: { label: 'Cristo / Realeza', color: '#a5b4fc', icon: <Zap className="w-4 h-4" /> },
+  ADORACAO: { label: 'Adoração', color: '#c4b5fd', icon: <Plus className="w-4 h-4" /> },
+  AMOR: { label: 'Amor / Graça', color: '#fda4af', icon: <Plus className="w-4 h-4" /> },
+  PECADO: { label: 'Pecado / Perdão', color: '#f5d0fe', icon: <Trash2 className="w-4 h-4" /> },
+  HISTORIA: { label: 'História', color: '#cbd5e1', icon: <History className="w-4 h-4" /> },
   CUSTOMIZAR: { label: 'Customizar...', color: 'var(--color-custom)', icon: <MessageSquare className="w-4 h-4" /> }
 };
 
@@ -51,7 +64,7 @@ interface SermonCanvasProps {
   initialData?: any;
   onBack?: () => void;
   onStart?: () => void;
-  onViewSnapshot?: (snapshot: { highlights: any, labels: any }) => void;
+  onViewSnapshot?: (snapshot: any) => void;
 }
 
 export default function SermonCanvas({ sermonId, initialData, onBack, onStart, onViewSnapshot }: SermonCanvasProps) {
@@ -90,6 +103,10 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
       try {
         const res = await fetch(`${environment.apiUrl}/sermons/${sermonId}`);
         const data = await res.json();
+
+        // Check for local backup first (more recent)
+        const localBackupRaw = localStorage.getItem(`preachfy_study_backup_${sermonId}`);
+        const localBackup = localBackupRaw ? JSON.parse(localBackupRaw) : null;
         
         // Sanitize Bible Sources on load
         const sanitizedSources = (data.bibleSources || []).map((s: any) => ({
@@ -97,15 +114,20 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
           reference: (s.reference || '').replace(/\s*\(COMPLETO\)/gi, '')
         }));
 
-        setSermonMeta({ ...data, bibleSources: sanitizedSources });
-        
-        if (data && data.blocks) {
-          setBlocks(data.blocks.map((b: any) => ({
-            id: b.id,
-            type: b.type as TheologyCategory,
-            content: b.content,
-            metadata: b.metadata || {}
-          })));
+        if (localBackup && localBackup.meta) {
+           // If we have a local version, we prefer it for title/content
+           setSermonMeta({ ...data, ...localBackup.meta, bibleSources: sanitizedSources });
+           if (localBackup.blocks) setBlocks(localBackup.blocks);
+        } else {
+           setSermonMeta({ ...data, bibleSources: sanitizedSources });
+           if (data && data.blocks) {
+             setBlocks(data.blocks.map((b: any) => ({
+               id: b.id,
+               type: b.type as TheologyCategory,
+               content: b.content,
+               metadata: b.metadata || {}
+             })));
+           }
         }
         setLoading(false);
       } catch (error) {
@@ -248,12 +270,72 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
       });
 
       initialMetaRef.current = JSON.stringify(payload);
+      
+      // Clear backup once successfully saved to DB
+      localStorage.removeItem(`preachfy_study_backup_${sermonId}`);
     } catch (e) {
       console.error("Failed to manual save", e);
     } finally {
-      setTimeout(() => setIsSaving(false), 1000);
+      setTimeout(() => setIsSaving(false), 800);
     }
   };
+
+  const handleExport = () => {
+    if (!sermonMeta) return;
+    
+    let text = `${sermonMeta.title.toUpperCase()}\n`;
+    text += `Categoria: ${sermonMeta.category || 'Geral'}\n`;
+    text += `Gerado em: ${new Date().toLocaleDateString('pt-BR')}\n`;
+    text += `==========================================\n\n`;
+
+    (sermonMeta.bibleSources || []).forEach((source: any) => {
+      text += `--- ${source.reference.toUpperCase()} ---\n\n`;
+      const sourceBlocks = blocks.filter(b => b.metadata.bibleSourceId === source.id && b.type === 'TEXTO_BASE');
+      
+      sourceBlocks.forEach(block => {
+        text += `• ${block.content}\n`;
+        const insights = blocks.filter(b => b.metadata.parentVerseId === block.id);
+        insights.forEach(ins => {
+          text += `  [${CATEGORY_MAP[ins.type]?.label || ins.type}] ${ins.content}\n`;
+        });
+        text += `\n`;
+      });
+      text += `\n`;
+    });
+
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Preachfy - ${sermonMeta.title.replace(/[^a-z0-9]/gi, '_')}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // 1. Auto-Save to DB (Background)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (blocks.length > 0) {
+        handleSave();
+      }
+    }, 15000); // Auto-save to DB every 15s of inactivity after a change
+    return () => clearTimeout(timer);
+  }, [blocks, sermonMeta]);
+
+  // 2. Emergency Backup to LocalStorage (Instant) - To survive refreshes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (blocks.length > 0 || sermonMeta) {
+        const backup = {
+          blocks,
+          meta: sermonMeta,
+          timestamp: Date.now()
+        };
+        localStorage.setItem(`preachfy_study_backup_${sermonId}`, JSON.stringify(backup));
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [blocks, sermonMeta, sermonId]);
 
   // Auto-sync blocks to socket whenever they change (Debounced)
   useEffect(() => {
@@ -353,6 +435,15 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
           <ThemeToggle />
 
           <Button 
+            variant="ghost"
+            className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-11 px-6 rounded-full hover:bg-surface border border-border transition-all active:scale-95 text-muted-foreground hover:text-foreground"
+            onClick={handleExport}
+          >
+            <Download className="w-4 h-4" />
+            EXPORTAR ESTUDO
+          </Button>
+
+          <Button 
             variant="default"
             className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-11 px-8 bg-indigo-600 text-white hover:bg-indigo-700 rounded-full transition-all shadow-xl shadow-indigo-500/20 active:scale-95 group"
             onClick={handleSave}
@@ -395,7 +486,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
         </div>
 
 
-        <div className="flex-1 w-full bg-stone-50/20 mb-40">
+        <div className="flex-1 w-full bg-background mb-40">
           <div className="max-w-[1920px] mx-auto min-h-screen grid grid-cols-[1fr_1fr_1fr_60px] divide-x divide-border/10">
             
             {/* UNIFIED 3-COLUMN MATRIX GROUPED BY SOURCE */}
@@ -406,10 +497,10 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                 const pillarColor = '#6366f1'; // Unified Brand Color for Sources
 
                 return (
-                  <div key={source.id} className="grid grid-cols-[1fr_2fr] divide-x divide-border/10 border-b border-border/10 group/source-section bg-stone-50/5">
+                  <div key={source.id} className="grid grid-cols-[1fr_2fr] divide-x divide-border/10 border-b border-border/10 group/source-section bg-background/5">
                     {/* COL 1: SOURCE PILLAR (Extended Height) */}
-                    <div className="p-4 pb-20 border-r border-border/10 bg-stone-50/20 relative">
-                       <div className="sticky top-44 h-[calc(100vh-200px)] group/src relative bg-white shadow-xl border border-border/40 rounded-[3rem] p-10 transition-all hover:shadow-2xl z-10 overflow-hidden flex flex-col">
+                    <div className="p-4 pb-20 border-r border-border/10 bg-background/5 relative">
+                       <div className="sticky top-44 h-[calc(100vh-200px)] group/src relative bg-surface shadow-xl border border-border/40 rounded-[3rem] p-10 transition-all hover:shadow-2xl z-10 overflow-hidden flex flex-col">
                           
                           {/* Accent Pillar */}
                           <div className="absolute top-0 left-0 bottom-0 w-3 bg-indigo-500" />
@@ -427,23 +518,28 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                                />
                              </div>
                              <div className="flex items-center gap-1 opacity-0 group-hover/src:opacity-100 transition-opacity">
-                               {source.explorerSnapshot && onViewSnapshot && (
-                                 <button 
-                                   onClick={() => onViewSnapshot(source.explorerSnapshot)}
-                                   className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all"
-                                   title="Ver Snapshot Bíblico Original"
-                                 >
-                                   <Sparkles className="w-4 h-4" />
-                                 </button>
-                               )}
-                               <button onClick={() => removeBibleSource(sIdx)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all">
+                               <button onClick={() => removeBibleSource(sIdx)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-all">
                                  <Trash2 className="w-4 h-4" />
                                </button>
                              </div>
                            </div>
 
                           {/* Center Content Area */}
-                          <div className="flex-1 flex flex-col justify-center ml-4 relative h-full">
+                          <div className="flex-1 flex flex-col justify-start mt-4 ml-4 relative h-full">
+                            {/* Prominent Snapshot Button */}
+                            {source.explorerSnapshot && onViewSnapshot && (
+                               <button 
+                                 onClick={async () => {
+                                   await handleSave(); // SAFETY FIRST: Save before navigating
+                                   onViewSnapshot(source.explorerSnapshot);
+                                 }}
+                                 className="mb-6 w-full py-4 px-6 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl flex flex-col items-center justify-center gap-2 group/snap hover:bg-indigo-500 hover:border-indigo-500 transition-all shadow-lg hover:shadow-indigo-500/40"
+                               >
+                                 <Sparkles className="w-5 h-5 text-indigo-500 group-hover/snap:text-white transition-colors" />
+                                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-500 group-hover/snap:text-white transition-colors">Mapa Visual do Estudo</span>
+                               </button>
+                            )}
+
                             {/* Subtle background reference */}
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none">
                               <span className="text-[120px] font-black rotate-[-10deg]">{source.reference?.split(' ')[0]}</span>
@@ -483,7 +579,13 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                         }}
                       >
                         {sourceBlocks.map((block, rowIdx) => {
-                          const insights = blocks.filter(b => b.metadata.parentVerseId === block.id);
+                          const insights = blocks.filter(b => 
+                            b.metadata.bibleSourceId === source.id && 
+                            b.metadata.isInsight && (
+                              b.metadata.parentVerseId === block.id || 
+                              b.metadata.reference === block.metadata.reference
+                            )
+                          );
                           const blockColor = block.metadata.customColor || '#6366f1';
 
                           return (
@@ -492,8 +594,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                               value={block} 
                               className={cn(
                                 "grid grid-cols-2 group/master transition-all duration-500 items-start relative border-b border-border/5",
-                                rowIdx % 2 === 0 ? "bg-white/40" : "bg-transparent",
-                                "hover:bg-indigo-50/5"
+                                rowIdx % 2 === 0 ? "bg-surface/10" : "bg-transparent"
                               )}
                             >
                               {/* COLUMN 2: TEXTO BASE */}
@@ -501,7 +602,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                                 <div 
                                    onPointerDown={() => setActiveVerseFocusId(block.id)}
                                    className={cn(
-                                     "w-full bg-white shadow-xl border border-border/40 rounded-2xl p-6 transition-all duration-500 flex flex-col group/card relative z-10",
+                                     "w-full bg-surface shadow-xl border border-border/40 rounded-2xl p-6 transition-all duration-500 flex flex-col group/card relative z-10",
                                      "group-hover/master:shadow-2xl",
                                      activeVerseFocusId === block.id ? "ring-2 ring-indigo-500/20" : ""
                                    )}
@@ -544,7 +645,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                                     value={block.content}
                                     onChange={(e) => handleContentChange(block.id, e.target.value)}
                                     placeholder="Insira o versículo ou texto central..."
-                                    className="w-full bg-transparent border-none outline-none resize-none font-sans text-base font-bold leading-relaxed text-foreground placeholder:opacity-20 custom-scrollbar flex-1 p-0"
+                                    className="w-full bg-transparent border-none outline-none resize-none font-sans text-base font-bold leading-relaxed text-foreground placeholder:text-foreground/20 custom-scrollbar flex-1 p-0"
                                     rows={1}
                                     onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
                                   />
@@ -555,49 +656,74 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                               </div>
 
                               {/* COLUMN 3: APONTAMENTOS */}
-                              <div className="flex flex-col p-2 gap-1.5 bg-white/5 min-h-[140px] relative">
+                              <div className="flex flex-col p-2 gap-1.5 bg-background/5 min-h-[140px] relative">
                                 <div className="absolute left-0 top-6 bottom-6 w-[1.5px] bg-border/5 group-hover/master:bg-border/20 transition-colors" />
-                                {insights.map((subBlock) => {
-                                  const effectiveColor = subBlock.metadata.customColor || (blockColor !== 'transparent' ? blockColor : '#cbd5e1');
-                                  return (
-                                    <div key={subBlock.id} className="group/insight relative px-2">
-                                      <div 
-                                        className="bg-white/95 shadow-md border border-border/30 rounded-2xl p-5 hover:shadow-xl transition-all duration-500 border-l-4"
-                                        style={{ 
-                                          borderLeftColor: effectiveColor,
-                                          borderColor: `${effectiveColor}30` 
-                                        }}
-                                      >
-                                        <div className="flex items-center justify-between mb-3">
-                                          <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: effectiveColor }} />
-                                            <select 
-                                              value={subBlock.type}
-                                              onChange={(e) => handleCategoryChange(subBlock.id, e.target.value as TheologyCategory)}
-                                              className="text-[9px] font-black uppercase tracking-[0.2em] bg-transparent outline-none cursor-pointer text-foreground/40 hover:text-foreground transition-colors"
-                                            >
-                                              <option value="EXEGESE">Exegese</option>
-                                              <option value="APLICACAO">Pastoral</option>
-                                              <option value="ILUSTRACAO">Ilustração</option>
-                                              <option value="ENFASE">Ênfase</option>
-                                              <option value="PROMESSA">Promessa</option>
-                                              <option value="MANDAMENTO">Mandamento</option>
-                                              <option value="CRISTO">Cristo</option>
-                                            </select>
-                                          </div>
-                                          <button onClick={() => deleteBlock(subBlock.id)} className="opacity-0 group-hover/insight:opacity-100 p-1 text-red-400 hover:text-red-500 transition-all"><Trash2 className="w-3 h-3" /></button>
-                                        </div>
-                                        <textarea
-                                          value={subBlock.content}
-                                          onChange={(e) => handleContentChange(subBlock.id, e.target.value)}
-                                          placeholder="Reflexão ou aplicação..."
-                                          className="w-full bg-transparent border-none outline-none resize-none font-sans text-base font-medium leading-relaxed text-foreground transition-all custom-scrollbar h-auto p-0"
-                                          onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
-                                        />
-                                      </div>
-                                    </div>
-                                  );
-                                })}
+                                   {insights.length > 0 ? (
+                                     insights.map((subBlock) => {
+                                       const effectiveColor = subBlock.metadata.customColor || (blockColor !== 'transparent' ? blockColor : '#cbd5e1');
+                                       return (
+                                         <div key={subBlock.id} className="group/insight relative px-2">
+                                           <div 
+                                             className="bg-surface shadow-md border border-border/30 rounded-2xl p-5 hover:shadow-xl transition-all duration-500 border-l-4"
+                                             style={{ 
+                                               borderLeftColor: effectiveColor,
+                                               borderColor: `${effectiveColor}30` 
+                                             }}
+                                           >
+                                             <div className="flex items-center justify-between mb-3">
+                                               <div className="flex items-center gap-2">
+                                                 <div className="relative flex items-center gap-1 group/sel">
+                                                   <span className="text-[9px] font-black uppercase tracking-[0.2em] text-foreground/40 group-hover/sel:text-foreground transition-colors">
+                                                     {subBlock.metadata.customLabel || CATEGORY_MAP[subBlock.type]?.label || subBlock.type}
+                                                   </span>
+                                                   <ChevronDown className="w-2.5 h-2.5 text-foreground/20 group-hover/sel:text-foreground transition-colors" />
+                                                   <select 
+                                                     value={subBlock.type}
+                                                     onChange={(e) => handleCategoryChange(subBlock.id, e.target.value as TheologyCategory)}
+                                                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                                   >
+                                                     <optgroup label="Core Study">
+                                                       <option value="EXEGESE">Exegese</option>
+                                                       <option value="APLICACAO">Pastoral</option>
+                                                       <option value="ILUSTRACAO">Ilustração</option>
+                                                       <option value="ENFASE">Ênfase</option>
+                                                     </optgroup>
+                                                     <optgroup label="Research Highlights">
+                                                       <option value="ALERTA">Alerta / Aviso</option>
+                                                       <option value="MANDAMENTO">Mandamento</option>
+                                                       <option value="PROMESSA">Promessa</option>
+                                                       <option value="CONTEXTO">Contexto</option>
+                                                       <option value="VIDA">Vida / Crescimento</option>
+                                                       <option value="ESPIRITO_SANTO">Espírito Santo</option>
+                                                       <option value="CEU">Céu / Divino</option>
+                                                       <option value="PROFECIA">Profecia</option>
+                                                       <option value="CRISTO">Cristo / Realeza</option>
+                                                       <option value="ADORACAO">Adoração</option>
+                                                       <option value="AMOR">Amor / Graça</option>
+                                                       <option value="PECADO">Pecado / Perdão</option>
+                                                       <option value="HISTORIA">História</option>
+                                                     </optgroup>
+                                                   </select>
+                                                 </div>
+                                               </div>
+                                               <button onClick={() => deleteBlock(subBlock.id)} className="opacity-0 group-hover/insight:opacity-100 p-1 text-red-400 hover:text-red-500 transition-all"><Trash2 className="w-3 h-3" /></button>
+                                             </div>
+                                             <textarea
+                                               value={subBlock.content}
+                                               onChange={(e) => handleContentChange(subBlock.id, e.target.value)}
+                                               placeholder="Reflexão ou aplicação..."
+                                               className="w-full bg-transparent border-none outline-none resize-none font-sans text-base font-medium leading-relaxed text-foreground transition-all custom-scrollbar h-auto p-0"
+                                               onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
+                                             />
+                                           </div>
+                                         </div>
+                                       );
+                                     })
+                                   ) : (
+                                     <div className="flex-1 flex items-center justify-center opacity-0 group-hover/master:opacity-10 transition-opacity">
+                                       <span className="text-[9px] font-black uppercase tracking-widest italic">Aguardando Insights...</span>
+                                     </div>
+                                   )}
                               </div>
                             </Reorder.Item>
                           );
@@ -607,7 +733,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                         <div className="p-6 pt-2 pb-12">
                           <button 
                             onClick={() => addBlock('TEXTO_BASE', { bibleSourceId: source.id })}
-                            className="w-full py-6 border border-dashed border-border/20 rounded-2xl flex items-center justify-center gap-3 hover:bg-white hover:border-indigo-500/20 transition-all group hover:shadow-xl group/add-btn"
+                            className="w-full py-6 border border-dashed border-border/20 rounded-2xl flex items-center justify-center gap-3 hover:bg-surface hover:border-indigo-500/20 transition-all group hover:shadow-xl group/add-btn"
                           >
                             <Plus className="w-4 h-4 text-muted-foreground group-hover:text-indigo-500 transition-all" />
                             <span className="text-[9px] font-black uppercase tracking-[0.3em] opacity-10 group-hover:opacity-100 transition-opacity">Novo Texto em {source.reference}</span>
@@ -620,10 +746,10 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
               })}
 
               {/* GLOBAL ADD SOURCE BUTTON */}
-              <div className="p-20 border-t border-border/10 bg-stone-100/10 flex justify-center">
+              <div className="p-20 border-t border-border/10 bg-background/5 flex justify-center">
                 <button 
                   onClick={addBibleSource}
-                  className="px-16 py-12 border-2 border-dashed border-border/20 rounded-[4rem] flex flex-col items-center justify-center gap-6 hover:bg-white hover:border-indigo-500/40 transition-all group shadow-sm hover:shadow-2xl"
+                  className="px-16 py-12 border-2 border-dashed border-border/20 rounded-[4rem] flex flex-col items-center justify-center gap-6 hover:bg-surface hover:border-indigo-500/40 transition-all group shadow-sm hover:shadow-2xl"
                 >
                   <Plus className="w-10 h-10 text-indigo-500 group-hover:scale-125 transition-transform" />
                   <span className="text-[12px] font-black uppercase tracking-[0.5em] text-foreground/40 group-hover:text-foreground">Adicionar Nova Fonte Bíblica</span>
@@ -632,7 +758,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
             </div>
 
             {/* COLUMN 4: ACTIONS/SPACER */}
-            <div className="flex items-center justify-center bg-stone-50/10 min-h-screen">
+            <div className="flex items-center justify-center bg-background min-h-screen">
               <div className="sticky top-1/2 rotate-90 text-[10px] font-black tracking-[1em] uppercase opacity-5 whitespace-nowrap">Studio Workbench</div>
             </div>
 

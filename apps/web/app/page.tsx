@@ -19,7 +19,14 @@ export default function Home() {
   const [view, setView] = useState<ViewState>('dashboard');
   const [activeSermon, setActiveSermon] = useState<SermonMeta | null>(null);
   const [targetTime, setTargetTime] = useState<number>(45);
-  const [bibleSnapshot, setBibleSnapshot] = useState<{ highlights?: any, labels?: any } | null>(null);
+  const [bibleSnapshot, setBibleSnapshot] = useState<{ 
+    highlights?: any, 
+    labels?: any,
+    book?: string,
+    chapter?: number,
+    abbrev?: string,
+    version?: string
+  } | null>(null);
 
   // Load state on mount
   useEffect(() => {
@@ -79,18 +86,35 @@ export default function Home() {
       let blocksToCreate = [];
       let explorerSnapshot = null;
 
-      // Category mapping utility
       const mapLabelToCategory = (label: string): string => {
         const l = label.toLowerCase();
         if (l.includes('texto') || l.includes('base')) return 'TEXTO_BASE';
         if (l.includes('hermeneutica') || l.includes('exegese') || l.includes('estudo')) return 'EXEGESE';
-        if (l.includes('aplicacao') || l.includes('pratica') || l.includes('vida') || l.includes('pastoral')) return 'APLICACAO';
+        if (l.includes('aplicacao') || l.includes('pratica') || l.includes('pastoral')) return 'APLICACAO';
+        if (l.includes('vida') || l.includes('crescimento')) return 'VIDA';
         if (l.includes('ilustracao') || l.includes('exemplo')) return 'ILUSTRACAO';
-        if (l.includes('enfase') || l.includes('aviso') || l.includes('alerta') || l.includes('chamada') || l.includes('importante')) return 'ENFASE';
-        if (l.includes('promessa')) return 'PROMESSA';
+        if (l.includes('alerta') || l.includes('aviso')) return 'ALERTA';
+        if (l.includes('enfase') || l.includes('importante')) return 'ENFASE';
         if (l.includes('mandamento')) return 'MANDAMENTO';
-        if (l.includes('cristo') || l.includes('realeza') || l.includes('divino')) return 'CRISTO';
-        return 'CUSTOMIZAR';
+        if (l.includes('promessa')) return 'PROMESSA';
+        if (l.includes('contexto')) return 'CONTEXTO';
+        if (l.includes('espirito santo')) return 'ESPIRITO_SANTO';
+        if (l.includes('ceu') || l.includes('divino')) return 'CEU';
+        if (l.includes('profecia')) return 'PROFECIA';
+        if (l.includes('cristo') || l.includes('realeza')) return 'CRISTO';
+        if (l.includes('adoracao')) return 'ADORACAO';
+        if (l.includes('amor') || l.includes('graca')) return 'AMOR';
+        if (l.includes('pecado') || l.includes('perdao')) return 'PECADO';
+        if (l.includes('historia')) return 'HISTORIA';
+        return 'APLICACAO';
+      };
+
+      const generateObjectId = () => {
+        const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(8, '0');
+        const chars = 'abcdef0123456789';
+        let rest = '';
+        for (let i = 0; i < 16; i++) rest += chars[Math.floor(Math.random() * 16)];
+        return timestamp + rest;
       };
 
       try {
@@ -99,37 +123,48 @@ export default function Home() {
           finalBibleSourceContent = data.chapterText;
           explorerSnapshot = {
             highlights: data.rawHighlights,
-            labels: data.rawCustomLabels
+            labels: data.rawCustomLabels,
+            book: data.book,
+            chapter: data.chapter,
+            abbrev: data.abbrev,
+            version: data.version
           };
           
           let currentOrder = 0;
+          const verseMap = new Map<string, string>(); // ref:verse -> mongoId
           
           // Use unique client-side IDs for initial linkage
           data.blocks.forEach((b: any) => {
-            const baseTextId = `bt-${Date.now()}-${currentOrder}`;
+            const verseRef = `${reference}:${b.verseNumber}`;
+            let baseTextId = verseMap.get(verseRef);
 
-            // 1. Create the Verse Block (TEXTO_BASE)
-            blocksToCreate.push({
-              id: baseTextId,
-              type: 'TEXTO_BASE',
-              content: `${b.verseNumber} ${b.verseText}`,
-              order: currentOrder++,
-              metadata: { 
-                reference: `${reference}:${b.verseNumber}`, 
-                bibleSourceId: srcId, 
-                parentVerseId: baseTextId 
-              }
-            });
+            // 1. Create the Verse Block (TEXTO_BASE) ONLY IF NOT EXISTS
+            if (!baseTextId) {
+              baseTextId = generateObjectId();
+              verseMap.set(verseRef, baseTextId);
+              
+              blocksToCreate.push({
+                id: baseTextId,
+                type: 'TEXTO_BASE',
+                content: `${b.verseNumber} ${b.verseText}`,
+                order: currentOrder++,
+                metadata: { 
+                  reference: verseRef, 
+                  bibleSourceId: srcId, 
+                  parentVerseId: '' // Clear self-reference to avoid appearing in Col 3
+                }
+              });
+            }
 
-            // 2. Create the Insight Block if there is a comment
-            if (b.comment) {
+            // 2. Create the Insight Block if there is a comment (even empty string)
+            if (b.comment !== undefined && b.comment !== null) {
               const blockType = mapLabelToCategory(b.category);
               blocksToCreate.push({
                 type: blockType,
                 content: b.comment,
                 order: currentOrder++,
                 metadata: { 
-                  reference: `${reference}:${b.verseNumber}`, 
+                  reference: verseRef, 
                   bibleSourceId: srcId, 
                   parentVerseId: baseTextId,
                   customLabel: b.category,
@@ -143,7 +178,7 @@ export default function Home() {
           });
         }
       } catch (e) {
-        const baseTextId = `bt-${Date.now()}-0`;
+        const baseTextId = generateObjectId();
         // Fallback for simple markdown content
         blocksToCreate.push({
           id: baseTextId,
@@ -178,11 +213,22 @@ export default function Home() {
 
       if (res.ok) {
         const newSermon = await res.json();
+        
+        // 🔒 CLEAR BIBLE SESSION ONLY ON SUCCESS
+        localStorage.removeItem('preachfy_bible_highlights');
+        localStorage.removeItem('preachfy_bible_labels');
+        setBibleSnapshot(null);
+
         setActiveSermon(newSermon);
         setView('study');
+      } else {
+        const error = await res.text();
+        console.error("API Error creating sermon:", error);
+        alert("Ops! Houve um erro ao salvar seu estudo no servidor. Suas anotações continuam seguras na bíblia, tente novamente em instantes.");
       }
     } catch (e) {
       console.error("Failed to create sermon from bible", e);
+      alert("Falha na conexão. Suas anotações estão salvas no navegador, tente clicar em Gerar Estudo novamente.");
     }
   };
 
@@ -233,6 +279,11 @@ export default function Home() {
           onCreateSermon={handleCreateSermonFromBible}
           initialHighlights={bibleSnapshot?.highlights}
           initialCustomLabels={bibleSnapshot?.labels}
+          initialBook={bibleSnapshot?.book}
+          initialChapter={bibleSnapshot?.chapter}
+          initialAbbrev={bibleSnapshot?.abbrev}
+          initialVersion={bibleSnapshot?.version}
+          sermonTitle={activeSermon?.title}
         />
       )}
     </main>

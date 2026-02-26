@@ -182,13 +182,18 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
           }
         });
         setHighlights(migrated);
-      } catch (e) { console.error(e); }
+      } catch (e) { console.error("Failed to parse local highlights", e); }
     }
     const savedLabels = localStorage.getItem('preachfy_bible_labels');
     if (savedLabels) {
       try { setCustomLabels(JSON.parse(savedLabels)); } catch (e) { console.error(e); }
     }
   }, []);
+
+  // Save version to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('preachfy_bible_version', version);
+  }, [version]);
 
   useEffect(() => {
     if (isInitialMount.current) {

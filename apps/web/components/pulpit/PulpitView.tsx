@@ -6,7 +6,7 @@ import {
   Share2, Clock, Search, Book, Sidebar, ChevronRight, X, 
   Maximize2, Minimize2, ArrowLeft, ArrowRight, MoreVertical, 
   LayoutGrid, Zap, Sparkles, GripVertical, CheckCircle2,
-  Quote, CornerDownRight, LinkIcon, Trash2, Layout, LogOut
+  Quote, CornerDownRight, LinkIcon, Trash2, Layout, LogOut, Plus
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -60,7 +60,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
   const [blocks, setBlocks] = useState<any[]>([]);
   const [sermonMeta, setSermonMeta] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeBlockIndex, setActiveBlockIndex] = useState(0);
+  const [activeGroupIndex, setActiveGroupIndex] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<'BIBLIA' | 'ESTRUTURA' | 'INSIGHTS'>('ESTRUTURA');
   const [isHudOpen, setIsHudOpen] = useState(false);
@@ -72,7 +72,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
   const [bibleResults, setBibleResults] = useState<any[]>([]);
   const [selectedVersion, setSelectedVersion] = useState('nvi');
   const [isBibleSearching, setIsBibleSearching] = useState(false);
-  const [isTopicMode, setIsTopicMode] = useState(false);
+
 
   // Refs for auto-scroll
   const hudScrollRef = useRef<HTMLDivElement>(null);
@@ -244,34 +244,37 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
 
   const bind = useGesture({
     onDragEnd: (state) => {
-      const { swipe: [_, sy] } = state;
-      if (sy < 0) handleNext();
-      if (sy > 0) handlePrev();
+      const { swipe: [sx] } = state;
+      if (sx < 0) handleNext();
+      if (sx > 0) handlePrev();
     }
   });
 
+  const groupedBlocks = blocks.reduce((acc: any[][], block: any) => {
+    // FORCE every TEXTO_BASE to start a new group, or anything with depth 0
+    if (acc.length === 0 || block.type === 'TEXTO_BASE' || block.metadata?.depth === 0) {
+      acc.push([block]);
+    } else {
+      const lastGroup = acc[acc.length - 1];
+      if (lastGroup) lastGroup.push(block);
+    }
+    return acc;
+  }, []);
+
   const handleNext = () => {
-    if (activeBlockIndex < blocks.length - 1) setActiveBlockIndex(prev => prev + 1);
+    if (activeGroupIndex < groupedBlocks.length - 1) setActiveGroupIndex(prev => prev + 1);
   };
 
   const handlePrev = () => {
-    if (activeBlockIndex > 0) setActiveBlockIndex(prev => prev - 1);
+    if (activeGroupIndex > 0) setActiveGroupIndex(prev => prev - 1);
   };
 
-  const activeBlock = blocks[activeBlockIndex] || null;
+  const activeGroupBlocks = (groupedBlocks[activeGroupIndex] || []) as any[];
+  const activeBlock = activeGroupBlocks[0] || null; // The "head" block of the group (depth 0)
   
-  // Find the nearest preceding block at depth 0 (The "Context Father")
-  const findContextParent = () => {
-    if (!activeBlock || activeBlock.metadata?.depth === 0) return null;
-    for (let i = activeBlockIndex - 1; i >= 0; i--) {
-      if (blocks[i].metadata?.depth === 0 || blocks[i].type === 'TEXTO_BASE') {
-        return blocks[i];
-      }
-    }
-    return null;
-  };
+  // Context info based on group
+  const contextParent = activeBlock?.metadata?.depth > 0 ? activeBlock : null; 
 
-  const contextParent = findContextParent();
   const activeVerseId = activeBlock?.metadata?.parentVerseId;
   const activeSourceId = activeBlock?.metadata?.bibleSourceId;
   const activeSource = sermonMeta?.bibleSources?.find((s: any) => s.id === activeSourceId) || (sermonMeta?.bibleSources?.[0]);
@@ -279,11 +282,11 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
   const finalSource = activeSource;
   const finalVerseId = activeVerseId;
 
-  const jumpToSourceVerse = (sourceId: string, vId: string) => {
-    const index = blocks.findIndex(b => b.metadata?.parentVerseId === vId && b.metadata?.bibleSourceId === sourceId);
-    if (index !== -1) {
-      setActiveBlockIndex(index);
-    }
+  const jumpToGroup = (idx: number) => {
+    const block = blocks[idx];
+    // Find which group this block belongs to
+    const groupIdx = groupedBlocks.findIndex(group => group.some(b => b.id === block.id));
+    if (groupIdx !== -1) setActiveGroupIndex(groupIdx);
   };
 
   const [fullChapterVerses, setFullChapterVerses] = useState<{ v: number; text: string }[]>([]);
@@ -445,89 +448,113 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                   )}
                 </div>
               ) : sidebarTab === 'ESTRUTURA' ? (
-                <div className="p-3 flex flex-col gap-1 relative">
-                  {/* Vertical Roadmap Track - More prominent */}
-                  <div className="absolute left-[2.25rem] top-8 bottom-8 w-[2px] bg-foreground/[0.05]" />
+                <div className="p-5 flex flex-col gap-4 relative">
+                  {/* Tactical Roadmap Track */}
+                  <div className="absolute left-[2.1rem] top-12 bottom-12 w-0.5 bg-gradient-to-b from-indigo-500/30 via-indigo-500/10 to-transparent rounded-full -z-0" />
+
                   
-                  {[...blocks].sort((a,b) => (a.order ?? 0) - (b.order ?? 0)).map((block, idx) => {
-                    const isActive = activeBlockIndex === idx;
-                    const isPast = activeBlockIndex > idx;
-                    const depth = block.metadata?.depth || 0;
-                    const isNested = depth > 0;
+                  {groupedBlocks.map((group, gIdx) => {
+                    const isActive = activeGroupIndex === gIdx;
+                    const isPast = activeGroupIndex > gIdx;
+                    const rootBlock = group[0];
+                    const insights = group.slice(1);
                     
-                    // Extract reference from metadata for the card title
-                    const refDisplay = block.metadata?.reference?.split(' (')[0];
-                    const category = (CATEGORY_MAP[block.type] || CATEGORY_MAP.CUSTOMIZAR) as { label: string, color: string, icon: React.ReactNode };
+                    const category = (CATEGORY_MAP[rootBlock.type] || CATEGORY_MAP.CUSTOMIZAR) as { label: string, color: string, icon: React.ReactNode };
 
                     return (
-                      <div 
-                        key={block.id || idx}
-                        onClick={() => { setActiveBlockIndex(idx); }}
-                        className={cn(
-                          "relative flex items-start gap-4 py-1.5 transition-all cursor-pointer group pr-2",
-                          isActive ? "opacity-100" : 
-                          block.type === 'TEXTO_BASE' ? "opacity-70" : "opacity-30 hover:opacity-100"
-                        )}
-                        style={{ paddingLeft: `${depth * 1.5}rem` }}
-                      >
-                        {/* Nesting Link Line (Vertical component) */}
-                        {isNested && (
-                          <div className="absolute left-[-1.25rem] top-0 bottom-1/2 w-4 border-l-2 border-b-2 border-indigo-500/15 rounded-bl-[1.5rem] -mb-1" />
+                      <div key={gIdx} className="flex flex-col gap-1.5">
+                        {/* Unit Step */}
+                        <div 
+                          onClick={() => { setActiveGroupIndex(gIdx); }}
+                          className={cn(
+                            "relative flex items-center gap-4 py-1 transition-all cursor-pointer group pr-2",
+                            isActive ? "opacity-100 scale-[1.02] origin-left z-10" : isPast ? "opacity-50" : "opacity-30 hover:opacity-100"
+                          )}
+                        >
+
+                          {/* Tactical Marker - Diamond for Units */}
+                          <div className="relative z-10 flex flex-col items-center shrink-0">
+                            <div className={cn(
+                              "w-10 h-10 transition-all duration-500 flex items-center justify-center rounded-xl rotate-45 border-2",
+                              isActive ? "bg-indigo-600 border-indigo-400 shadow-[0_0_30px_rgba(79,70,229,0.8)] scale-125 z-20" : 
+                              isPast ? "bg-indigo-500/20 border-indigo-500/30 text-indigo-500" : "bg-surface border-border"
+                            )}>
+                               <div className="-rotate-45">
+                                 {isPast ? (
+                                   <CheckCircle2 className="w-5 h-5 stroke-[3px]" />
+                                 ) : (
+                                    <span className={cn(
+                                      "font-mono font-black text-[15px]",
+                                      isActive ? "text-white scale-110" : "text-muted-foreground"
+                                    )}>
+                                      {gIdx + 1}
+                                    </span>
+                                 )}
+                               </div>
+                            </div>
+                            {isActive && <div className="absolute inset-0 bg-indigo-500/40 blur-2xl rounded-full scale-150 -z-10 animate-pulse" />}
+                          </div>
+
+          
+                          {/* Info Block */}
+                          <div className={cn(
+                            "flex-1 flex flex-col gap-0.5 p-2.5 rounded-2xl transition-all duration-300 border ml-1",
+                            isActive ? "bg-indigo-500/10 border-indigo-500/30 shadow-2xl backdrop-blur-md ring-1 ring-white/10" : "bg-transparent border-transparent"
+                          )}>
+                            <div className="flex items-center justify-between gap-4">
+                               <div className="flex items-center gap-2">
+                                 <span className={cn(
+                                   "text-[9px] font-black uppercase tracking-[0.25em] px-2 py-0.5 rounded-md", 
+                                   isActive ? "bg-indigo-500 text-white" : "text-muted-foreground/30"
+                                 )}>
+                                   {rootBlock.metadata?.customLabel || (rootBlock.type === 'TEXTO_BASE' ? 'TEXTO' : rootBlock.type.substring(0, 3))}
+                                 </span>
+                               </div>
+                               {rootBlock.metadata?.reference && (
+                                 <span className={cn(
+                                   "text-[8.5px] font-mono font-black uppercase tracking-[0.1em] shrink-0",
+                                   isActive ? "opacity-60 text-indigo-400" : "opacity-20"
+                                 )}>
+                                   {rootBlock.metadata.reference.split(' (')[0]}
+                                 </span>
+                               )}
+                            </div>
+                             <p className={cn(
+                               "text-[15px] font-medium leading-tight line-clamp-1 transition-all",
+                               isActive ? "text-foreground" : "text-foreground/40"
+                             )}>
+                              {rootBlock.content}
+                            </p>
+                          </div>
+                        </div>
+
+
+                        {/* Insights List (Nested markers) */}
+                        {insights.length > 0 && (
+                          <div className="flex flex-col gap-1.5 ml-3 border-l-2 border-indigo-500/10 pl-8 my-0.5">
+                             {insights.map((insight: any) => {
+                               const iCat = (CATEGORY_MAP[insight.type] || CATEGORY_MAP.CUSTOMIZAR) as any;
+                               return (
+                                 <div key={insight.id} className="flex items-center gap-3 py-1 opacity-40 hover:opacity-100 transition-opacity group/sub">
+                                    <div className="w-4 h-4 rounded-md border border-border flex items-center justify-center bg-surface group-hover/sub:border-indigo-500/30 shrink-0">
+                                       {React.cloneElement(iCat.icon as React.ReactElement<any>, { className: "w-2.5 h-2.5 stroke-[2.5px] opacity-40" })}
+                                    </div>
+                                    <div className="flex flex-col min-w-0 flex-1">
+                                       <span className="text-[11px] font-medium text-foreground/40 group-hover/sub:text-foreground transition-colors italic truncate">
+                                          {insight.content}
+                                       </span>
+                                    </div>
+                                 </div>
+                               );
+                             })}
+                          </div>
                         )}
 
-                        {/* Step Marker */}
-                        <div className="relative z-10 flex flex-col items-center shrink-0 mt-2">
-                          <div className={cn(
-                            "w-8 h-8 rounded-full border flex items-center justify-center transition-all duration-500 shadow-sm",
-                            isActive ? "bg-indigo-600 border-indigo-500 shadow-[0_0_20px_rgba(79,70,229,0.4)] scale-110 z-20" : 
-                            isPast ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-500" : "bg-surface border-border"
-                          )}>
-                            {isPast ? (
-                              <CheckCircle2 className="w-5 h-5 stroke-[2.5px]" />
-                            ) : (
-                               <span className={cn(
-                                 "text-[14px] font-mono font-black",
-                                 isActive ? "text-white" : "text-muted-foreground"
-                               )}>
-                                 {idx + 1}
-                               </span>
-                            )}
-                          </div>
-                        </div>
-        
-                        {/* Enhanced Content Card - Mirroring Editor Aesthetics */}
-                        <div className={cn(
-                          "flex-1 flex flex-col gap-1.5 px-4 py-3 rounded-[1.8rem] transition-all duration-500 border",
-                          isActive ? "bg-surface border-foreground/15 shadow-xl ring-1 ring-black/5" : "bg-transparent border-transparent"
-                        )}>
-                          <div className="flex items-center justify-between gap-2 overflow-hidden">
-                             <div className="flex items-center gap-2 min-w-0">
-                               <span className={cn(
-                                 "text-[9px] font-black uppercase tracking-[0.25em] truncate", 
-                                 isActive ? "text-indigo-500" : "text-muted-foreground/60"
-                               )}>
-                                 {block.metadata?.customLabel || category.label || block.type}
-                               </span>
-                             </div>
-                             {refDisplay && (
-                               <div className="px-2 py-0.5 rounded-md bg-foreground/[0.03] border border-foreground/[0.05] shrink-0">
-                                 <span className="text-[8px] font-mono font-bold opacity-30 uppercase tracking-tighter">{refDisplay}</span>
-                               </div>
-                             )}
-                          </div>
-                           <p className={cn(
-                             "text-[16px] font-medium leading-tight line-clamp-2 transition-colors",
-                             isActive ? "text-foreground" : 
-                             block.type === 'TEXTO_BASE' ? "text-indigo-400/70 italic font-serif" : "text-foreground/50"
-                           )}>
-                            {block.content}
-                          </p>
-                        </div>
                       </div>
                     );
                   })}
                   
-                  {blocks.length === 0 && (
+                  {groupedBlocks.length === 0 && (
                      <div className="py-20 text-center flex flex-col items-center gap-4 px-10">
                         <div className="w-12 h-12 rounded-2xl bg-foreground/5 flex items-center justify-center">
                           <Layout className="w-6 h-6 opacity-20" />
@@ -553,9 +580,9 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                       >
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-[10px] font-mono font-bold text-indigo-500 uppercase tracking-tighter bg-indigo-500/10 px-2 py-0.5 rounded">
-                            {block.metadata.reference}
+                            {block.metadata?.reference}
                           </span>
-                          {block.metadata.insightStatus === 'PENDING' ? (
+                          {block.metadata?.insightStatus === 'PENDING' ? (
                             <span className="text-[9px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-1.5 animate-pulse">
                               <Clock className="w-3 h-3" /> Pendente
                             </span>
@@ -567,7 +594,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                         </div>
                         
                         <div className="flex flex-col gap-3">
-                          <p className="text-[14px] font-serif italic leading-relaxed text-foreground opacity-60 line-clamp-2">
+                          <p className="text-[15px] font-sans leading-relaxed text-foreground opacity-60 line-clamp-2">
                              "{block.metadata.verseText}"
                           </p>
                           
@@ -641,19 +668,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
           </div>
 
           <div className="flex items-center gap-10">
-            <button 
-              onClick={() => setIsTopicMode(!isTopicMode)} 
-              className={cn(
-                "flex items-center gap-3 px-5 py-2.5 rounded-full border transition-all",
-                isTopicMode 
-                  ? "bg-foreground text-background border-foreground shadow-[0_0_20px_rgba(255,255,255,0.1)]" 
-                  : "glass border-white/5 text-foreground/40 hover:text-foreground hover:border-white/20"
-              )}
-              title="Modo Tópicos"
-            >
-              <LayoutGrid className="w-4 h-4" />
-              <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Tópicos</span>
-            </button>
+
 
             <div onClick={() => setIsHudOpen(true)} className="flex items-center gap-3 cursor-pointer group px-5 py-2.5 rounded-full glass border-white/5 hover:border-white/10 transition-all opacity-40 hover:opacity-100">
               <Search className="w-4 h-4" />
@@ -683,13 +698,13 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
         </header>
 
         {/* MAIN CANVAS - THE PREACHING VIEW */}
-        <div className="flex-1 relative flex flex-col overflow-hidden">
-          <div className="absolute inset-0 z-0" {...bind()} />
+        <div className="flex-1 relative flex flex-col overflow-y-auto custom-scrollbar-premium" {...bind()}>
+          {/* Background capture for swipe is now on the whole container */}
           
           <div className="flex-1 flex flex-col items-center justify-center transition-all duration-500 pb-48">
             <AnimatePresence mode="wait">
                <motion.div 
-                 key={activeBlockIndex}
+                 key={activeGroupIndex}
                  initial={{ y: 40, opacity: 0 }}
                  animate={{ 
                    y: showContextPeek ? -400 : 0, 
@@ -697,101 +712,135 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                    scale: showContextPeek ? 0.8 : 1,
                    filter: showContextPeek ? 'blur(30px)' : 'blur(0px)'
                  }}
-               exit={{ y: -20, opacity: 0 }}
-               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-               className="max-w-7xl w-full flex flex-col items-center gap-16 text-center z-10 origin-center"
-             >
-                <div className="flex flex-col items-center gap-16 w-full">
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="px-8 py-2.5 rounded-full border border-border flex items-center gap-4 shadow-sm transition-all duration-500 bg-surface/80"
-                  >
-                     <div 
-                       className="w-4 h-4 flex items-center justify-center" 
-                       style={{ color: activeBlock?.metadata?.customColor || CATEGORY_MAP[activeBlock?.type]?.color || '#888' }}
-                     >
-                        {CATEGORY_MAP[activeBlock?.type]?.icon || <BookOpen className="w-4 h-4 fill-current" />}
-                     </div>
-                     <span 
-                       className="text-[10px] font-sans font-black tracking-[0.4em] uppercase"
-                       style={{ color: activeBlock?.metadata?.customColor || CATEGORY_MAP[activeBlock?.type]?.color || '#888' }}
-                     >
-                       {activeBlock?.metadata?.customLabel || CATEGORY_MAP[activeBlock?.type]?.label || activeBlock?.type}
-                     </span>
-                  </motion.div>
-                  
-                  <div className="flex flex-col items-center gap-10 w-full px-4 max-w-6xl">
-                    {/* INHERITED CONTEXT (THE PARENT VERSE/TEXT) */}
-                    {(activeBlock?.metadata?.verseText || contextParent) && activeBlock?.type !== 'TEXTO_BASE' && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="flex flex-col gap-4 opacity-50 hover:opacity-100 transition-opacity max-w-4xl"
-                      >
-                         <p className="text-2xl md:text-3xl font-serif italic text-foreground tracking-tight text-center leading-relaxed">
-                           <span className="font-mono font-bold mr-3 text-indigo-500 text-xl">
-                             {activeBlock?.metadata?.parentVerseId || contextParent?.metadata?.parentVerseId}
-                           </span>
-                           "{activeBlock?.metadata?.verseText || contextParent?.content}"
-                         </p>
-                         <div className="flex items-center gap-3 justify-center">
-                            <div className="h-px w-12 bg-indigo-500/20" />
-                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500/20" />
-                            <div className="h-px w-12 bg-indigo-500/20" />
-                         </div>
-                      </motion.div>
-                    )}
+                 exit={{ y: -20, opacity: 0 }}
+                 transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                 className="max-w-7xl w-full flex flex-col items-center gap-12 text-center z-10 origin-center"
+               >
+                 <div className="max-w-[1700px] w-full z-10 relative px-12">
+                    <div className="flex flex-col lg:flex-row gap-16 items-stretch relative">
+                      
+                      {/* NEURAL BRIDGE - Solid horizontal connection with glow */}
+                      <div className="absolute left-[400px] top-1/2 -translate-y-1/2 w-16 h-1.5 bg-gradient-to-r from-indigo-500/80 to-indigo-500/40 -z-10 hidden lg:block shadow-[0_0_20px_rgba(79,70,229,0.5)] rounded-full" />
 
-                    {/* MAIN CONTENT (THE ACTIVE INSIGHT OR VERSE) */}
-                    {activeBlock?.type === 'TEXTO_BASE' && parseBibleContent(activeBlock?.content).length > 0 ? (
-                      <div className="flex flex-col gap-10 w-full text-center items-center">
-                        {parseBibleContent(activeBlock?.content).map(v => (
-                          <p key={v.v} className="font-sans font-black italic text-foreground leading-[1.2] text-4xl md:text-5xl lg:text-6xl drop-shadow-sm select-none break-words tracking-tighter w-full">
-                            <span className="text-3xl md:text-4xl lg:text-5xl font-extrabold mr-4 opacity-80 text-indigo-500">{v.v}</span>
-                            {v.text}
-                          </p>
-                        ))}
+                      {/* COLUMN 1: THE ANCHOR (TEXTO BASE) */}
+                      {activeGroupBlocks[0] && (() => {
+                        const b = activeGroupBlocks[0];
+                        const bCat = (CATEGORY_MAP[b.type] || CATEGORY_MAP.CUSTOMIZAR) as { label: string, color: string, icon: React.ReactNode };
+                        return (
+                          <motion.div
+                            initial={{ x: -30, opacity: 0 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            className="w-full lg:w-[400px] shrink-0"
+                          >
+                              <div className="h-full flex flex-col gap-6 p-10 rounded-[1.5rem] bg-white text-foreground border border-border/60 shadow-[0_2px_8px_rgba(0,0,0,0.04),0_20px_40px_-12px_rgba(0,0,0,0.08)] relative group/anchor transition-all duration-700 hover:shadow-[0_2px_10px_rgba(0,0,0,0.04),0_25px_50px_-12px_rgba(0,0,0,0.12)]">
+                                 <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: b.metadata?.color || '#6366f1' }} />
+                                 
+                                 <div className="flex items-center justify-between relative z-10">
+                                   <div className="flex items-center gap-4">
+                                     <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm transition-all group-hover/anchor:scale-110">
+                                       {React.cloneElement(bCat.icon as React.ReactElement<any>, { className: "w-6 h-6 stroke-[2.5px]" })}
+                                     </div>
+                                     <div className="flex flex-col text-left">
+                                        <span className="text-[11px] font-black uppercase tracking-[0.3em] text-foreground/30">
+                                          {(b.metadata?.customLabel || 'Texto Base').toUpperCase()}
+                                        </span>
+                                     </div>
+                                   </div>
+                                   {b.metadata?.reference && (
+                                      <div className="flex items-center gap-2 px-5 py-2 rounded-full font-mono font-black text-[12px] border border-border bg-stone-50 text-foreground/60">
+                                        <BookOpen className="w-3.5 h-3.5 opacity-50 shrink-0" />
+                                        {b.metadata.reference.split(' (')[0]}
+                                      </div>
+                                   )}
+                                 </div>
+                                 <div className="flex-1 flex flex-col justify-center">
+                                   <p className="text-[34px] font-sans font-medium tracking-tight leading-[1.2] text-left text-foreground">
+                                     {b.content}
+                                   </p>
+                                 </div>
+                              </div>
+                          </motion.div>
+                        );
+                      })()}
+
+                      {/* COLUMN 2: THE DERIVATIVES (MASONRY INSIGHTS) */}
+                      <div className="flex-1 relative pl-6">
+                        {activeGroupBlocks.length > 1 ? (
+                          <>
+                            {/* THE NEURAL STEM - Refined continuous backbone */}
+                            <div className="absolute left-0 top-12 bottom-12 w-1.5 bg-gradient-to-b from-transparent via-indigo-500/60 to-transparent rounded-full hidden lg:block shadow-[0_0_20px_rgba(79,70,229,0.3)]" />
+                            
+                            <div className="columns-1 md:columns-2 gap-10 space-y-10 w-full">
+                              {activeGroupBlocks.slice(1).map((b: any, subIdx: number) => {
+                                const bCat = (CATEGORY_MAP[b.type] || CATEGORY_MAP.CUSTOMIZAR) as { label: string, color: string, icon: React.ReactNode };
+                                
+                                return (
+                                  <motion.div
+                                    key={b.id}
+                                    initial={{ x: 20, opacity: 0 }}
+                                    animate={{ x: 0, opacity: 1 }}
+                                    transition={{ delay: 0.1 + (subIdx * 0.05), type: 'spring', damping: 25 }}
+                                    className="break-inside-avoid relative pl-10 pb-2"
+                                  >
+                                     {/* Synapse Connection - Solid link with node */}
+                                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-10 h-1 bg-indigo-500/40 hidden lg:block rounded-full">
+                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-indigo-500 rounded-full blur-[1px]" />
+                                     </div>
+
+                                     <div 
+                                        style={{ backgroundColor: b.metadata?.color ? `${b.metadata.color}08` : 'white' }}
+                                        className="flex flex-col gap-5 p-8 rounded-[1.2rem] bg-white border border-border/50 shadow-[0_2px_4px_rgba(0,0,0,0.02),0_12px_24px_-8px_rgba(0,0,0,0.06)] transition-all duration-700 relative group/subcard hover:-translate-y-1 hover:shadow-[0_4px_12px_rgba(0,0,0,0.04),0_20px_40px_-12px_rgba(0,0,0,0.12)]"
+                                      >
+                                        <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: b.metadata?.color || '#e2e8f0' }} />
+ 
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center gap-3">
+                                             <div className="w-8 h-8 rounded-lg bg-stone-50 border border-border/40 flex items-center justify-center transition-all group-hover/subcard:bg-white shadow-sm" style={{ color: b.metadata?.customColor || bCat.color }}>
+                                                {React.cloneElement(bCat.icon as React.ReactElement<any>, { className: "w-4 h-4 stroke-[2.5px]" })}
+                                             </div>
+                                             <div className="flex flex-col">
+                                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/20 italic">
+                                                   {(b.metadata?.customLabel || b.type.substring(0, 3)).toUpperCase()}
+                                                </span>
+                                             </div>
+                                          </div>
+                                          {b.metadata?.reference && (
+                                             <span className="text-[10px] font-mono font-black opacity-40 uppercase tracking-[0.1em] bg-stone-50 px-3 py-1 rounded-full text-foreground/60">{b.metadata.reference.split(' (')[0].replace(/:\d+.*$/, '')}</span>
+                                        )}
+                                        </div>
+                                        
+                                        <div className="flex-1">
+                                           <p className="text-[20px] font-sans font-medium text-foreground tracking-tight leading-[1.4] text-left">
+                                             {b.content}
+                                           </p>
+                                         </div>
+ 
+                                        {b.metadata?.isInsight && b.metadata?.verseText && (
+                                          <div className="mt-1 p-5 rounded-2xl bg-stone-50 border border-border/40 text-[15px] font-sans text-foreground/40 leading-relaxed relative overflow-hidden">
+                                            <span className="relative z-10 block">"{b.metadata.verseText}"</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                  </motion.div>
+                                );
+                              })}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="h-full min-h-[400px] ml-4 rounded-[3.5rem] border-[3px] border-dashed border-border/40 flex flex-col items-center justify-center gap-6 opacity-30 group hover:opacity-60 transition-opacity">
+                             <div className="w-24 h-24 rounded-full bg-indigo-500/5 border-2 border-indigo-500/10 flex items-center justify-center shadow-inner transition-transform group-hover:scale-110">
+                                <Plus className="w-10 h-10 text-indigo-500" />
+                             </div>
+                             <p className="text-[14px] font-black uppercase tracking-[0.6em] text-center text-indigo-500/60 leading-loose">
+                                Mapeie o texto<br/>
+                                <span className="text-[10px] tracking-[0.3em] font-medium text-muted-foreground">Adicione desdobramentos no Studio</span>
+                             </p>
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <h1 className={cn(
-                        "font-sans font-black italic leading-[1.1] text-foreground transition-all duration-500 select-none drop-shadow-sm break-words whitespace-pre-wrap w-full tracking-tighter text-center",
-                        isTopicMode ? "text-6xl md:text-7xl lg:text-8xl text-indigo-500" :
-                        (activeBlock?.content?.length || 0) > 200 ? "text-4xl md:text-5xl lg:text-5xl" :
-                        (activeBlock?.content?.length || 0) > 120 ? "text-5xl md:text-6xl lg:text-6xl" :
-                        (activeBlock?.content?.length || 0) > 60 ? "text-6xl md:text-7xl lg:text-7xl" :
-                        "text-7xl md:text-8xl lg:text-8xl"
-                      )}>
-                        {isTopicMode 
-                           ? activeBlock?.metadata?.customLabel || CATEGORY_MAP[activeBlock?.type]?.label || activeBlock?.type 
-                           : activeBlock?.content}
-                      </h1>
-                    )}
+                    </div>
                   </div>
-
-                  {!showContextPeek && finalVerseId && (
-                    <motion.button 
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      onClick={() => setShowContextPeek(true)} 
-                      className="mt-4 px-10 py-4 rounded-full font-sans font-black text-[11px] tracking-[0.3em] uppercase transition-all shadow-xl flex items-center gap-4 border border-border bg-surface text-foreground hover:scale-105 active:scale-95 group"
-                    >
-                      <BookOpen className="w-5 h-5 text-foreground/80 group-hover:text-foreground transition-colors" /> 
-                      <span className="text-foreground/90 pt-0.5">
-                        {(() => {
-                          const base = finalSource?.reference?.split(' (')[0] || 'REF';
-                          const vId = finalVerseId !== 'ALL' ? finalVerseId : '';
-                          // Only append verse if it's not already at the end of the base reference
-                          if (vId && !base.endsWith(`:${vId}`)) {
-                             return `${base}:${vId}`.toUpperCase();
-                          }
-                          return base.toUpperCase();
-                        })()}
-                      </span>
-                    </motion.button>
-                  )}
-                </div>
-             </motion.div>
+               </motion.div>
             </AnimatePresence>
           </div>
 
@@ -838,7 +887,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                     {isLoadingContext ? (
                       <div className="h-full flex flex-col items-center justify-center gap-4 opacity-40">
                         <div className="w-10 h-10 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
-                        <p className="text-[10px] font-black uppercase tracking-widest">Alimentando Altar con Escritura...</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest">Alimentando Altar com Escritura...</p>
                       </div>
                     ) : (
                       <div className="font-sans font-medium text-foreground/60 leading-[2.2] text-justify">
@@ -897,70 +946,68 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                   {/* Anterior */}
                   <button 
                     onClick={handlePrev}
-                    disabled={activeBlockIndex === 0}
-                    className="flex-[1.5] flex flex-col items-start gap-1 group/btn disabled:opacity-0 transition-all duration-500 cursor-pointer text-left w-full overflow-hidden"
+                    disabled={activeGroupIndex === 0}
+                    className="flex-[1.8] flex flex-col items-start gap-1 group/btn disabled:opacity-0 transition-all duration-500 cursor-pointer text-left w-full overflow-hidden"
                   >
                     <span className="text-[9px] font-black uppercase tracking-[0.4em] text-indigo-500 flex items-center gap-3">
                       <span className="flex items-center gap-1.5"><ArrowLeft className="w-3.5 h-3.5 group-hover/btn:-translate-x-1 transition-transform" /> ANTERIOR</span>
-                      {blocks[activeBlockIndex - 1] && (
+                      {groupedBlocks[activeGroupIndex - 1]?.[0] && (
                         <>
                           <span className="opacity-30">•</span>
-                          <span className="text-foreground/40">
-                            {blocks[activeBlockIndex - 1]?.metadata?.customLabel || CATEGORY_MAP[blocks[activeBlockIndex - 1]?.type || '']?.label || blocks[activeBlockIndex - 1]?.type}
+                          <span className="text-foreground/40 font-black">
+                             {groupedBlocks[activeGroupIndex - 1]?.[0]?.metadata?.customLabel || (CATEGORY_MAP as any)[groupedBlocks[activeGroupIndex - 1]?.[0]?.type || '']?.label.split(' ')[0]}
                           </span>
                         </>
                       )}
                     </span>
-                    <p className="text-[15px] leading-tight font-sans mt-1 max-w-[90%] font-black italic line-clamp-2 opacity-20 group-hover/btn:opacity-60 transition-opacity">
-                      {blocks[activeBlockIndex - 1]?.content || 'Início'}
+                    <p className="text-[14px] leading-tight font-sans mt-0.5 max-w-[95%] font-black italic line-clamp-1 opacity-25 group-hover/btn:opacity-60 transition-opacity">
+                      {groupedBlocks[activeGroupIndex - 1]?.[0]?.content || 'Início'}
                     </p>
                   </button>
 
                   {/* Central Step Indicator */}
-                  <div className="flex flex-col items-center justify-center px-10 shrink-0">
-                    <div className="text-[2.5rem] font-sans font-black tracking-tighter tabular-nums text-foreground leading-none flex items-baseline">
-                      {activeBlockIndex + 1}
-                      <span className="text-xl opacity-20 ml-1 font-medium">/{blocks.length}</span>
+                  <div className="flex flex-col items-center justify-center px-6 shrink-0 border-x border-border/40">
+                    <div className="text-[2.2rem] font-sans font-black tracking-tighter tabular-nums text-foreground leading-none flex items-baseline">
+                      {activeGroupIndex + 1}
+                      <span className="text-lg opacity-20 ml-1 font-medium">/{groupedBlocks.length}</span>
                     </div>
-                    <div className="w-10 h-1 bg-indigo-500 mt-2.5 rounded-full" />
-                    <span className="text-[7px] font-black uppercase tracking-[0.4em] opacity-30 mt-2">PASSO</span>
+                    <div className="w-8 h-0.5 bg-indigo-500 mt-2 rounded-full" />
                   </div>
 
                   {/* Próximo */}
                   <button 
                     onClick={handleNext}
-                    disabled={activeBlockIndex === blocks.length - 1}
-                    className="flex-[1.5] flex flex-col items-end gap-1 group/btn disabled:opacity-0 transition-all duration-500 cursor-pointer text-right w-full overflow-hidden"
+                    disabled={activeGroupIndex === groupedBlocks.length - 1}
+                    className="flex-[1.8] flex flex-col items-end gap-1 group/btn disabled:opacity-0 transition-all duration-500 cursor-pointer text-right w-full overflow-hidden"
                   >
                     <span className="text-[9px] font-black uppercase tracking-[0.4em] text-emerald-500 flex items-center gap-3">
-                      {blocks[activeBlockIndex + 1] && (
+                      {groupedBlocks[activeGroupIndex + 1]?.[0] && (
                         <>
-                          <span className="text-foreground/40">
-                            {blocks[activeBlockIndex + 1]?.metadata?.customLabel || CATEGORY_MAP[blocks[activeBlockIndex + 1]?.type || '']?.label || blocks[activeBlockIndex + 1]?.type}
+                          <span className="text-foreground/40 font-black">
+                             {groupedBlocks[activeGroupIndex + 1]?.[0]?.metadata?.customLabel || (CATEGORY_MAP as any)[groupedBlocks[activeGroupIndex + 1]?.[0]?.type || '']?.label.split(' ')[0]}
                           </span>
                           <span className="opacity-30">•</span>
                         </>
                       )}
                       <span className="flex items-center gap-1.5">PRÓXIMO <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" /></span>
                     </span>
-                    <p className="text-[17px] leading-tight font-sans mt-1 max-w-[90%] font-black italic transition-colors line-clamp-2">
-                      {blocks[activeBlockIndex + 1]?.content || 'Fim'}
+                    <p className="text-[16px] leading-tight font-sans mt-0.5 max-w-[95%] font-black italic transition-colors line-clamp-1">
+                      {groupedBlocks[activeGroupIndex + 1]?.[0]?.content || 'Conclusão'}
                     </p>
                   </button>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-
-        {/* PROGRESS RIBBON */}
-        <div className="h-1.5 bg-border relative overflow-hidden shrink-0">
-          <motion.div 
-            className="absolute top-0 left-0 h-full bg-indigo-600 shadow-[0_0_15px_rgba(79,70,229,0.5)]"
-            initial={{ width: 0 }}
-            animate={{ width: `${((activeBlockIndex + 1) / blocks.length) * 100}%` }}
-          />
+          {/* PROGRESS RIBBON */}
+          <div className="h-1 bg-border relative overflow-hidden shrink-0">
+            <motion.div 
+              className="absolute top-0 left-0 h-full bg-indigo-600 shadow-[0_0_15px_rgba(79,70,229,0.5)]"
+              initial={{ width: 0 }}
+              animate={{ width: `${((activeGroupIndex + 1) / groupedBlocks.length) * 100}%` }}
+            />
+          </div>
         </div>
       </main>
 
@@ -1056,7 +1103,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                           b.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           b.metadata?.customLabel?.toLowerCase().includes(searchQuery.toLowerCase())
                         ).map((b, idx) => (
-                          <div key={b.id} onClick={() => { setActiveBlockIndex(blocks.indexOf(b)); setIsHudOpen(false); setSearchQuery(''); }} className="p-6 rounded-2xl bg-surface border border-border hover:border-foreground/30 transition-all cursor-pointer group active:scale-95 shadow-sm">
+                          <div key={b.id} onClick={() => { jumpToGroup(blocks.indexOf(b)); setIsHudOpen(false); setSearchQuery(''); }} className="p-6 rounded-2xl bg-surface border border-border hover:border-foreground/30 transition-all cursor-pointer group active:scale-95 shadow-sm">
                              <div className="flex items-center gap-3 mb-2">
                                <span className="text-[10px] font-black uppercase text-indigo-500">{b.type}</span>
                                <span className="text-[10px] opacity-20 uppercase font-black">S{blocks.indexOf(b) + 1}</span>
@@ -1080,7 +1127,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                             .map((verse) => (
                               <div key={`${source.id}-${verse.v}`} className="relative group/search-verse">
                                 <div 
-                                  onClick={() => { setIsHudOpen(false); jumpToSourceVerse(source.id, String(verse.v)); setSearchQuery(''); }} 
+                                  onClick={() => { setIsHudOpen(false); jumpToGroup(blocks.indexOf(blocks.find(b => b.metadata?.parentVerseId === String(verse.v) && b.metadata?.bibleSourceId === source.id))); setSearchQuery(''); }} 
                                   className="group/verse flex gap-6 items-start cursor-pointer transition-all bg-surface border border-border hover:border-indigo-500/30 p-6 rounded-2xl shadow-sm active:scale-95"
                                 >
                                   <span className="text-lg font-mono text-muted-foreground/30 font-bold mt-1 shrink-0">{verse.v}</span>

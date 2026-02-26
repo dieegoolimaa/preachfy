@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Share2, Cloud, BookOpen, Lightbulb, Quote, Target, Trash2, HelpCircle, GripVertical, AlertTriangle, ArrowRight, CornerDownRight, Sparkles, ChevronDown, Info, X, MapPin, History, Plus, CheckCircle2, Link as LinkIcon, ArrowLeft, Play, Maximize2, Clock } from 'lucide-react';
+import { Share2, Cloud, BookOpen, Lightbulb, Quote, Target, Trash2, HelpCircle, GripVertical, AlertTriangle, ArrowRight, CornerDownRight, Sparkles, ChevronDown, Info, X, MapPin, History, Plus, CheckCircle2, Link as LinkIcon, ArrowLeft, Play, Maximize2, Clock, Book, ChevronLeft, ChevronRight } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useSermonSocket } from '@/hooks/useSermonSocket';
@@ -34,13 +34,13 @@ export interface SermonBlock {
   };
 }
 
-const CATEGORY_MAP: Record<TheologyCategory, { label: string, color: string, icon: React.ReactNode, defFont: string }> = {
-  TEXTO_BASE: { label: 'Texto Base (Bíblico)', color: 'var(--color-texto)', icon: <BookOpen className="w-4 h-4" />, defFont: 'font-serif' },
-  EXEGESE: { label: 'Hermenêutica / Exegese', color: 'var(--color-exegese)', icon: <HelpCircle className="w-4 h-4" />, defFont: 'font-sans' },
-  APLICACAO: { label: 'Aplicação Pastoral', color: 'var(--color-aplicacao)', icon: <Target className="w-4 h-4" />, defFont: 'font-modern' },
-  ILUSTRACAO: { label: 'Ilustração', color: 'var(--color-ilustracao)', icon: <Lightbulb className="w-4 h-4" />, defFont: 'font-theological' },
-  ENFASE: { label: 'Ênfase / Chamada', color: 'var(--color-enfase)', icon: <AlertTriangle className="w-4 h-4" />, defFont: 'font-sans' },
-  CUSTOMIZAR: { label: 'Customizar...', color: 'var(--color-custom)', icon: <Sparkles className="w-4 h-4" />, defFont: 'font-sans' }
+const CATEGORY_MAP: Record<TheologyCategory, { label: string, color: string, icon: React.ReactNode }> = {
+  TEXTO_BASE: { label: 'Texto Base (Bíblico)', color: 'var(--color-texto)', icon: <BookOpen className="w-4 h-4" /> },
+  EXEGESE: { label: 'Hermenêutica / Exegese', color: 'var(--color-exegese)', icon: <HelpCircle className="w-4 h-4" /> },
+  APLICACAO: { label: 'Aplicação Pastoral', color: 'var(--color-aplicacao)', icon: <Target className="w-4 h-4" /> },
+  ILUSTRACAO: { label: 'Ilustração', color: 'var(--color-ilustracao)', icon: <Lightbulb className="w-4 h-4" /> },
+  ENFASE: { label: 'Ênfase / Chamada', color: 'var(--color-enfase)', icon: <AlertTriangle className="w-4 h-4" /> },
+  CUSTOMIZAR: { label: 'Customizar...', color: 'var(--color-custom)', icon: <Sparkles className="w-4 h-4" /> }
 };
 
 interface SermonCanvasProps {
@@ -60,6 +60,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
 
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isBibleExpanded, setIsBibleExpanded] = useState(false);
+  const [activeVerseFocusId, setActiveVerseFocusId] = useState<string | null>(null);
   const [newHistory, setNewHistory] = useState({
     location: '',
     city: '',
@@ -134,20 +135,45 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
     }));
   };
 
-  const addBlock = (type: TheologyCategory) => {
+  const addBlock = (type: TheologyCategory, metadata: any = {}) => {
     const newBlock: SermonBlock = {
       id: `new-${Date.now()}`,
       type,
       content: '',
-      metadata: { depth: 0 }
+      metadata: { depth: 0, ...metadata }
     };
     setBlocks(prev => [...prev, newBlock]);
     setTimeout(() => { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }, 100);
   };
 
-  const handleColorChange = (id: string, newColor: string) => {
-    setBlocks(prev => prev.map(b => b.id === id ? { ...b, metadata: { ...b.metadata, customColor: newColor } } : b));
+  const addBlockAfter = (afterId: string, type: TheologyCategory, metadata: any = {}, depthOffset: number = 0) => {
+    setBlocks(prev => {
+      const idx = prev.findIndex(b => b.id === afterId);
+      if (idx === -1) return prev;
+      
+      const parent = prev[idx];
+      if (!parent) return prev;
+
+      const newBlock: SermonBlock = {
+        id: `new-${Date.now()}`,
+        type,
+        content: '',
+        metadata: { 
+          depth: (parent.metadata.depth || 0) + (metadata.depth !== undefined ? metadata.depth : depthOffset),
+          bibleSourceId: parent.metadata.bibleSourceId,
+          parentVerseId: type === 'TEXTO_BASE' ? parent.metadata.parentVerseId : (metadata.parentVerseId || afterId),
+          verseText: parent.metadata.verseText,
+          ...metadata
+        }
+      };
+      
+      const next = [...prev];
+      next.splice(idx + 1, 0, newBlock);
+      return next;
+    });
   };
+
+
 
   const handleLinkToVerse = (blockId: string, bibleSourceId: string, verseId: string) => {
     setBlocks(prev => prev.map(b => b.id === blockId ? { 
@@ -155,6 +181,12 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
       metadata: { ...b.metadata, bibleSourceId, parentVerseId: verseId } 
     } : b));
     setActiveDropdown(null);
+  };
+
+  const updateBlockMetadata = (id: string, metadata: any) => {
+    const updated = blocks.map(b => b.id === id ? { ...b, metadata: { ...b.metadata, ...metadata } } : b);
+    setBlocks(updated);
+    syncCanvas(updated.map((n, idx) => ({ ...n, id: String(n.id), order: idx, positionX: 0, positionY: 0 })));
   };
 
   const handleMetaChange = (field: string, value: any) => {
@@ -328,316 +360,210 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-4xl mx-auto mt-16 px-12 !overflow-visible">
-        {/* Sermon Header (The Theme) - PREMIUM COMPACT */}
-        <div className="mb-12 flex flex-col gap-2">
-          <textarea 
-            ref={titleRef}
-            value={sermonMeta?.title || ''}
-            onChange={e => handleMetaChange('title', e.target.value)}
-            placeholder="Título do Sermão..."
-            rows={1}
-            onInput={(e) => {
-              e.currentTarget.style.height = 'auto';
-              e.currentTarget.style.height = (e.currentTarget.scrollHeight) + 'px';
-            }}
-            className="w-full bg-transparent border-none outline-none font-serif text-2xl md:text-3xl lg:text-4xl font-bold italic tracking-tight text-foreground placeholder:opacity-10 leading-tight focus:placeholder:opacity-5 transition-all resize-none !overflow-visible"
-          />
-          <div className="flex items-center gap-3 mt-4 ml-1">
-             <span className="text-[10px] font-sans font-black tracking-[0.4em] uppercase opacity-30">Categoria:</span>
-             <span className="text-[11px] font-sans font-black tracking-[0.3em] uppercase text-foreground px-4 py-1 rounded-full bg-surface border border-border">{sermonMeta?.category || 'Geral'}</span>
+      <main className="flex-1 w-full bg-background !overflow-visible">
+        {/* Sermon Header - WORKBENCH STYLE */}
+        <div className="border-b border-border bg-muted/20 px-12 py-8">
+          <div className="max-w-7xl mx-auto flex flex-col gap-2">
+            <textarea 
+              ref={titleRef}
+              value={sermonMeta?.title || ''}
+              onChange={e => handleMetaChange('title', e.target.value)}
+              placeholder="Título do Sermão..."
+              rows={1}
+              onInput={(e) => {
+                e.currentTarget.style.height = 'auto';
+                e.currentTarget.style.height = (e.currentTarget.scrollHeight) + 'px';
+              }}
+              className="w-full bg-transparent border-none outline-none font-serif text-3xl font-bold italic tracking-tight text-foreground placeholder:opacity-10 leading-tight focus:placeholder:opacity-5 transition-all resize-none !overflow-visible"
+            />
+            <div className="flex items-center gap-3 ml-1">
+               <span className="text-[10px] font-sans font-black tracking-[0.4em] uppercase opacity-30">Categoria:</span>
+               <span className="text-[11px] font-sans font-black tracking-[0.3em] uppercase text-foreground px-4 py-1 rounded-full bg-surface border border-border shadow-sm">{sermonMeta?.category || 'Geral'}</span>
+            </div>
           </div>
         </div>
 
-        <div className="mb-8 flex flex-col gap-4">
-          <div className="flex items-center justify-between px-2">
-             <h3 className="text-[10px] font-sans font-black tracking-[0.4em] uppercase opacity-30 flex items-center gap-2">
-               <BookOpen className="w-3.5 h-3.5 text-foreground/40" /> Fontes Bíblicas
-             </h3>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => setIsBibleExpanded(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-surface border border-border text-[9px] font-black uppercase tracking-widest hover:bg-foreground hover:text-background transition-all shadow-sm hover:border-foreground active:scale-95"
-                >
-                  <Maximize2 className="w-3.5 h-3.5" /> Expandir
-                </button>
-                <button 
-                  onClick={addBibleSource}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-600 text-white border border-indigo-500 text-[9px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-sm active:scale-95"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Adicionar Fonte
-                </button>
-              </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-4">
-            {(sermonMeta?.bibleSources || []).map((source: any, idx: number) => (
-              <div key={source.id || idx} className="p-6 rounded-[2rem] bg-surface/30 border border-border shadow-sm backdrop-blur-xl relative group/source transition-all hover:border-border/80">
-                <div className="absolute top-2 right-4 opacity-0 group-hover/source:opacity-100 transition-opacity">
-                   <button onClick={() => removeBibleSource(idx)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-full transition-colors active:scale-90">
-                     <Trash2 className="w-3.5 h-3.5" />
-                   </button>
-                </div>
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-0.5">
+        <div className="flex-1 w-full bg-stone-50/20 mb-40">
+          <div className="max-w-[1920px] mx-auto min-h-screen grid grid-cols-[1fr_1fr_1fr_60px] divide-x divide-border/10">
+            
+            {/* COLUMN 1: FONTES BÍBLICAS (Capítulos/Textos Brutos) */}
+            <div className="flex flex-col bg-stone-50/5">
+              <div className="flex flex-col p-4 gap-4 sticky top-36">
+                {(sermonMeta?.bibleSources || []).map((source: any, idx: number) => (
+                  <div key={source.id} className="group/src relative bg-white shadow-xl border border-border/40 rounded-2xl p-6 transition-all hover:shadow-2xl">
+                    <div className="flex items-center justify-between mb-4 border-b border-border/5 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Book className="w-4 h-4 text-indigo-500" />
+                        <span className="text-[10px] font-mono font-black uppercase tracking-widest text-foreground/40">{source.reference || 'Nova Fonte'}</span>
+                      </div>
+                      <button onClick={() => removeBibleSource(idx)} className="opacity-0 group-hover/src:opacity-100 p-1 text-red-500 hover:bg-red-50 rounded-md transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                    <textarea 
+                       value={source.content}
+                       onChange={e => updateBibleSource(idx, 'content', e.target.value)}
+                       placeholder="Cole o texto bíblico aqui..."
+                       className="w-full bg-transparent border-none outline-none resize-none font-sans text-[14px] text-foreground/60 leading-relaxed max-h-[200px] custom-scrollbar"
+                       rows={4}
+                    />
                     <input 
-                      type="text"
-                      placeholder="Referência (Ex: João 1)"
-                      value={source.reference}
-                      onChange={e => updateBibleSource(idx, 'reference', e.target.value)}
-                      className="bg-transparent border-none outline-none font-mono text-[11px] text-foreground font-bold uppercase tracking-widest placeholder:opacity-20 focus:text-indigo-500 transition-colors"
+                       type="text"
+                       value={source.reference}
+                       onChange={e => updateBibleSource(idx, 'reference', e.target.value)}
+                       placeholder="Referência (ex: Gênesis 1)"
+                       className="mt-4 w-full bg-stone-50/50 border border-border/10 rounded-lg p-2 text-[9px] font-mono uppercase tracking-[0.2em] outline-none focus:border-indigo-500/30 transition-all"
                     />
                   </div>
-                  <textarea 
-                    placeholder="Texto bíblico..."
-                    className="w-full bg-transparent border-none outline-none resize-none font-serif text-lg leading-relaxed text-foreground/80 placeholder:text-muted-foreground/20 min-h-[60px] custom-scrollbar focus:text-foreground transition-all"
-                    value={source.content}
-                    onChange={e => updateBibleSource(idx, 'content', e.target.value)}
-                    onInput={(e) => {
-                      e.currentTarget.style.height = 'auto';
-                      e.currentTarget.style.height = (e.currentTarget.scrollHeight) + 'px';
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Help Banner - COMPACT */}
-        <div className="mb-8 p-6 rounded-[2.5rem] bg-foreground/[0.03] border border-border backdrop-blur-xl relative overflow-hidden group">
-          <div className="flex items-center gap-6 relative z-10">
-            <div className="w-12 h-12 rounded-[1.5rem] bg-foreground text-background flex items-center justify-center shrink-0 shadow-xl group-hover:scale-110 transition-transform">
-              <Sparkles className="w-6 h-6" />
-            </div>
-            <p className="text-lg font-sans font-medium leading-relaxed text-muted-foreground max-w-2xl">
-              Estruture sua trilha abaixo. Vincule blocos às <span className="text-foreground font-bold">Fontes Bíblicas</span> e use o <span className="text-foreground font-bold">Aninhamento</span> para profundidade.
-            </p>
-          </div>
-        </div>
-
-        <Reorder.Group axis="y" values={blocks} onReorder={setBlocks} className="flex flex-col gap-4 !overflow-visible">
-          <AnimatePresence>
-            {blocks.map((block) => {
-              const cat = CATEGORY_MAP[block.type as TheologyCategory];
-              const linkedSource = sermonMeta?.bibleSources?.find((s: any) => s.id === block.metadata.bibleSourceId) || (sermonMeta?.bibleSources?.length > 0 ? sermonMeta.bibleSources[0] : null);
-
-              return (
-                <Reorder.Item 
-                  key={block.id} 
-                  value={block}
-                  className={cn(
-                    "relative group bg-surface border border-border rounded-[2rem] p-6 shadow-sm hover:shadow-xl hover:border-foreground/10 transition-all duration-500 backdrop-blur-3xl !overflow-visible",
-                    activeDropdown?.id === block.id ? "z-[100]" : "z-10"
-                  )}
-                  style={{ 
-                    marginLeft: `${(block.metadata.depth || 0) * 1.5}rem`
-                  }}
+                ))}
+                
+                <button 
+                  onClick={addBibleSource}
+                  className="w-full p-8 border-2 border-dashed border-border/10 rounded-2xl flex flex-col items-center justify-center gap-3 hover:bg-white/50 hover:border-indigo-500/20 transition-all group"
                 >
-                  {/* Category Highlight - Integrated with card boundary */}
-                  <div 
-                    className="absolute inset-[0] border-l-[6px] rounded-[2rem] pointer-events-none z-0" 
-                    style={{ borderColor: block.metadata.customColor || CATEGORY_MAP[block.type as TheologyCategory].color }} 
-                  />
-                  <div className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-40 cursor-grab active:cursor-grabbing text-muted-foreground p-1 hover:bg-muted rounded-lg transition-all z-20">
-                    <GripVertical className="w-4 h-4" />
-                  </div>
+                  <Plus className="w-6 h-6 text-muted-foreground group-hover:scale-110 group-hover:text-indigo-500 transition-all" />
+                  <span className="text-[9px] font-black uppercase tracking-[0.3em] opacity-30">Adicionar Fonte Bíblica</span>
+                </button>
+              </div>
+            </div>
 
-                  <div className="flex flex-col gap-4 pl-2">
-                    <div className="flex items-center justify-between gap-4 flex-wrap">
-                      <div className="flex items-center gap-3">
-                        <div className="relative group/select">
-                          <div 
-                            className="flex items-center border border-border bg-surface hover:bg-muted transition-all px-4 py-1.5 rounded-full gap-2 cursor-pointer min-w-[150px] justify-center shadow-sm active:scale-95"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveDropdown(activeDropdown?.id === block.id && activeDropdown?.type === 'category' ? null : { id: block.id, type: 'category' });
-                            }}
-                          >
-                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] shadow-lg shrink-0" style={{ backgroundColor: cat.color }}>
-                              {cat.icon}
-                            </div>
-                            
-                            <span className="font-sans text-[10px] font-black tracking-widest uppercase text-foreground select-none">
-                              {CATEGORY_MAP[block.type as TheologyCategory].label.split(' ')[0]}
-                            </span>
+            {/* COLUMN 2 & 3: THEOLOGICAL MATRIX (Linear Rows) */}
+            <div className="col-span-2 flex flex-col">
+              <Reorder.Group 
+                axis="y" 
+                values={blocks.filter(b => b.type === 'TEXTO_BASE')} 
+                onReorder={(newOrder: SermonBlock[]) => {
+                  const others = blocks.filter(b => b.type !== 'TEXTO_BASE');
+                  setBlocks([...others, ...newOrder]);
+                }}
+                className="flex flex-col"
+              >
+                {blocks.filter(b => b.type === 'TEXTO_BASE').map((block) => {
+                  const insights = blocks.filter(b => b.metadata.parentVerseId === block.id);
+                  const blockColor = block.metadata.customColor || 'transparent';
 
-                            <ChevronDown className={cn(
-                              "w-3.5 h-3.5 opacity-20 group-hover/select:opacity-100 transition-all",
-                              activeDropdown?.id === block.id && activeDropdown?.type === 'category' && "rotate-180 opacity-100"
-                            )} />
-                          </div>
-
-                          <AnimatePresence>
-                            {activeDropdown?.id === block.id && activeDropdown.type === 'category' && (
-                              <motion.div
-                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                className="absolute top-full left-0 w-80 mt-3 bg-background border border-border rounded-[2rem] shadow-2xl z-[60] overflow-hidden py-4"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {Object.entries(CATEGORY_MAP).map(([k, v]) => (
-                                  <div
-                                    key={k}
-                                    onClick={() => handleCategoryChange(block.id, k as TheologyCategory)}
-                                    className={cn(
-                                      "px-8 py-4 text-[10px] font-black tracking-[0.2em] uppercase transition-all flex items-center justify-between hover:bg-foreground hover:text-background cursor-pointer",
-                                      block.type === k ? "text-indigo-500 bg-indigo-500/5" : "text-foreground/80"
-                                    )}
-                                  >
-                                    {v.label}
-                                    {block.type === k && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-                                  </div>
-                                ))}
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-
-                        {/* Link to Bible Source Dropdown */}
-                        <div className="relative">
-                          <div 
-                            className={cn(
-                              "px-4 py-1.5 rounded-full border text-[9px] font-black tracking-widest uppercase transition-all flex items-center gap-2 cursor-pointer shadow-sm",
-                              block.metadata.parentVerseId ? "bg-indigo-500 text-white border-indigo-600" : "bg-surface border-border text-muted-foreground/60 hover:border-foreground/30 hover:text-foreground"
-                            )}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveDropdown(activeDropdown?.id === block.id && activeDropdown?.type === 'link' ? null : { id: block.id, type: 'link' });
-                            }}
-                          >
-                             <LinkIcon className="w-3.5 h-3.5" />
-                             {block.metadata.parentVerseId ? `${linkedSource?.reference || 'Ref'}${block.metadata.parentVerseId === 'ALL' ? '' : ':' + block.metadata.parentVerseId}` : 'Vincular'}
-                          </div>
-
-                          <AnimatePresence>
-                            {activeDropdown?.id === block.id && activeDropdown.type === 'link' && (
-                              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute top-full left-0 mt-3 w-80 bg-background border border-border rounded-[2rem] shadow-2xl z-[60] p-8 max-h-[400px] overflow-y-auto custom-scrollbar" onClick={(e) => e.stopPropagation()}>
-                                 {(sermonMeta?.bibleSources || []).map((source: any) => {
-                                    const verses = (source.content || '').split('\n').map((l: string) => l.match(/^(\d+)/)?.[1]).filter(Boolean);
-                                    return (
-                                      <div key={source.id} className="mb-6 last:mb-0">
-                                        <div className="text-[10px] font-black tracking-[0.3em] uppercase text-foreground/40 mb-3 px-2 border-l-2 border-border ml-1">{source.reference || 'Sem Ref.'}</div>
-                                        <div className="grid grid-cols-5 gap-2">
-                                           <button 
-                                             onClick={() => handleLinkToVerse(block.id, source.id, 'ALL')}
-                                             className={cn(
-                                               "col-span-5 p-2 text-[10px] font-black tracking-widest uppercase rounded-lg hover:bg-foreground hover:text-background transition-all",
-                                               block.metadata.parentVerseId === 'ALL' && block.metadata.bibleSourceId === source.id ? "bg-indigo-500 text-white shadow-lg" : "bg-muted text-foreground/60"
-                                             )}
-                                           >
-                                             Toda a Fonte
-                                           </button>
-                                           {verses.map((v: string) => (
-                                             <button 
-                                               key={v} 
-                                               onClick={() => handleLinkToVerse(block.id, source.id, v)}
-                                               className={cn(
-                                                 "p-2 text-[11px] font-mono rounded-lg hover:bg-foreground hover:text-background transition-all",
-                                                 block.metadata.parentVerseId === v && block.metadata.bibleSourceId === source.id ? "bg-indigo-500 text-white shadow-lg" : "bg-muted text-foreground/60"
-                                               )}
-                                             >
-                                               {v}
-                                             </button>
-                                           ))}
-                                        </div>
-                                      </div>
-                                    );
-                                 })}
-                                 {(sermonMeta?.bibleSources || []).length === 0 && (
-                                   <p className="text-[11px] text-center opacity-40 font-medium py-4">Adicione uma fonte bíblica primeiro.</p>
-                                 )}
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      </div>
-
-
-
-                        <div className="flex items-center bg-surface border border-border rounded-lg shadow-sm overflow-hidden opacity-0 group-hover:opacity-100 transition-all duration-300">
-                          <button onClick={() => handleIndent(block.id, -1)} disabled={!block.metadata.depth} className="px-4 py-1.5 text-muted-foreground hover:bg-foreground hover:text-background transition-all disabled:opacity-20 text-[9px] font-black uppercase tracking-[0.2em] border-r border-border">Recuar</button>
-                          <button onClick={() => handleIndent(block.id, 1)} className="px-4 py-1.5 text-muted-foreground hover:bg-foreground hover:text-background transition-all text-[9px] font-black uppercase tracking-[0.2em] flex items-center gap-1.5">Aninhar <CornerDownRight className="w-3.5 h-3.5" /></button>
-                        </div>
-
-                        <button 
-                          onClick={() => deleteBlock(block.id)}
-                          className="w-9 h-9 flex items-center justify-center text-red-500 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-red-500 hover:text-white shadow-sm"
+                  return (
+                    <Reorder.Item 
+                      key={block.id} 
+                      value={block} 
+                      className="grid grid-cols-2 divide-x divide-border/5 border-b border-border/5 group/row hover:bg-stone-100/20 transition-colors"
+                    >
+                      {/* COLUMN 2: TEXTO BASE CARD */}
+                      <div className="p-1">
+                        <div 
+                          style={{ backgroundColor: blockColor !== 'transparent' ? `${blockColor}08` : 'white' }}
+                          onPointerDown={() => setActiveVerseFocusId(block.id)}
+                          className={cn(
+                            "relative overflow-hidden transition-all duration-300 rounded-[1.5rem] p-6 flex flex-col gap-4 border border-border/40 min-h-[140px]",
+                            "shadow-lg hover:shadow-2xl hover:translate-y-[-1px]",
+                            activeVerseFocusId === block.id ? "ring-2 ring-indigo-500/20 border-indigo-500/40" : ""
+                          )}
                         >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-500">
-                       {['var(--color-texto)', 'var(--color-exegese)', 'var(--color-aplicacao)', 'var(--color-ilustracao)', 'var(--color-enfase)', 'var(--color-custom)'].map(color => (
-                         <button
-                           key={color}
-                           onClick={() => handleColorChange(block.id, color)}
-                           className={cn("w-5 h-5 rounded-full border border-white/20 hover:scale-125 transition-all shadow-sm", block.metadata.customColor === color && "ring-2 ring-foreground ring-offset-2 ring-offset-background")}
-                           style={{ backgroundColor: color }}
-                         />
-                       ))}
-                       <button onClick={() => handleColorChange(block.id, '')} className="text-[10px] font-sans font-black tracking-widest opacity-30 hover:opacity-100 ml-3 uppercase">Reset Style</button>
-                    </div>
-
-                    <div className="relative pt-2 pl-4 border-l-2 focus-within:border-foreground transition-all duration-500" style={{ borderColor: (block.metadata.customColor || cat.color) + '40' }}>
-                      {block.metadata.isInsight && (
-                        <div className="mb-4 flex flex-col gap-2">
-                          <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-mono font-black text-indigo-500 bg-indigo-500/10 px-3 py-1 rounded-lg uppercase tracking-tighter">
-                              REVELAÇÃO: {block.metadata.reference}
-                            </span>
-                            {block.metadata.insightStatus === 'PENDING' && (
-                              <span className="text-[9px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-1.5 animate-pulse">
-                                <Clock className="w-3.5 h-3.5" /> Lembrete Pendente
-                              </span>
-                            )}
+                          <div className="absolute top-0 left-0 bottom-0 w-1.5 rounded-l-2xl" style={{ backgroundColor: blockColor !== 'transparent' ? blockColor : '#6366f1' }} />
+                          
+                          <div className="flex items-center justify-between opacity-0 group-hover/row:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-2">
+                              <GripVertical className="w-4 h-4 cursor-grab opacity-20" />
+                              <span className="text-[9px] font-black uppercase text-foreground/20 tracking-widest">Texto Base</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 bg-white p-1 rounded-full border border-border/10 shadow-lg">
+                              {['#ef4444', '#3b82f6', '#22c55e', 'transparent'].map(c => (
+                                <button 
+                                  key={c} 
+                                  onClick={(e) => { e.stopPropagation(); updateBlockMetadata(block.id, { customColor: c }); }} 
+                                  className="w-2.5 h-2.5 rounded-full border border-black/5" 
+                                  style={{ backgroundColor: c }} 
+                                />
+                              ))}
+                              <div className="w-[1px] h-3 bg-border/20 mx-1" />
+                              <button 
+                                onClick={(e) => { 
+                                  e.preventDefault(); 
+                                  e.stopPropagation(); 
+                                  addBlockAfter(block.id, 'APLICACAO', { parentVerseId: block.id, depth: 1 }); 
+                                }}
+                                className="p-1 px-3 text-indigo-500 hover:bg-indigo-600 hover:text-white rounded-lg transition-all group/plus relative"
+                              >
+                                <Plus className="w-5 h-5" />
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-3 py-1.5 bg-stone-900 text-white text-[8px] font-black uppercase tracking-[0.3em] rounded-xl opacity-0 group-hover/plus:opacity-100 transition-all pointer-events-none whitespace-nowrap translate-y-2 group-hover/plus:translate-y-0 shadow-2xl z-10">
+                                   Novo Apontamento
+                                </div>
+                              </button>
+                              <button onClick={() => deleteBlock(block.id)} className="p-1 px-3 text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 className="w-4 h-4" /></button>
+                            </div>
                           </div>
-                          <p className="text-sm font-serif italic text-foreground opacity-30 leading-relaxed border-l-[3px] border-border/20 pl-4 py-1">
-                            "{block.metadata.verseText}"
-                          </p>
-                        </div>
-                      )}
-                      
-                      {block.type === 'TEXTO_BASE' && <Quote className="absolute -top-6 -left-8 w-12 h-12 text-foreground opacity-[0.02] -z-10" />}
-                      <textarea
-                        value={block.content}
-                        onChange={(e) => handleContentChange(block.id, e.target.value)}
-                        placeholder={block.metadata.isInsight ? "Escreva aqui a revelação sobre este versículo..." : `Escreva aqui...`}
-                        className={cn(
-                          "w-full bg-transparent border-none outline-none resize-none overflow-hidden placeholder:opacity-10 text-lg leading-relaxed text-foreground opacity-90 transition-all focus:opacity-100", 
-                          cat.defFont,
-                          block.metadata.isInsight && block.metadata.insightStatus === 'PENDING' && "placeholder:opacity-30"
-                        )}
-                        rows={1}
-                        onInput={(e) => {
-                          e.currentTarget.style.height = 'auto';
-                          e.currentTarget.style.height = (e.currentTarget.scrollHeight) + 'px';
-                        }}
-                        style={{ minHeight: '60px' }}
-                      />
-                    </div>
-                  </div>
-                </Reorder.Item>
-              );
-            })}
-          </AnimatePresence>
-        </Reorder.Group>
 
-        <div className="mt-12 w-full p-8 border border-dashed border-border rounded-[2rem] flex flex-col items-center justify-center gap-4 bg-surface/20 hover:bg-surface/50 transition-all duration-500 group cursor-pointer">
-           <div className="flex flex-col items-center gap-1">
-             <h3 className="text-[10px] font-sans font-black tracking-[0.3em] uppercase text-muted-foreground group-hover:text-foreground transition-colors">Adicionar Bloco Teológico</h3>
-           </div>
-           <div className="flex flex-wrap items-center justify-center gap-3">
-             {Object.entries(CATEGORY_MAP).map(([key, cat]) => (
-               <Button key={key} variant="outline" className="gap-2.5 rounded-full font-sans text-[10px] font-bold tracking-[0.05em] uppercase shadow-sm bg-surface hover:scale-105 transition-all h-9 px-6 border-border hover:border-foreground active:scale-95" onClick={() => addBlock(key as TheologyCategory)}>
-                 <span className="w-2.5 h-2.5 rounded-full shadow-lg" style={{ backgroundColor: cat.color }} />
-                 {cat.label.split(' ')[0]}
-               </Button>
-             ))}
-           </div>
+                          <textarea
+                            value={block.content}
+                            onChange={(e) => handleContentChange(block.id, e.target.value)}
+                            className="w-full bg-transparent border-none outline-none resize-none font-sans font-medium text-[16px] text-foreground leading-relaxed p-0 placeholder:opacity-10"
+                            placeholder="Insira o versículo ou texto central..."
+                            rows={1}
+                            onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* COLUMN 3: APONTAMENTOS (Insights) */}
+                      <div className="p-1 flex flex-col gap-1 bg-stone-50/5 min-h-[140px]">
+                        {insights.map((subBlock) => {
+                          const childColor = subBlock.metadata.customColor || 'transparent';
+                          return (
+                            <div 
+                              key={subBlock.id} 
+                              style={{ 
+                                borderLeftColor: childColor !== 'transparent' ? childColor : '#e2e8f0',
+                                backgroundColor: childColor !== 'transparent' ? `${childColor}08` : 'white'
+                              }} 
+                              className="border border-border/20 border-l-4 shadow-md rounded-2xl p-5 group/insight relative transition-all hover:shadow-xl hover:translate-y-[-1px] group-hover/row:border-border/40"
+                            >
+                              <div className="flex items-center gap-2 mb-2 opacity-0 group-hover/insight:opacity-100 transition-opacity">
+                                <span className="text-[7px] font-black uppercase text-foreground/30 tracking-widest">{CATEGORY_MAP[subBlock.type as TheologyCategory]?.label}</span>
+                                <div className="flex-1" />
+                                <button onClick={() => deleteBlock(subBlock.id)} className="p-1 text-red-300 hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                              </div>
+                              <textarea
+                                value={subBlock.content}
+                                onChange={e => handleContentChange(subBlock.id, e.target.value)}
+                                className="w-full bg-transparent border-none outline-none resize-none font-sans text-[15px] text-foreground/80 leading-relaxed p-0 placeholder:opacity-10"
+                                placeholder="Reflexão ou aplicação..."
+                                rows={1}
+                                onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
+                              />
+                            </div>
+                          );
+                        })}
+                        {insights.length === 0 && (
+                          <div className="flex-1 flex items-center justify-center p-4 border-2 border-dashed border-border/5 rounded-2xl opacity-10 group-hover/row:opacity-30 transition-opacity">
+                            <Plus className="w-4 h-4" />
+                          </div>
+                        )}
+                      </div>
+                    </Reorder.Item>
+                  );
+                })}
+              </Reorder.Group>
+
+              {/* GLOBAL BUTTON: NOVO TEXTO BASE */}
+              <div className="grid grid-cols-2 divide-x divide-border/5">
+                <div className="p-4">
+                  <button 
+                    onClick={() => addBlock('TEXTO_BASE', { bibleSourceId: (sermonMeta?.bibleSources?.[0]?.id || 'none') })}
+                    className="w-full p-10 border-2 border-dashed border-border/10 rounded-3xl flex flex-col items-center justify-center gap-4 hover:bg-white/50 hover:border-indigo-500/20 transition-all group"
+                  >
+                    <Plus className="w-8 h-8 text-muted-foreground group-hover:scale-110 group-hover:text-indigo-500 transition-all" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-30">Adicionar Novo Texto Base</span>
+                  </button>
+                </div>
+                <div className="bg-stone-50/5" />
+              </div>
+            </div>
+
+            {/* COLUMN 4: ACTIONS/SPACER */}
+            <div className="flex items-center justify-center bg-stone-50/10">
+              <GripVertical className="w-4 h-4 opacity-5" />
+            </div>
+
+          </div>
         </div>
       </main>
 

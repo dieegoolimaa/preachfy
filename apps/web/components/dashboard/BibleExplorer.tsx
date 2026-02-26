@@ -142,11 +142,25 @@ export default function BibleExplorer({
     book: 'Gênesis', abbrev: 'gn', chapter: 1
   });
   const [indexSelectedBook, setIndexSelectedBook] = useState<{ name: string; abbrev: string; chapters: number } | null>(null);
-  const [highlights, setHighlights] = useState<Record<string, Array<{ id: string, color: string, comment?: string }>>>({});
+  const [highlights, setHighlights] = useState<Record<string, Array<{ id: string, color: string, comment?: string }>>>(() => {
+    if (typeof window === 'undefined') return {};
+    if (initialHighlights) return initialHighlights;
+    const saved = localStorage.getItem('preachfy_bible_highlights');
+    return saved ? JSON.parse(saved) : {};
+  });
+
   const [customLabels, setCustomLabels] = useState<Record<string, string>>(() => {
-    const labels: Record<string, string> = {};
-    COLOR_LIST.forEach(c => { labels[c.color] = c.label; });
-    return labels;
+    if (typeof window === 'undefined') return {};
+    if (initialCustomLabels) return initialCustomLabels;
+    
+    // Default labels from COLOR_LIST
+    const defaultLabels: Record<string, string> = {};
+    COLOR_LIST.forEach(c => { defaultLabels[c.color] = c.label; });
+
+    const saved = localStorage.getItem('preachfy_bible_labels');
+    if (saved) return JSON.parse(saved);
+    
+    return defaultLabels;
   });
   const [editingVerseKey, setEditingVerseKey] = useState<string | null>(null);
   const [editingInsightId, setEditingInsightId] = useState<string | null>(null);
@@ -162,26 +176,12 @@ export default function BibleExplorer({
   const isInitialMount = useRef(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // ── Session Persistence ───────────────────────────────────────
-  useEffect(() => {
-    // 1. Initial Data from Snapshot (Priority)
-    if (initialHighlights) {
-      setHighlights(initialHighlights);
-      if (initialCustomLabels) setCustomLabels(initialCustomLabels);
-      return;
-    }
-
-    // 2. Fallback to Local Session (Survival on F5)
-    const savedHighlights = localStorage.getItem('preachfy_bible_highlights');
-    if (savedHighlights) setHighlights(JSON.parse(savedHighlights));
-
-    const savedLabels = localStorage.getItem('preachfy_bible_labels');
-    if (savedLabels) setCustomLabels(JSON.parse(savedLabels));
-  }, [initialHighlights, initialCustomLabels]);
-
   // Auto-save session
   useEffect(() => {
-    if (!initialHighlights) { // Only save if we are NOT viewing a snapshot
+    if (typeof window === 'undefined') return;
+    
+    // IMPORTANT: Only save if we NOT in snapshot mode
+    if (!initialHighlights) {
       localStorage.setItem('preachfy_bible_highlights', JSON.stringify(highlights));
       localStorage.setItem('preachfy_bible_labels', JSON.stringify(customLabels));
     }
@@ -366,24 +366,35 @@ export default function BibleExplorer({
   const addOrUpdateInsight = (color: string) => {
     if (!editingVerseKey) return;
     
-    const newId = Date.now().toString();
+    const currentVerseInsights = highlights[editingVerseKey] || [];
+    const existingSameColor = currentVerseInsights.find(h => h.color === color);
+
+    if (existingSameColor) {
+      // SWITCH MODE: Focus on existing insight with this color
+      setEditingInsightId(existingSameColor.id);
+      setCommentInput(existingSameColor.comment || '');
+      return;
+    }
+
+    // CREATE MODE: Picked a color not yet in this verse
+    const newId = `ins-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
     
+    // Safety: prevent clobbering by the auto-sync effect
+    setEditingInsightId(null);
+    setCommentInput('');
+
     setHighlights(prev => {
-      const current = prev[editingVerseKey] || [];
-      let next;
-      
-      if (editingInsightId) {
-        next = current.map(h => h.id === editingInsightId ? { ...h, color, comment: commentInput } : h);
-      } else {
-        next = [...current, { id: newId, color, comment: commentInput }];
-      }
-      
-      return { ...prev, [editingVerseKey]: next };
+      const list = prev[editingVerseKey] || [];
+      return { 
+        ...prev, 
+        [editingVerseKey]: [...list, { id: newId, color, comment: '' }] 
+      };
     });
 
-    if (!editingInsightId) {
+    // We set the ID in the next tick to ensure state has updated
+    setTimeout(() => {
       setEditingInsightId(newId);
-    }
+    }, 10);
   };
 
   // Auto-sync comment to highlights state
@@ -391,12 +402,16 @@ export default function BibleExplorer({
     if (editingVerseKey && editingInsightId) {
       setHighlights(prev => {
         const current = prev[editingVerseKey] || [];
+        const item = current.find(h => h.id === editingInsightId);
+        
+        // Safety: Only update if the content actually changed to avoid cycles
+        if (item && item.comment === commentInput) return prev;
+        
         const next = current.map(h => h.id === editingInsightId ? { ...h, comment: commentInput } : h);
-        // Deep compare to avoid infinite loops if needed, though here it's simple enough
         return { ...prev, [editingVerseKey]: next };
       });
     }
-  }, [commentInput]);
+  }, [commentInput, editingInsightId, editingVerseKey]);
 
   const removeInsight = (verseKey: string, insightId: string) => {
     setHighlights(prev => {

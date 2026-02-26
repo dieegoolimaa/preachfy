@@ -113,24 +113,6 @@ export default function DashboardView({ onEdit, onStart, onBible }: DashboardVie
     }
   };
 
-  const handleSeed = async () => {
-    if (!session?.user?.id) return;
-    setLoading(true);
-    try {
-      await fetch(`${apiUrl}/sermons/seed?authorId=${session.user.id}`, { method: 'POST' });
-      // Refresh
-      const res = await fetch(`${apiUrl}/sermons?authorId=${session.user.id}`);
-      const data = await res.json();
-      setSermons(data.map((s: any) => ({
-        ...s,
-        date: new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(s.createdAt))
-      })));
-    } catch (e) {
-      console.error("Failed to seed sermons", e);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col relative transition-colors duration-500">
@@ -174,12 +156,6 @@ export default function DashboardView({ onEdit, onStart, onBible }: DashboardVie
           </div>
 
           <div className="flex items-center gap-4">
-            <button 
-              onClick={handleSeed}
-              className="flex items-center gap-3 px-6 py-3.5 rounded-full border border-border text-muted-foreground font-sans text-[11px] font-black uppercase tracking-[0.15em] hover:border-foreground hover:text-foreground transition-all flex-shrink-0"
-            >
-              Exemplo
-            </button>
 
             <button 
               onClick={() => setIsCreating(true)}
@@ -317,12 +293,6 @@ export default function DashboardView({ onEdit, onStart, onBible }: DashboardVie
              <div className="py-32 text-center opacity-20 italic flex flex-col items-center">
                 <Sparkles className="w-12 h-12 mx-auto mb-6 opacity-40" />
                 <p className="mb-8">Nenhuma pregação encontrada com esses critérios.</p>
-                <button 
-                  onClick={handleSeed}
-                  className="px-8 py-4 rounded-full border border-foreground/20 text-foreground text-[11px] font-black uppercase tracking-widest hover:bg-foreground hover:text-background transition-all not-italic opacity-100 group"
-                >
-                  Importar Mensagem de Exemplo
-                </button>
              </div>
           )}
         </div>

@@ -6,7 +6,7 @@ import {
   Share2, Clock, Search, Book, Sidebar, ChevronRight, X, 
   Maximize2, Minimize2, ArrowLeft, ArrowRight, MoreVertical, 
   LayoutGrid, Zap, Sparkles, GripVertical, CheckCircle2,
-  Quote, CornerDownRight, LinkIcon, Trash2, Layout, LogOut, Plus
+  Quote, CornerDownRight, LinkIcon, Trash2, Layout, LogOut, Plus, Highlighter, MessageSquare
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -28,12 +28,15 @@ interface PulpitViewProps {
 
 // Perspectiva Teológica - Must match SermonCanvas
 const CATEGORY_MAP: Record<string, { label: string, color: string, icon: React.ReactNode }> = {
-  TEXTO_BASE: { label: 'Texto Base', color: 'var(--color-texto)', icon: <BookOpen className="w-4 h-4" /> },
-  EXEGESE: { label: 'Exegese', color: 'var(--color-exegese)', icon: <HelpCircle className="w-4 h-4" /> },
-  APLICACAO: { label: 'Aplicação', color: 'var(--color-aplicacao)', icon: <Target className="w-4 h-4" /> },
+  TEXTO_BASE: { label: 'Texto Base (Bíblico)', color: 'var(--color-texto)', icon: <BookOpen className="w-4 h-4" /> },
+  EXEGESE: { label: 'Hermenêutica / Exegese', color: 'var(--color-exegese)', icon: <HelpCircle className="w-4 h-4" /> },
+  APLICACAO: { label: 'Aplicação Pastoral', color: 'var(--color-aplicacao)', icon: <Target className="w-4 h-4" /> },
   ILUSTRACAO: { label: 'Ilustração', color: 'var(--color-ilustracao)', icon: <Lightbulb className="w-4 h-4" /> },
-  ENFASE: { label: 'Ênfase', color: 'var(--color-enfase)', icon: <AlertTriangle className="w-4 h-4" /> },
-  CUSTOMIZAR: { label: 'Custom', color: 'var(--color-custom)', icon: <Sparkles className="w-4 h-4" /> }
+  ENFASE: { label: 'Ênfase / Alerta', color: 'var(--color-enfase)', icon: <AlertTriangle className="w-4 h-4" /> },
+  PROMESSA: { label: 'Promessa', color: '#fcd34d', icon: <Sparkles className="w-4 h-4" /> },
+  MANDAMENTO: { label: 'Mandamento', color: '#fdba74', icon: <Highlighter className="w-4 h-4" /> },
+  CRISTO: { label: 'Revelação de Cristo', color: '#a5b4fc', icon: <Zap className="w-4 h-4" /> },
+  CUSTOMIZAR: { label: 'Customizar...', color: 'var(--color-custom)', icon: <MessageSquare className="w-4 h-4" /> }
 };
 
 const parseBibleContent = (content: string) => {
@@ -250,16 +253,17 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
     }
   });
 
-  const groupedBlocks = blocks.reduce((acc: any[][], block: any) => {
-    // FORCE every TEXTO_BASE to start a new group, or anything with depth 0
-    if (acc.length === 0 || block.type === 'TEXTO_BASE' || block.metadata?.depth === 0) {
-      acc.push([block]);
-    } else {
-      const lastGroup = acc[acc.length - 1];
-      if (lastGroup) lastGroup.push(block);
-    }
-    return acc;
-  }, []);
+  // Enhanced grouping logic: Group by parent-child relationship (parentVerseId)
+  const groupedBlocks = React.useMemo(() => {
+    // 1. Identify all primary anchors (TEXTO_BASE)
+    const baseTexts = blocks.filter(b => b.type === 'TEXTO_BASE');
+    
+    // 2. Map each anchor to its insights
+    return baseTexts.map(anchor => {
+      const insights = blocks.filter(b => b.metadata?.parentVerseId === anchor.id && b.metadata?.isInsight);
+      return [anchor, ...insights];
+    });
+  }, [blocks]);
 
   const handleNext = () => {
     if (activeGroupIndex < groupedBlocks.length - 1) setActiveGroupIndex(prev => prev + 1);

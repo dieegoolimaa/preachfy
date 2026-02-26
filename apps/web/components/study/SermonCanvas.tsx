@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Share2, Cloud, BookOpen, Lightbulb, Quote, Target, Trash2, HelpCircle, GripVertical, AlertTriangle, ArrowRight, CornerDownRight, Sparkles, ChevronDown, Info, X, MapPin, History, Plus, CheckCircle2, Link as LinkIcon, ArrowLeft, Play, Maximize2, Clock, Book, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Share2, Cloud, BookOpen, Lightbulb, Quote, Target, Trash2, HelpCircle, GripVertical, AlertTriangle, ArrowRight, CornerDownRight, Sparkles, ChevronDown, Info, X, MapPin, History, Plus, CheckCircle2, Link as LinkIcon, ArrowLeft, Play, Maximize2, Clock, Book, ChevronLeft, ChevronRight, Highlighter, Zap, MessageSquare } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useSermonSocket } from '@/hooks/useSermonSocket';
@@ -34,13 +34,16 @@ export interface SermonBlock {
   };
 }
 
-const CATEGORY_MAP: Record<TheologyCategory, { label: string, color: string, icon: React.ReactNode }> = {
+const CATEGORY_MAP: Record<string, { label: string, color: string, icon: React.ReactNode }> = {
   TEXTO_BASE: { label: 'Texto Base (Bíblico)', color: 'var(--color-texto)', icon: <BookOpen className="w-4 h-4" /> },
   EXEGESE: { label: 'Hermenêutica / Exegese', color: 'var(--color-exegese)', icon: <HelpCircle className="w-4 h-4" /> },
   APLICACAO: { label: 'Aplicação Pastoral', color: 'var(--color-aplicacao)', icon: <Target className="w-4 h-4" /> },
   ILUSTRACAO: { label: 'Ilustração', color: 'var(--color-ilustracao)', icon: <Lightbulb className="w-4 h-4" /> },
-  ENFASE: { label: 'Ênfase / Chamada', color: 'var(--color-enfase)', icon: <AlertTriangle className="w-4 h-4" /> },
-  CUSTOMIZAR: { label: 'Customizar...', color: 'var(--color-custom)', icon: <Sparkles className="w-4 h-4" /> }
+  ENFASE: { label: 'Ênfase / Alerta', color: 'var(--color-enfase)', icon: <AlertTriangle className="w-4 h-4" /> },
+  PROMESSA: { label: 'Promessa', color: '#fcd34d', icon: <Sparkles className="w-4 h-4" /> },
+  MANDAMENTO: { label: 'Mandamento', color: '#fdba74', icon: <Highlighter className="w-4 h-4" /> },
+  CRISTO: { label: 'Revelação de Cristo', color: '#a5b4fc', icon: <Zap className="w-4 h-4" /> },
+  CUSTOMIZAR: { label: 'Customizar...', color: 'var(--color-custom)', icon: <MessageSquare className="w-4 h-4" /> }
 };
 
 interface SermonCanvasProps {
@@ -48,9 +51,10 @@ interface SermonCanvasProps {
   initialData?: any;
   onBack?: () => void;
   onStart?: () => void;
+  onViewSnapshot?: (snapshot: { highlights: any, labels: any }) => void;
 }
 
-export default function SermonCanvas({ sermonId, initialData, onBack, onStart }: SermonCanvasProps) {
+export default function SermonCanvas({ sermonId, initialData, onBack, onStart, onViewSnapshot }: SermonCanvasProps) {
   const [blocks, setBlocks] = useState<SermonBlock[]>(initialData?.blocks || []);
   const [loading, setLoading] = useState(!initialData);
   const [sermonMeta, setSermonMeta] = useState<any>(initialData || null);
@@ -404,7 +408,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
                 return (
                   <div key={source.id} className="grid grid-cols-[1fr_2fr] divide-x divide-border/10 border-b border-border/10 group/source-section bg-stone-50/5">
                     {/* COL 1: SOURCE PILLAR (Extended Height) */}
-                    <div className="p-6 pb-20 border-r border-border/10 bg-stone-50/20 relative">
+                    <div className="p-4 pb-20 border-r border-border/10 bg-stone-50/20 relative">
                        <div className="sticky top-44 h-[calc(100vh-200px)] group/src relative bg-white shadow-xl border border-border/40 rounded-[3rem] p-10 transition-all hover:shadow-2xl z-10 overflow-hidden flex flex-col">
                           
                           {/* Accent Pillar */}
@@ -420,12 +424,23 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
                                 onChange={e => updateBibleSource(sIdx, 'reference', e.target.value)}
                                 className="bg-transparent border-none text-xs font-mono font-black uppercase tracking-[0.2em] text-indigo-500 outline-none w-full"
                                 placeholder="REFERÊNCIA"
-                              />
-                            </div>
-                            <button onClick={() => removeBibleSource(sIdx)} className="opacity-0 group-hover/src:opacity-100 p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                               />
+                             </div>
+                             <div className="flex items-center gap-1 opacity-0 group-hover/src:opacity-100 transition-opacity">
+                               {source.explorerSnapshot && onViewSnapshot && (
+                                 <button 
+                                   onClick={() => onViewSnapshot(source.explorerSnapshot)}
+                                   className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all"
+                                   title="Ver Snapshot Bíblico Original"
+                                 >
+                                   <Sparkles className="w-4 h-4" />
+                                 </button>
+                               )}
+                               <button onClick={() => removeBibleSource(sIdx)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all">
+                                 <Trash2 className="w-4 h-4" />
+                               </button>
+                             </div>
+                           </div>
 
                           {/* Center Content Area */}
                           <div className="flex-1 flex flex-col justify-center ml-4 relative h-full">
@@ -450,7 +465,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
                     </div>
 
                     {/* COL 2 & 3: SOURCE MATRIX */}
-                    <div className="flex flex-col pt-1">
+                    <div className="flex flex-col pt-2">
                       <Reorder.Group 
                         axis="y" 
                         values={sourceBlocks} 
@@ -565,6 +580,9 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
                                               <option value="APLICACAO">Pastoral</option>
                                               <option value="ILUSTRACAO">Ilustração</option>
                                               <option value="ENFASE">Ênfase</option>
+                                              <option value="PROMESSA">Promessa</option>
+                                              <option value="MANDAMENTO">Mandamento</option>
+                                              <option value="CRISTO">Cristo</option>
                                             </select>
                                           </div>
                                           <button onClick={() => deleteBlock(subBlock.id)} className="opacity-0 group-hover/insight:opacity-100 p-1 text-red-400 hover:text-red-500 transition-all"><Trash2 className="w-3 h-3" /></button>

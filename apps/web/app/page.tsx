@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PulpitView from "@/components/pulpit/PulpitView";
 import SermonCanvas from "@/components/study/SermonCanvas";
 import DashboardView, { SermonMeta } from "@/components/dashboard/DashboardView";
@@ -14,9 +14,39 @@ type ViewState = 'dashboard' | 'study' | 'pulpit' | 'bible';
 export default function Home() {
   const { environment } = require('@/environments');
   const { data: session, status } = useSession();
+  
+  // ── State with Session Persistence ────────────────────────────
   const [view, setView] = useState<ViewState>('dashboard');
   const [activeSermon, setActiveSermon] = useState<SermonMeta | null>(null);
   const [targetTime, setTargetTime] = useState<number>(45);
+  const [bibleSnapshot, setBibleSnapshot] = useState<{ highlights?: any, labels?: any } | null>(null);
+
+  // Load state on mount
+  useEffect(() => {
+    const savedView = localStorage.getItem('preachfy_view') as ViewState;
+    if (savedView) setView(savedView);
+
+    const savedSermon = localStorage.getItem('preachfy_active_sermon');
+    if (savedSermon) setActiveSermon(JSON.parse(savedSermon));
+
+    const savedTime = localStorage.getItem('preachfy_target_time');
+    if (savedTime) setTargetTime(parseInt(savedTime));
+
+    const savedSnapshot = localStorage.getItem('preachfy_bible_snapshot');
+    if (savedSnapshot) setBibleSnapshot(JSON.parse(savedSnapshot));
+  }, []);
+
+  // Save state on change
+  useEffect(() => {
+    localStorage.setItem('preachfy_view', view);
+    if (activeSermon) localStorage.setItem('preachfy_active_sermon', JSON.stringify(activeSermon));
+    else localStorage.removeItem('preachfy_active_sermon');
+
+    localStorage.setItem('preachfy_target_time', targetTime.toString());
+    
+    if (bibleSnapshot) localStorage.setItem('preachfy_bible_snapshot', JSON.stringify(bibleSnapshot));
+    else localStorage.removeItem('preachfy_bible_snapshot');
+  }, [view, activeSermon, targetTime, bibleSnapshot]);
 
   if (status === "loading") {
     return (
@@ -47,15 +77,19 @@ export default function Home() {
       const srcId = `src-${Date.now()}`;
       let finalBibleSourceContent = content;
       let blocksToCreate = [];
+      let explorerSnapshot = null;
 
       // Category mapping utility
       const mapLabelToCategory = (label: string): string => {
         const l = label.toLowerCase();
         if (l.includes('texto') || l.includes('base')) return 'TEXTO_BASE';
         if (l.includes('hermeneutica') || l.includes('exegese') || l.includes('estudo')) return 'EXEGESE';
-        if (l.includes('aplicacao') || l.includes('pratica') || l.includes('vida')) return 'APLICACAO';
+        if (l.includes('aplicacao') || l.includes('pratica') || l.includes('vida') || l.includes('pastoral')) return 'APLICACAO';
         if (l.includes('ilustracao') || l.includes('exemplo')) return 'ILUSTRACAO';
         if (l.includes('enfase') || l.includes('aviso') || l.includes('alerta') || l.includes('chamada') || l.includes('importante')) return 'ENFASE';
+        if (l.includes('promessa')) return 'PROMESSA';
+        if (l.includes('mandamento')) return 'MANDAMENTO';
+        if (l.includes('cristo') || l.includes('realeza') || l.includes('divino')) return 'CRISTO';
         return 'CUSTOMIZAR';
       };
 
@@ -63,20 +97,27 @@ export default function Home() {
         const data = JSON.parse(content);
         if (data.type === 'structured-study' && data.blocks) {
           finalBibleSourceContent = data.chapterText;
+          explorerSnapshot = {
+            highlights: data.rawHighlights,
+            labels: data.rawCustomLabels
+          };
           
           let currentOrder = 0;
           
-          // For each highlighted verse, create a verse block and its companion insight block in sequence
+          // Use unique client-side IDs for initial linkage
           data.blocks.forEach((b: any) => {
+            const baseTextId = `bt-${Date.now()}-${currentOrder}`;
+
             // 1. Create the Verse Block (TEXTO_BASE)
             blocksToCreate.push({
+              id: baseTextId,
               type: 'TEXTO_BASE',
               content: `${b.verseNumber} ${b.verseText}`,
               order: currentOrder++,
               metadata: { 
                 reference: `${reference}:${b.verseNumber}`, 
                 bibleSourceId: srcId, 
-                parentVerseId: b.verseNumber.toString() 
+                parentVerseId: baseTextId 
               }
             });
 
@@ -90,23 +131,26 @@ export default function Home() {
                 metadata: { 
                   reference: `${reference}:${b.verseNumber}`, 
                   bibleSourceId: srcId, 
-                  parentVerseId: b.verseNumber.toString(),
+                  parentVerseId: baseTextId,
                   customLabel: b.category,
                   customColor: b.color,
                   verseText: b.verseText,
-                  depth: 1 // Nest this block under the verse
+                  isInsight: true,
+                  depth: 1 
                 }
               });
             }
           });
         }
       } catch (e) {
+        const baseTextId = `bt-${Date.now()}-0`;
         // Fallback for simple markdown content
         blocksToCreate.push({
+          id: baseTextId,
           type: 'TEXTO_BASE',
           content: content,
           order: 0,
-          metadata: { reference, bibleSourceId: srcId, parentVerseId: 'ALL' }
+          metadata: { reference, bibleSourceId: srcId, parentVerseId: baseTextId }
         });
       }
 
@@ -119,7 +163,12 @@ export default function Home() {
           status: 'DRAFT',
           authorId: session.user.id,
           bibleSources: [
-            { id: srcId, reference: `${reference} (Completo)`, content: finalBibleSourceContent }
+            { 
+              id: srcId, 
+              reference: `${reference} (Completo)`, 
+              content: finalBibleSourceContent,
+              explorerSnapshot 
+            }
           ],
           blocks: {
             create: blocksToCreate
@@ -143,7 +192,12 @@ export default function Home() {
         <DashboardView 
           onEdit={handleEditSermon} 
           onStart={handleStartPulpit}
-          onBible={() => setView('bible')}
+          onBible={() => {
+            setBibleSnapshot(null);
+            localStorage.removeItem('preachfy_bible_highlights');
+            localStorage.removeItem('preachfy_bible_labels');
+            setView('bible');
+          }}
         />
       )}
       
@@ -154,6 +208,10 @@ export default function Home() {
             initialData={activeSermon}
             onBack={() => setView('dashboard')} 
             onStart={() => setView('pulpit')}
+            onViewSnapshot={(snapshot) => {
+              setBibleSnapshot(snapshot);
+              setView('bible');
+            }}
           />
         </div>
       )}
@@ -171,8 +229,10 @@ export default function Home() {
 
       {view === 'bible' && (
         <BibleExplorer 
-          onBack={() => setView('dashboard')} 
+          onBack={() => setView(activeSermon ? 'study' : 'dashboard')} 
           onCreateSermon={handleCreateSermonFromBible}
+          initialHighlights={bibleSnapshot?.highlights}
+          initialCustomLabels={bibleSnapshot?.labels}
         />
       )}
     </main>

@@ -25,6 +25,22 @@ export class BibleService {
         '2pe': '2 Peter', '1jo': '1 John', '2jo': '2 John', '3jo': '3 John', 'jd': 'Jude', 'ap': 'Revelation'
     };
 
+    private readonly bollsMapping: Record<string, number> = {
+        'gn': 1, 'ex': 2, 'lv': 3, 'nm': 4, 'dt': 5, 'js': 6, 'jz': 7, 'rt': 8, '1sm': 9, '2sm': 10,
+        '1rs': 11, '2rs': 12, '1cr': 13, '2cr': 14, 'ed': 15, 'ne': 16, 'et': 17, 'job': 18, 'sl': 19, 'pv': 20,
+        'ec': 21, 'ct': 22, 'is': 23, 'jr': 24, 'lm': 25, 'ez': 26, 'dn': 27, 'os': 28, 'jl': 29, 'am': 30,
+        'ob': 31, 'jn': 32, 'mq': 33, 'na': 34, 'hc': 35, 'sf': 36, 'ag': 37, 'zc': 38, 'ml': 39, 'mt': 40,
+        'mc': 41, 'lc': 42, 'jo': 43, 'at': 44, 'rm': 45, '1co': 46, '2co': 47, 'gl': 48, 'ef': 49, 'fp': 50,
+        'cl': 51, '1ts': 52, '2ts': 53, '1tm': 54, '2tm': 55, 'tt': 56, 'fm': 57, 'hb': 58, 'tg': 59, '1pe': 60,
+        '2pe': 61, '1jo': 62, '2jo': 63, '3jo': 64, 'jd': 65, 'ap': 66
+    };
+
+    private readonly bollsVersionMap: Record<string, string> = {
+        'nvi': 'NVIPT',
+        'ra': 'ARA',
+        'acf': 'ACF11'
+    };
+
     async getVersions() {
         return [
             { id: 'nvi', name: 'NVI - Nova Versão Internacional' },
@@ -46,42 +62,88 @@ export class BibleService {
     }
 
     async getChapter(version: string, abbrev: string, chapter: number) {
-        // PRIMARY: abibliadigital (supports NVI, RA, ACF)
-        try {
-            const response = await axios.get(`${this.baseUrl}/verses/${version}/${abbrev}/${chapter}`, {
-                headers: { 'User-Agent': 'Mozilla/5.0' },
-                timeout: 5000,
-            });
-            if (response.data && response.data.verses) {
-                return response.data;
+        const token = process.env.BIBLE_TOKEN;
+        const headers: any = { 'User-Agent': 'Mozilla/5.0' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const bollsVer = this.bollsVersionMap[version.toLowerCase()];
+        const bollsBookId = this.bollsMapping[abbrev.toLowerCase()];
+
+        // 🟢 PROVEDOR 1 (PRIMÁRIO): bolls.life (MAIS ESTÁVEL)
+        if (bollsVer && bollsBookId) {
+            try {
+                const url = `https://bolls.life/get-chapter/${bollsVer}/${bollsBookId}/${chapter}/`;
+                const res = await axios.get(url, { headers, timeout: 10000 });
+
+                if (Array.isArray(res.data) && res.data.length > 0) {
+                    return {
+                        book: { name: this.bookMapping[abbrev.toLowerCase()] || abbrev, abbrev },
+                        chapter,
+                        verses: res.data.map((v: any) => ({
+                            number: v.verse,
+                            text: v.text.replace(/<\/?[^>]+(>|$)/g, "").trim().replace(/\s+/g, ' ')
+                        }))
+                    };
+                }
+            } catch (e) {
+                console.warn(`[API BOLLS] Falha (${version}):`, e.message);
             }
-        } catch (e) {
-            console.warn(`abibliadigital failed for ${version}/${abbrev}/${chapter}:`, e.message);
         }
 
-        // FALLBACK: bible-api.com (only "almeida" Portuguese translation)
+        // 🟢 PROVEDOR 2 (FALLBACK): abibliadigital
+        try {
+            const res = await axios.get(`${this.baseUrl}/verses/${version}/${abbrev}/${chapter}`, {
+                headers,
+                timeout: 8000,
+            });
+            if (res.data?.verses) return res.data;
+        } catch (e) {
+            console.warn(`[API ABIBLIA] Falha (${version}):`, e.message);
+        }
+
+        // 🟢 PROVEDOR 3: Fallback de Versão no bolls.life
+        const altVers = ['nvi', 'ra', 'acf'].filter(v => v !== version);
+        for (const v of altVers) {
+            const bv = this.bollsVersionMap[v];
+            if (bv && bollsBookId) {
+                try {
+                    const res = await axios.get(`https://bolls.life/get-chapter/${bv}/${bollsBookId}/${chapter}/`, { timeout: 5000 });
+                    if (Array.isArray(res.data) && res.data.length > 0) {
+                        return {
+                            book: { name: this.bookMapping[abbrev] || abbrev, abbrev },
+                            chapter,
+                            verses: res.data.map((h: any) => ({
+                                number: h.verse,
+                                text: h.text.replace(/<\/?[^>]+(>|$)/g, "").trim()
+                            }))
+                        };
+                    }
+                } catch (e) { /* next */ }
+            }
+        }
+
+        // 🟢 PROVEDOR 4: Fallback Final (bible-api.com - APENAS ALMEIDA)
         try {
             const bookName = this.bookMapping[abbrev.toLowerCase()] || abbrev;
-            const res = await axios.get(`${this.fallbackUrl}/${bookName}+${chapter}?translation=almeida`, {
-                headers: { 'User-Agent': 'Mozilla/5.0' },
-                timeout: 5000,
-            });
-
-            if (res.data && res.data.verses) {
+            const res = await axios.get(`${this.fallbackUrl}/${bookName}+${chapter}?translation=almeida`, { timeout: 10000 });
+            if (res.data?.verses) {
                 return {
-                    book: { name: res.data.verses[0].book_name, abbrev: abbrev },
-                    chapter: chapter,
+                    book: { name: res.data.verses[0].book_name, abbrev },
+                    chapter,
                     verses: res.data.verses.map((v: any) => ({
                         number: v.verse,
-                        text: v.text.trim()
+                        text: v.text.replace(/<\/?[^>]+(>|$)/g, "").trim()
                     }))
                 };
             }
         } catch (error) {
-            console.error("bible-api.com Chapter Error:", error.message);
+            console.error("[CRITICAL] Falha total em todos os provedores:", error.message);
         }
 
-        throw new HttpException('Capítulo não encontrado em nenhum provedor', HttpStatus.NOT_FOUND);
+        throw new HttpException(
+            'Serviço Bíblico temporariamente indisponível. Estamos enfrentando dificuldades com todos os provedores globais de versões em português.',
+            HttpStatus.SERVICE_UNAVAILABLE
+        );
     }
 
     async compareChapter(abbrev: string, chapter: number) {

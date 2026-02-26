@@ -119,7 +119,17 @@ const COLOR_LIST = [
   ...HI_COLORS.neutral
 ];
 
-export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () => void, onCreateSermon?: (reference: string, content: string) => void }) {
+export default function BibleExplorer({ 
+  onBack, 
+  onCreateSermon,
+  initialHighlights,
+  initialCustomLabels
+}: { 
+  onBack: () => void, 
+  onCreateSermon?: (reference: string, content: string) => void,
+  initialHighlights?: Record<string, any[]>,
+  initialCustomLabels?: Record<string, string>
+}) {
   const { environment } = require('@/environments');
 
   const [query, setQuery] = useState('');
@@ -152,7 +162,32 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
   const isInitialMount = useRef(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // ── Effects ───────────────────────────────────────────────────
+  // ── Session Persistence ───────────────────────────────────────
+  useEffect(() => {
+    // 1. Initial Data from Snapshot (Priority)
+    if (initialHighlights) {
+      setHighlights(initialHighlights);
+      if (initialCustomLabels) setCustomLabels(initialCustomLabels);
+      return;
+    }
+
+    // 2. Fallback to Local Session (Survival on F5)
+    const savedHighlights = localStorage.getItem('preachfy_bible_highlights');
+    if (savedHighlights) setHighlights(JSON.parse(savedHighlights));
+
+    const savedLabels = localStorage.getItem('preachfy_bible_labels');
+    if (savedLabels) setCustomLabels(JSON.parse(savedLabels));
+  }, [initialHighlights, initialCustomLabels]);
+
+  // Auto-save session
+  useEffect(() => {
+    if (!initialHighlights) { // Only save if we are NOT viewing a snapshot
+      localStorage.setItem('preachfy_bible_highlights', JSON.stringify(highlights));
+      localStorage.setItem('preachfy_bible_labels', JSON.stringify(customLabels));
+    }
+  }, [highlights, customLabels, initialHighlights]);
+
+  // ── Load Versions ─────────────────────────────────────────────
   useEffect(() => {
     const fetchVersions = async () => {
       try {
@@ -163,31 +198,6 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
     };
     fetchVersions();
     loadChapter('gn', 1);
-
-    // Persistence: Load from localStorage
-    const savedVersion = localStorage.getItem('preachfy_bible_version');
-    if (savedVersion) setVersion(savedVersion);
-
-    const saved = localStorage.getItem('preachfy_bible_highlights');
-    if (saved) {
-      try { 
-        const parsed = JSON.parse(saved);
-        // Migration: If data is older format { key: { color, comment } }, convert to [ { id, color, comment } ]
-        const migrated: Record<string, any[]> = {};
-        Object.keys(parsed).forEach(k => {
-          if (parsed[k] && !Array.isArray(parsed[k])) {
-            migrated[k] = [{ id: 'legacy-' + Date.now(), color: (parsed[k] as any).color, comment: (parsed[k] as any).comment }];
-          } else {
-            migrated[k] = parsed[k];
-          }
-        });
-        setHighlights(migrated);
-      } catch (e) { console.error("Failed to parse local highlights", e); }
-    }
-    const savedLabels = localStorage.getItem('preachfy_bible_labels');
-    if (savedLabels) {
-      try { setCustomLabels(JSON.parse(savedLabels)); } catch (e) { console.error(e); }
-    }
   }, []);
 
   // Save version to localStorage when it changes
@@ -195,25 +205,6 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
     localStorage.setItem('preachfy_bible_version', version);
   }, [version]);
 
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-    localStorage.setItem('preachfy_bible_highlights', JSON.stringify(highlights));
-  }, [highlights]);
-
-  useEffect(() => {
-    if (!isInitialMount.current) {
-      localStorage.setItem('preachfy_bible_version', version);
-    }
-  }, [version]);
-
-  useEffect(() => {
-    if (localStorage.getItem('preachfy_bible_labels')) {
-      localStorage.setItem('preachfy_bible_labels', JSON.stringify(customLabels));
-    }
-  }, [customLabels]);
 
   useEffect(() => {
     if (viewMode === 'READ' && results.length > 0) {
@@ -375,6 +366,8 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
   const addOrUpdateInsight = (color: string) => {
     if (!editingVerseKey) return;
     
+    const newId = Date.now().toString();
+    
     setHighlights(prev => {
       const current = prev[editingVerseKey] || [];
       let next;
@@ -382,15 +375,28 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
       if (editingInsightId) {
         next = current.map(h => h.id === editingInsightId ? { ...h, color, comment: commentInput } : h);
       } else {
-        next = [...current, { id: Date.now().toString(), color, comment: commentInput }];
+        next = [...current, { id: newId, color, comment: commentInput }];
       }
       
       return { ...prev, [editingVerseKey]: next };
     });
-    
-    setEditingInsightId(null);
-    setCommentInput('');
+
+    if (!editingInsightId) {
+      setEditingInsightId(newId);
+    }
   };
+
+  // Auto-sync comment to highlights state
+  useEffect(() => {
+    if (editingVerseKey && editingInsightId) {
+      setHighlights(prev => {
+        const current = prev[editingVerseKey] || [];
+        const next = current.map(h => h.id === editingInsightId ? { ...h, comment: commentInput } : h);
+        // Deep compare to avoid infinite loops if needed, though here it's simple enough
+        return { ...prev, [editingVerseKey]: next };
+      });
+    }
+  }, [commentInput]);
 
   const removeInsight = (verseKey: string, insightId: string) => {
     setHighlights(prev => {
@@ -450,12 +456,14 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
       setLoading(false);
     }
 
-    // 2. Prepare structured blocks data
+    // 2. Prepare structured blocks data including the visual SNAPSHOT
     const studyData = {
       type: 'structured-study',
       chapterText: chapterText,
       book: currentInfo.book,
       chapter: currentInfo.chapter,
+      rawHighlights: highlights, // The secret sauce for the snapshot
+      rawCustomLabels: customLabels,
       blocks: chapterHighlights.flatMap(v => {
         const verseInsights = highlights[verseKey(v)] || [];
         return verseInsights.map(h => ({
@@ -470,6 +478,9 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
 
     // Pass as JSON string to the callback
     onCreateSermon(`${currentInfo.book} ${currentInfo.chapter}`, JSON.stringify(studyData));
+    
+    // Clear highlights locally after creation to "reset" the bible for next time
+    setHighlights({});
   };
 
   const changeChapter = (offset: number) => {
@@ -875,7 +886,18 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
                                           {customLabels[h.color]}
                                         </span>
                                       </div>
-                                      <MessageSquare className="w-3.5 h-3.5 opacity-30 group-hover:opacity-100 transition-opacity" />
+                                      <div className="flex items-center gap-2">
+                                        <button 
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            removeInsight(key, h.id);
+                                          }}
+                                          className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-50 text-red-400 hover:text-red-500 rounded-lg transition-all"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                        <MessageSquare className="w-3.5 h-3.5 opacity-30 group-hover:opacity-100 transition-opacity" />
+                                      </div>
                                     </div>
                                     <div className="max-h-32 overflow-y-auto custom-scrollbar-thin mb-2">
                                       <p className="text-xs font-serif italic text-foreground/80 leading-relaxed font-medium">"{h.comment}"</p>
@@ -1110,10 +1132,14 @@ export default function BibleExplorer({ onBack, onCreateSermon }: { onBack: () =
                       </div>
                    </div>
 
-                   <button 
-                     onClick={() => setEditingVerseKey(null)}
-                     className="w-full bg-indigo-500/10 text-indigo-500 rounded-2xl py-3 font-black uppercase tracking-widest text-[10px] hover:bg-indigo-500 hover:text-white transition-all"
-                   >Concluir Ajustes</button>
+                    <button 
+                      onClick={() => {
+                         setEditingVerseKey(null);
+                         setEditingInsightId(null);
+                         setCommentInput('');
+                      }}
+                      className="w-full bg-indigo-500/10 text-indigo-500 rounded-2xl py-3 font-black uppercase tracking-widest text-[10px] hover:bg-indigo-500 hover:text-white transition-all"
+                    >Concluir Ajustes</button>
                 </div>
              </motion.div>
           </motion.div>

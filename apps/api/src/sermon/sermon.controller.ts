@@ -37,15 +37,6 @@ export class SermonController {
     return this.sermonService.updateSermon(id, data);
   }
 
-  @Post('seed')
-  seed(@Query('authorId') authorId?: string) {
-    return this.sermonService.seed(authorId);
-  }
-
-  @Post('seed-v2')
-  seedV2() {
-    return this.sermonService.seedV2();
-  }
 
   @Post(':id/history')
   addHistory(@Param('id') id: string, @Body() data: any) {

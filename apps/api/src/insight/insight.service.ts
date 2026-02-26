@@ -19,7 +19,7 @@ export class InsightService {
         });
     }
 
-    async findOne(id: string): Promise<GlobalInsight> {
+    async findOne(id: string): Promise<GlobalInsight | null> {
         return this.prisma.globalInsight.findUnique({
             where: { id },
         });

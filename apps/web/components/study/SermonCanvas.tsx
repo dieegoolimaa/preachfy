@@ -86,7 +86,15 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
       try {
         const res = await fetch(`${environment.apiUrl}/sermons/${sermonId}`);
         const data = await res.json();
-        setSermonMeta(data);
+        
+        // Sanitize Bible Sources on load
+        const sanitizedSources = (data.bibleSources || []).map((s: any) => ({
+          ...s,
+          reference: (s.reference || '').replace(/\s*\(COMPLETO\)/gi, '')
+        }));
+
+        setSermonMeta({ ...data, bibleSources: sanitizedSources });
+        
         if (data && data.blocks) {
           setBlocks(data.blocks.map((b: any) => ({
             id: b.id,
@@ -143,7 +151,6 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
       metadata: { depth: 0, ...metadata }
     };
     setBlocks(prev => [...prev, newBlock]);
-    setTimeout(() => { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }, 100);
   };
 
   const addBlockAfter = (afterId: string, type: TheologyCategory, metadata: any = {}, depthOffset: number = 0) => {
@@ -387,180 +394,228 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
         <div className="flex-1 w-full bg-stone-50/20 mb-40">
           <div className="max-w-[1920px] mx-auto min-h-screen grid grid-cols-[1fr_1fr_1fr_60px] divide-x divide-border/10">
             
-            {/* COLUMN 1: FONTES BÍBLICAS (Capítulos/Textos Brutos) */}
-            <div className="flex flex-col bg-stone-50/5">
-              <div className="flex flex-col p-4 gap-4 sticky top-36">
-                {(sermonMeta?.bibleSources || []).map((source: any, idx: number) => (
-                  <div key={source.id} className="group/src relative bg-white shadow-xl border border-border/40 rounded-2xl p-6 transition-all hover:shadow-2xl">
-                    <div className="flex items-center justify-between mb-4 border-b border-border/5 pb-3">
-                      <div className="flex items-center gap-2">
-                        <Book className="w-4 h-4 text-indigo-500" />
-                        <span className="text-[10px] font-mono font-black uppercase tracking-widest text-foreground/40">{source.reference || 'Nova Fonte'}</span>
-                      </div>
-                      <button onClick={() => removeBibleSource(idx)} className="opacity-0 group-hover/src:opacity-100 p-1 text-red-500 hover:bg-red-50 rounded-md transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+            {/* UNIFIED 3-COLUMN MATRIX GROUPED BY SOURCE */}
+            <div className="col-span-3 flex flex-col">
+              {/* 1. RENDER SOURCES AND THEIR CHILD BLOCKS */}
+              {(sermonMeta?.bibleSources || []).map((source: any, sIdx: number) => {
+                const sourceBlocks = blocks.filter(b => b.metadata.bibleSourceId === source.id && b.type === 'TEXTO_BASE');
+                const pillarColor = '#6366f1'; // Unified Brand Color for Sources
+
+                return (
+                  <div key={source.id} className="grid grid-cols-[1fr_2fr] divide-x divide-border/10 border-b border-border/10 group/source-section bg-stone-50/5">
+                    {/* COL 1: SOURCE PILLAR (Extended Height) */}
+                    <div className="p-6 pb-20 border-r border-border/10 bg-stone-50/20 relative">
+                       <div className="sticky top-44 h-[calc(100vh-200px)] group/src relative bg-white shadow-xl border border-border/40 rounded-[3rem] p-10 transition-all hover:shadow-2xl z-10 overflow-hidden flex flex-col">
+                          
+                          {/* Accent Pillar */}
+                          <div className="absolute top-0 left-0 bottom-0 w-3 bg-indigo-500" />
+                          
+                          {/* Header */}
+                          <div className="flex items-center justify-between mb-8 border-b border-border/5 pb-4 ml-4">
+                            <div className="flex items-center gap-3 flex-1">
+                              <Book className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                              <input 
+                                type="text"
+                                value={source.reference || ''}
+                                onChange={e => updateBibleSource(sIdx, 'reference', e.target.value)}
+                                className="bg-transparent border-none text-xs font-mono font-black uppercase tracking-[0.2em] text-indigo-500 outline-none w-full"
+                                placeholder="REFERÊNCIA"
+                              />
+                            </div>
+                            <button onClick={() => removeBibleSource(sIdx)} className="opacity-0 group-hover/src:opacity-100 p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          {/* Center Content Area */}
+                          <div className="flex-1 flex flex-col justify-center ml-4 relative h-full">
+                            {/* Subtle background reference */}
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none">
+                              <span className="text-[120px] font-black rotate-[-10deg]">{source.reference?.split(' ')[0]}</span>
+                            </div>
+                            
+                            <textarea 
+                              value={source.content}
+                              onChange={e => updateBibleSource(sIdx, 'content', e.target.value)}
+                              placeholder="Texto bíblico..."
+                              className="w-full h-full bg-transparent border-none outline-none resize-none font-sans text-base font-medium text-foreground/70 leading-relaxed custom-scrollbar relative z-10"
+                            />
+                          </div>
+
+                          {/* Footer decorative element */}
+                          <div className="mt-8 flex justify-center opacity-10">
+                            <div className="w-12 h-1 bg-border rounded-full" />
+                          </div>
+                       </div>
                     </div>
-                    <textarea 
-                       value={source.content}
-                       onChange={e => updateBibleSource(idx, 'content', e.target.value)}
-                       placeholder="Cole o texto bíblico aqui..."
-                       className="w-full bg-transparent border-none outline-none resize-none font-sans text-[14px] text-foreground/60 leading-relaxed max-h-[200px] custom-scrollbar"
-                       rows={4}
-                    />
-                    <input 
-                       type="text"
-                       value={source.reference}
-                       onChange={e => updateBibleSource(idx, 'reference', e.target.value)}
-                       placeholder="Referência (ex: Gênesis 1)"
-                       className="mt-4 w-full bg-stone-50/50 border border-border/10 rounded-lg p-2 text-[9px] font-mono uppercase tracking-[0.2em] outline-none focus:border-indigo-500/30 transition-all"
-                    />
+
+                    {/* COL 2 & 3: SOURCE MATRIX */}
+                    <div className="flex flex-col pt-1">
+                      <Reorder.Group 
+                        axis="y" 
+                        values={sourceBlocks} 
+                        onReorder={(newOrder: SermonBlock[]) => {
+                          setBlocks(prev => {
+                            const withoutSource = prev.filter(b => b.metadata.bibleSourceId !== source.id);
+                            const sourceMatrix: SermonBlock[] = [];
+                            newOrder.forEach(anchor => {
+                              sourceMatrix.push(anchor);
+                              const anchorInsights = prev.filter(b => b.metadata.parentVerseId === anchor.id);
+                              sourceMatrix.push(...anchorInsights);
+                            });
+                            return [...withoutSource, ...sourceMatrix];
+                          });
+                        }}
+                      >
+                        {sourceBlocks.map((block, rowIdx) => {
+                          const insights = blocks.filter(b => b.metadata.parentVerseId === block.id);
+                          const blockColor = block.metadata.customColor || '#6366f1';
+
+                          return (
+                            <Reorder.Item 
+                              key={block.id} 
+                              value={block} 
+                              className={cn(
+                                "grid grid-cols-2 group/master transition-all duration-500 items-start relative border-b border-border/5",
+                                rowIdx % 2 === 0 ? "bg-white/40" : "bg-transparent",
+                                "hover:bg-indigo-50/5"
+                              )}
+                            >
+                              {/* COLUMN 2: TEXTO BASE */}
+                              <div className="p-2 relative min-h-[140px] flex items-start">
+                                <div 
+                                   onPointerDown={() => setActiveVerseFocusId(block.id)}
+                                   className={cn(
+                                     "w-full bg-white shadow-xl border border-border/40 rounded-2xl p-6 transition-all duration-500 flex flex-col group/card relative z-10",
+                                     "group-hover/master:shadow-2xl",
+                                     activeVerseFocusId === block.id ? "ring-2 ring-indigo-500/20" : ""
+                                   )}
+                                   style={{ 
+                                     borderLeft: `8px solid ${blockColor}`,
+                                     borderColor: activeVerseFocusId === block.id ? `${blockColor}80` : `${blockColor}20`
+                                   }}
+                                >
+                                  <div className="flex items-center justify-between mb-4 border-b border-border/5 pb-2">
+                                    <div className="flex items-center gap-2">
+                                      <span 
+                                        className="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-md"
+                                        style={{ backgroundColor: `${blockColor !== 'transparent' ? blockColor : '#6366f1'}15`, color: blockColor !== 'transparent' ? blockColor : '#6366f1' }}
+                                      >
+                                        Texto Base
+                                      </span>
+                                      <div className="flex gap-1.5 opacity-0 group-hover/card:opacity-100 transition-opacity">
+                                        {['#ef4444', '#3b82f6', '#22c55e', '#6366f1'].map(c => (
+                                          <button 
+                                            key={c}
+                                            onClick={() => updateBlockMetadata(block.id, { customColor: c })}
+                                            className="w-2.5 h-2.5 rounded-full border border-border/20 shadow-sm transition-transform hover:scale-125"
+                                            style={{ backgroundColor: c }}
+                                          />
+                                        ))}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 opacity-0 group-hover/card:opacity-100 transition-all">
+                                       <button 
+                                         onClick={() => addBlockAfter(block.id, 'APLICACAO', { parentVerseId: block.id, isInsight: true, bibleSourceId: source.id })}
+                                         className="h-7 px-3 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-full text-[9px] font-black tracking-widest transition-all uppercase"
+                                       >
+                                         + Insight
+                                       </button>
+                                       <button onClick={() => deleteBlock(block.id)} className="p-1 px-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                                    </div>
+                                  </div>
+
+                                  <textarea
+                                    value={block.content}
+                                    onChange={(e) => handleContentChange(block.id, e.target.value)}
+                                    placeholder="Insira o versículo ou texto central..."
+                                    className="w-full bg-transparent border-none outline-none resize-none font-sans text-base font-bold leading-relaxed text-foreground placeholder:opacity-20 custom-scrollbar flex-1 p-0"
+                                    rows={1}
+                                    onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
+                                  />
+                                </div>
+                                <div className="absolute top-1/2 right-[-2px] w-6 h-[2px] opacity-0 group-hover/master:opacity-40 transition-opacity z-0" 
+                                     style={{ backgroundColor: blockColor !== 'transparent' ? blockColor : '#6366f1' }} 
+                                />
+                              </div>
+
+                              {/* COLUMN 3: APONTAMENTOS */}
+                              <div className="flex flex-col p-2 gap-1.5 bg-white/5 min-h-[140px] relative">
+                                <div className="absolute left-0 top-6 bottom-6 w-[1.5px] bg-border/5 group-hover/master:bg-border/20 transition-colors" />
+                                {insights.map((subBlock) => {
+                                  const effectiveColor = subBlock.metadata.customColor || (blockColor !== 'transparent' ? blockColor : '#cbd5e1');
+                                  return (
+                                    <div key={subBlock.id} className="group/insight relative px-2">
+                                      <div 
+                                        className="bg-white/95 shadow-md border border-border/30 rounded-2xl p-5 hover:shadow-xl transition-all duration-500 border-l-4"
+                                        style={{ 
+                                          borderLeftColor: effectiveColor,
+                                          borderColor: `${effectiveColor}30` 
+                                        }}
+                                      >
+                                        <div className="flex items-center justify-between mb-3">
+                                          <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: effectiveColor }} />
+                                            <select 
+                                              value={subBlock.type}
+                                              onChange={(e) => handleCategoryChange(subBlock.id, e.target.value as TheologyCategory)}
+                                              className="text-[9px] font-black uppercase tracking-[0.2em] bg-transparent outline-none cursor-pointer text-foreground/40 hover:text-foreground transition-colors"
+                                            >
+                                              <option value="EXEGESE">Exegese</option>
+                                              <option value="APLICACAO">Pastoral</option>
+                                              <option value="ILUSTRACAO">Ilustração</option>
+                                              <option value="ENFASE">Ênfase</option>
+                                            </select>
+                                          </div>
+                                          <button onClick={() => deleteBlock(subBlock.id)} className="opacity-0 group-hover/insight:opacity-100 p-1 text-red-400 hover:text-red-500 transition-all"><Trash2 className="w-3 h-3" /></button>
+                                        </div>
+                                        <textarea
+                                          value={subBlock.content}
+                                          onChange={(e) => handleContentChange(subBlock.id, e.target.value)}
+                                          placeholder="Reflexão ou aplicação..."
+                                          className="w-full bg-transparent border-none outline-none resize-none font-sans text-base font-medium leading-relaxed text-foreground transition-all custom-scrollbar h-auto p-0"
+                                          onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
+                                        />
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </Reorder.Item>
+                          );
+                        })}
+                        
+                        {/* IN-SOURCE ADD BUTTON */}
+                        <div className="p-6 pt-2 pb-12">
+                          <button 
+                            onClick={() => addBlock('TEXTO_BASE', { bibleSourceId: source.id })}
+                            className="w-full py-6 border border-dashed border-border/20 rounded-2xl flex items-center justify-center gap-3 hover:bg-white hover:border-indigo-500/20 transition-all group hover:shadow-xl group/add-btn"
+                          >
+                            <Plus className="w-4 h-4 text-muted-foreground group-hover:text-indigo-500 transition-all" />
+                            <span className="text-[9px] font-black uppercase tracking-[0.3em] opacity-10 group-hover:opacity-100 transition-opacity">Novo Texto em {source.reference}</span>
+                          </button>
+                        </div>
+                      </Reorder.Group>
+                    </div>
                   </div>
-                ))}
-                
+                );
+              })}
+
+              {/* GLOBAL ADD SOURCE BUTTON */}
+              <div className="p-20 border-t border-border/10 bg-stone-100/10 flex justify-center">
                 <button 
                   onClick={addBibleSource}
-                  className="w-full p-8 border-2 border-dashed border-border/10 rounded-2xl flex flex-col items-center justify-center gap-3 hover:bg-white/50 hover:border-indigo-500/20 transition-all group"
+                  className="px-16 py-12 border-2 border-dashed border-border/20 rounded-[4rem] flex flex-col items-center justify-center gap-6 hover:bg-white hover:border-indigo-500/40 transition-all group shadow-sm hover:shadow-2xl"
                 >
-                  <Plus className="w-6 h-6 text-muted-foreground group-hover:scale-110 group-hover:text-indigo-500 transition-all" />
-                  <span className="text-[9px] font-black uppercase tracking-[0.3em] opacity-30">Adicionar Fonte Bíblica</span>
+                  <Plus className="w-10 h-10 text-indigo-500 group-hover:scale-125 transition-transform" />
+                  <span className="text-[12px] font-black uppercase tracking-[0.5em] text-foreground/40 group-hover:text-foreground">Adicionar Nova Fonte Bíblica</span>
                 </button>
               </div>
             </div>
 
-            {/* COLUMN 2 & 3: THEOLOGICAL MATRIX (Linear Rows) */}
-            <div className="col-span-2 flex flex-col">
-              <Reorder.Group 
-                axis="y" 
-                values={blocks.filter(b => b.type === 'TEXTO_BASE')} 
-                onReorder={(newOrder: SermonBlock[]) => {
-                  const others = blocks.filter(b => b.type !== 'TEXTO_BASE');
-                  setBlocks([...others, ...newOrder]);
-                }}
-                className="flex flex-col"
-              >
-                {blocks.filter(b => b.type === 'TEXTO_BASE').map((block) => {
-                  const insights = blocks.filter(b => b.metadata.parentVerseId === block.id);
-                  const blockColor = block.metadata.customColor || 'transparent';
-
-                  return (
-                    <Reorder.Item 
-                      key={block.id} 
-                      value={block} 
-                      className="grid grid-cols-2 divide-x divide-border/5 border-b border-border/5 group/row hover:bg-stone-100/20 transition-colors"
-                    >
-                      {/* COLUMN 2: TEXTO BASE CARD */}
-                      <div className="p-1">
-                        <div 
-                          style={{ backgroundColor: blockColor !== 'transparent' ? `${blockColor}08` : 'white' }}
-                          onPointerDown={() => setActiveVerseFocusId(block.id)}
-                          className={cn(
-                            "relative overflow-hidden transition-all duration-300 rounded-[1.5rem] p-6 flex flex-col gap-4 border border-border/40 min-h-[140px]",
-                            "shadow-lg hover:shadow-2xl hover:translate-y-[-1px]",
-                            activeVerseFocusId === block.id ? "ring-2 ring-indigo-500/20 border-indigo-500/40" : ""
-                          )}
-                        >
-                          <div className="absolute top-0 left-0 bottom-0 w-1.5 rounded-l-2xl" style={{ backgroundColor: blockColor !== 'transparent' ? blockColor : '#6366f1' }} />
-                          
-                          <div className="flex items-center justify-between opacity-0 group-hover/row:opacity-100 transition-opacity">
-                            <div className="flex items-center gap-2">
-                              <GripVertical className="w-4 h-4 cursor-grab opacity-20" />
-                              <span className="text-[9px] font-black uppercase text-foreground/20 tracking-widest">Texto Base</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 bg-white p-1 rounded-full border border-border/10 shadow-lg">
-                              {['#ef4444', '#3b82f6', '#22c55e', 'transparent'].map(c => (
-                                <button 
-                                  key={c} 
-                                  onClick={(e) => { e.stopPropagation(); updateBlockMetadata(block.id, { customColor: c }); }} 
-                                  className="w-2.5 h-2.5 rounded-full border border-black/5" 
-                                  style={{ backgroundColor: c }} 
-                                />
-                              ))}
-                              <div className="w-[1px] h-3 bg-border/20 mx-1" />
-                              <button 
-                                onClick={(e) => { 
-                                  e.preventDefault(); 
-                                  e.stopPropagation(); 
-                                  addBlockAfter(block.id, 'APLICACAO', { parentVerseId: block.id, depth: 1 }); 
-                                }}
-                                className="p-1 px-3 text-indigo-500 hover:bg-indigo-600 hover:text-white rounded-lg transition-all group/plus relative"
-                              >
-                                <Plus className="w-5 h-5" />
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-3 py-1.5 bg-stone-900 text-white text-[8px] font-black uppercase tracking-[0.3em] rounded-xl opacity-0 group-hover/plus:opacity-100 transition-all pointer-events-none whitespace-nowrap translate-y-2 group-hover/plus:translate-y-0 shadow-2xl z-10">
-                                   Novo Apontamento
-                                </div>
-                              </button>
-                              <button onClick={() => deleteBlock(block.id)} className="p-1 px-3 text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 className="w-4 h-4" /></button>
-                            </div>
-                          </div>
-
-                          <textarea
-                            value={block.content}
-                            onChange={(e) => handleContentChange(block.id, e.target.value)}
-                            className="w-full bg-transparent border-none outline-none resize-none font-sans font-medium text-[16px] text-foreground leading-relaxed p-0 placeholder:opacity-10"
-                            placeholder="Insira o versículo ou texto central..."
-                            rows={1}
-                            onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* COLUMN 3: APONTAMENTOS (Insights) */}
-                      <div className="p-1 flex flex-col gap-1 bg-stone-50/5 min-h-[140px]">
-                        {insights.map((subBlock) => {
-                          const childColor = subBlock.metadata.customColor || 'transparent';
-                          return (
-                            <div 
-                              key={subBlock.id} 
-                              style={{ 
-                                borderLeftColor: childColor !== 'transparent' ? childColor : '#e2e8f0',
-                                backgroundColor: childColor !== 'transparent' ? `${childColor}08` : 'white'
-                              }} 
-                              className="border border-border/20 border-l-4 shadow-md rounded-2xl p-5 group/insight relative transition-all hover:shadow-xl hover:translate-y-[-1px] group-hover/row:border-border/40"
-                            >
-                              <div className="flex items-center gap-2 mb-2 opacity-0 group-hover/insight:opacity-100 transition-opacity">
-                                <span className="text-[7px] font-black uppercase text-foreground/30 tracking-widest">{CATEGORY_MAP[subBlock.type as TheologyCategory]?.label}</span>
-                                <div className="flex-1" />
-                                <button onClick={() => deleteBlock(subBlock.id)} className="p-1 text-red-300 hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                              </div>
-                              <textarea
-                                value={subBlock.content}
-                                onChange={e => handleContentChange(subBlock.id, e.target.value)}
-                                className="w-full bg-transparent border-none outline-none resize-none font-sans text-[15px] text-foreground/80 leading-relaxed p-0 placeholder:opacity-10"
-                                placeholder="Reflexão ou aplicação..."
-                                rows={1}
-                                onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
-                              />
-                            </div>
-                          );
-                        })}
-                        {insights.length === 0 && (
-                          <div className="flex-1 flex items-center justify-center p-4 border-2 border-dashed border-border/5 rounded-2xl opacity-10 group-hover/row:opacity-30 transition-opacity">
-                            <Plus className="w-4 h-4" />
-                          </div>
-                        )}
-                      </div>
-                    </Reorder.Item>
-                  );
-                })}
-              </Reorder.Group>
-
-              {/* GLOBAL BUTTON: NOVO TEXTO BASE */}
-              <div className="grid grid-cols-2 divide-x divide-border/5">
-                <div className="p-4">
-                  <button 
-                    onClick={() => addBlock('TEXTO_BASE', { bibleSourceId: (sermonMeta?.bibleSources?.[0]?.id || 'none') })}
-                    className="w-full p-10 border-2 border-dashed border-border/10 rounded-3xl flex flex-col items-center justify-center gap-4 hover:bg-white/50 hover:border-indigo-500/20 transition-all group"
-                  >
-                    <Plus className="w-8 h-8 text-muted-foreground group-hover:scale-110 group-hover:text-indigo-500 transition-all" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-30">Adicionar Novo Texto Base</span>
-                  </button>
-                </div>
-                <div className="bg-stone-50/5" />
-              </div>
-            </div>
-
             {/* COLUMN 4: ACTIONS/SPACER */}
-            <div className="flex items-center justify-center bg-stone-50/10">
-              <GripVertical className="w-4 h-4 opacity-5" />
+            <div className="flex items-center justify-center bg-stone-50/10 min-h-screen">
+              <div className="sticky top-1/2 rotate-90 text-[10px] font-black tracking-[1em] uppercase opacity-5 whitespace-nowrap">Studio Workbench</div>
             </div>
 
           </div>

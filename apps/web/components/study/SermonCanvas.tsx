@@ -21,7 +21,6 @@ export interface SermonBlock {
   type: TheologyCategory;
   content: string;
   metadata: {
-    font?: string;
     customColor?: string;
     customLabel?: string;
     parentVerseId?: string; 
@@ -67,7 +66,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
     notes: ''
   });
   const [isAddingHistory, setIsAddingHistory] = useState(false);
-  const [activeDropdown, setActiveDropdown] = useState<{ id: string; type: 'category' | 'font' | 'link' } | null>(null);
+  const [activeDropdown, setActiveDropdown] = useState<{ id: string; type: 'category' | 'link' } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const initialMetaRef = useRef<string | null>(null);
@@ -112,7 +111,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
     setBlocks(prev => prev.map(b => b.id === id ? { 
       ...b, 
       type: newType, 
-      metadata: { ...b.metadata, font: CATEGORY_MAP[newType].defFont, customLabel: newType === 'CUSTOMIZAR' ? (b.metadata.customLabel || 'Meu Título') : undefined } 
+      metadata: { ...b.metadata, customLabel: newType === 'CUSTOMIZAR' ? (b.metadata.customLabel || 'Meu Título') : undefined } 
     } : b));
     setActiveDropdown(null);
   };
@@ -121,10 +120,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
     setBlocks(prev => prev.map(b => b.id === id ? { ...b, metadata: { ...b.metadata, customLabel: newLabel } } : b));
   };
 
-  const handleFontChange = (id: string, newFont: string) => {
-    setBlocks(prev => prev.map(b => b.id === id ? { ...b, metadata: { ...b.metadata, font: newFont } } : b));
-    setActiveDropdown(null);
-  };
+
 
   const deleteBlock = (id: string) => {
     setBlocks(prev => prev.filter(b => b.id !== id));
@@ -143,7 +139,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
       id: `new-${Date.now()}`,
       type,
       content: '',
-      metadata: { font: CATEGORY_MAP[type].defFont, depth: 0 }
+      metadata: { depth: 0 }
     };
     setBlocks(prev => [...prev, newBlock]);
     setTimeout(() => { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }, 100);
@@ -558,53 +554,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-4">
-                        <div className="relative group/font">
-                          <div 
-                            className="w-full min-w-[150px] bg-surface border border-border rounded-lg text-[10px] font-mono text-muted-foreground px-4 py-1.5 hover:border-foreground/30 transition-all cursor-pointer flex items-center justify-between gap-2 shadow-sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveDropdown(activeDropdown?.id === block.id && activeDropdown?.type === 'font' ? null : { id: block.id, type: 'font' });
-                            }}
-                          >
-                             <span className="truncate tracking-widest uppercase">
-                               {block.metadata.font === 'font-sans' ? 'Outfit' : block.metadata.font === 'font-serif' ? 'Playfair' : block.metadata.font === 'font-modern' ? 'Sans-UI' : block.metadata.font === 'font-theological' ? 'Lora' : block.metadata.font === 'font-mono' ? 'JetBrains' : 'Default'}
-                             </span>
-                             <ChevronDown className={cn("w-3.5 h-3.5 opacity-20", activeDropdown?.id === block.id && activeDropdown?.type === 'font' && "rotate-180 opacity-100")} />
-                          </div>
 
-                          <AnimatePresence>
-                            {activeDropdown?.id === block.id && activeDropdown.type === 'font' && (
-                              <motion.div 
-                                initial={{ opacity: 0, scale: 0.95, y: 10 }} 
-                                animate={{ opacity: 1, scale: 1, y: 0 }} 
-                                exit={{ opacity: 0, scale: 0.95, y: 10 }} 
-                                className="absolute top-full left-0 w-80 mt-3 bg-background border border-border rounded-[2rem] shadow-2xl z-[60] py-4"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {[
-                                  { id: 'font-sans', label: 'Outfit' },
-                                  { id: 'font-serif', label: 'Playfair' },
-                                  { id: 'font-modern', label: 'Sans-UI' },
-                                  { id: 'font-theological', label: 'Lora' },
-                                  { id: 'font-mono', label: 'JetBrains' }
-                                ].map((f) => (
-                                  <div 
-                                    key={f.id} 
-                                    onClick={() => handleFontChange(block.id, f.id)} 
-                                    className={cn(
-                                      "px-6 py-3 text-[11px] font-mono transition-all flex items-center justify-between hover:bg-foreground hover:text-background cursor-pointer uppercase tracking-widest", 
-                                      (block.metadata.font || cat.defFont) === f.id ? "text-foreground bg-foreground/5 font-bold" : "text-muted-foreground/60"
-                                    )}
-                                  >
-                                    {f.label}
-                                    {(block.metadata.font || cat.defFont) === f.id && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-                                  </div>
-                                ))}
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
 
                         <div className="flex items-center bg-surface border border-border rounded-lg shadow-sm overflow-hidden opacity-0 group-hover:opacity-100 transition-all duration-300">
                           <button onClick={() => handleIndent(block.id, -1)} disabled={!block.metadata.depth} className="px-4 py-1.5 text-muted-foreground hover:bg-foreground hover:text-background transition-all disabled:opacity-20 text-[9px] font-black uppercase tracking-[0.2em] border-r border-border">Recuar</button>
@@ -658,7 +608,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart }:
                         placeholder={block.metadata.isInsight ? "Escreva aqui a revelação sobre este versículo..." : `Escreva aqui...`}
                         className={cn(
                           "w-full bg-transparent border-none outline-none resize-none overflow-hidden placeholder:opacity-10 text-lg leading-relaxed text-foreground opacity-90 transition-all focus:opacity-100", 
-                          block.metadata.font || cat.defFont,
+                          cat.defFont,
                           block.metadata.isInsight && block.metadata.insightStatus === 'PENDING' && "placeholder:opacity-30"
                         )}
                         rows={1}

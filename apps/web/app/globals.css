@@ -91,3 +91,28 @@ body {
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border-color);
 }
+
+/* PWA Safe Areas */
+.safe-top { padding-top: env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+.safe-left { padding-left: env(safe-area-inset-left); }
+.safe-right { padding-right: env(safe-area-inset-right); }
+.safe-x { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+.safe-y { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+
+/* Mobile touch improvements */
+@media (max-width: 768px) {
+  input, textarea, select, button {
+    font-size: 16px !important; /* Prevent iOS auto-zoom on focus */
+  }
+  .touch-pan-y { touch-action: pan-y; }
+}
+
+/* Standalone PWA adjustments */
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+

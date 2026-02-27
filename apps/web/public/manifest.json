@@ -1,0 +1,22 @@
+{
+  "name": "Rice & Beans Preaching",
+  "short_name": "R&B Preaching",
+  "description": "Advanced performance ecosystem for preachers. Study, prepare, and deliver sermons with excellence.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fdfdfb",
+  "theme_color": "#722f27",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

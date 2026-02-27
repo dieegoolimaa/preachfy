@@ -26,6 +26,14 @@ interface PulpitViewProps {
   onStudy?: () => void;
 }
 
+const generateObjectId = () => {
+    const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(8, '0');
+    const chars = 'abcdef0123456789';
+    let rest = '';
+    for (let i = 0; i < 16; i++) rest += chars[Math.floor(Math.random() * 16)];
+    return timestamp + rest;
+};
+
 // Perspectiva Teológica - Must match SermonCanvas
 const CATEGORY_MAP: Record<string, { label: string, color: string, icon: React.ReactNode }> = {
   TEXTO_BASE: { label: 'Texto Base (Bíblico)', color: 'var(--color-texto)', icon: <BookOpen className="w-4 h-4" /> },
@@ -92,6 +100,11 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
   const hudScrollRef = useRef<HTMLDivElement>(null);
   const contextScrollRef = useRef<HTMLDivElement>(null);
   const activeVerseRef = useRef<HTMLDivElement>(null);
+  const blocksRef = useRef<any[]>(blocks);
+
+  useEffect(() => {
+    blocksRef.current = blocks;
+  }, [blocks]);
 
   const handleGlobalSearch = async (query: string) => {
     if (query.length < 3) {
@@ -126,25 +139,59 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
   const saveInsight = (verse: any, source: any) => {
     const reference = `${source?.reference?.split(' (')[0]}:${verse.v}`;
     
-    // Create a persistent block instead of just local state
+    // 1. Find the best parent block for this SPECIFIC verse
+    let parentBlock = blocks.find(b => 
+      b.type === 'TEXTO_BASE' && 
+      b.metadata?.bibleSourceId === source.id && 
+      (b.metadata?.reference === reference || b.metadata?.parentVerseId === String(verse.v))
+    );
+
+    let updatedBlocks = [...blocks];
+
+    // 2. If no Texto Base exists for this verse, create one! 
+    // This allows the insight to be correctly grouped under its actual verse home.
+    if (!parentBlock) {
+      const maxOrder = blocks.length > 0 ? Math.max(...blocks.map(b => b.order || 0)) : 0;
+      parentBlock = {
+        id: generateObjectId(),
+        type: 'TEXTO_BASE',
+        content: verse.text,
+        order: maxOrder + 1,
+        metadata: {
+          bibleSourceId: source.id,
+          reference: reference,
+          depth: 0,
+          customLabel: 'TEXTO BASE'
+        }
+      } as any;
+      updatedBlocks.push(parentBlock!);
+    }
+    
+    const maxOrder = updatedBlocks.length > 0 ? Math.max(...updatedBlocks.map(b => b.order || 0)) : 0;
+    const blockId = generateObjectId();
     const newBlock = {
-      id: `insight-${Date.now()}`,
-      type: 'CUSTOMIZAR',
-      content: `${verse.text}`,
-      order: blocks.length,
+      id: blockId,
+      type: 'CEU',
+      content: '', 
+      order: maxOrder + 1,
       metadata: {
-        customLabel: 'NOVA REVELAÇÃO',
-        customColor: 'var(--color-aplicacao)',
-        reference: reference,
+        customLabel: 'Desceu do Céu',
+        bibleSourceId: source.id,
+        parentVerseId: parentBlock!.id,
+        reference,
         verseText: verse.text,
         isInsight: true,
-        insightStatus: 'PENDING' // PENDING or COMPLETED
+        insightStatus: 'PENDING',
+        depth: 1
       }
     };
 
-    const updatedBlocks = [...blocks, newBlock];
+    updatedBlocks.push(newBlock);
     setBlocks(updatedBlocks);
     syncCanvas(updatedBlocks as any);
+    
+    // CRITICAL: Save immediately to DB to prevent loss on exit
+    handleSave(updatedBlocks);
 
     setShowToast(`Revelação Guardada: ${reference}`);
     setIsSidebarOpen(true);
@@ -155,7 +202,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
   const handleUpdateInsight = (blockId: string, newRevelation: string, finalize = false) => {
     const updatedBlocks = blocks.map(b => b.id === blockId ? {
       ...b,
-      content: newRevelation || b.content,
+      content: newRevelation,
       metadata: {
         ...b.metadata,
         revelation: newRevelation,
@@ -165,7 +212,20 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
     
     setBlocks(updatedBlocks);
     syncCanvas(updatedBlocks as any);
-    if (finalize) setShowToast("Insight integrado ao Estudo!");
+    
+    // Save on every update too
+    handleSave(updatedBlocks);
+
+    if (finalize) {
+      setShowToast("Apontamento salvo e inserido no Estudo!");
+      setTimeout(() => setShowToast(null), 3000);
+    }
+  };
+
+  const deletePulpitInsight = (blockId: string) => {
+    const updatedBlocks = blocks.filter(b => b.id !== blockId);
+    setBlocks(updatedBlocks);
+    syncCanvas(updatedBlocks as any);
   };
 
   const saveGlobalInsight = async (verse: any) => {
@@ -250,6 +310,37 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
     return () => clearInterval(timer);
   }, []);
 
+  const handleSave = async (blocksToSave?: any[]) => {
+    const data = blocksToSave || blocksRef.current;
+    if (!sermonId || !data || data.length === 0) return;
+    const { environment } = require('@/environments');
+    try {
+      await fetch(`${environment.apiUrl}/sermons/${sermonId}/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocks: data })
+      });
+      // CRITICAL: Clear Study Mode backup to force Studio to reload from DB
+      localStorage.removeItem(`preachfy_study_backup_${sermonId}`);
+    } catch (e) {
+      console.error("Auto-save failed in Pulpit", e);
+    }
+  };
+
+  // Sync on unmount
+  useEffect(() => {
+    return () => {
+      handleSave();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (blocks.length > 0) {
+      const timer = setTimeout(() => handleSave(), 5000); // Back to background sync
+      return () => clearTimeout(timer);
+    }
+  }, [blocks]);
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -275,19 +366,28 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
       // 2. Map each anchor to its specific insights using robust logic (ID or Reference)
       const insights = blocks.filter(b => 
         b.id !== anchor.id && 
-        b.metadata?.isInsight && (
-          b.metadata?.parentVerseId === anchor.id || 
-          (anchor.type === 'TEXTO_BASE' && b.metadata?.reference === anchor.metadata?.reference)
+        b.metadata?.isInsight && 
+        b.metadata?.insightStatus !== 'PENDING' && ( // FIX: Only show fully formed insights in the structural map
+          b.metadata?.parentVerseId === anchor.id
         )
       );
+      
+      // Block entirely empty anchors that have no insights, avoiding ghost steps
+      if (!anchor.content?.trim() && insights.length === 0) {
+         usedIds.add(anchor.id); // Mark it as used so it doesn't get picked up as an orphan
+         return; 
+      }
       
       const group = [anchor, ...insights];
       result.push(group);
       group.forEach(b => usedIds.add(b.id));
     });
 
-    // 3. Catch any orphaned insights that weren't linked to an anchor
-    const orphans = blocks.filter(b => !usedIds.has(b.id));
+    // 3. Catch any orphaned blocks that weren't linked to an anchor
+    // We only want to show anchors or real mapped insights. 
+    // If it's a completed insight but has no parent, we can show it as its own step or not?
+    // Let's show all unused blocks EXCEPT pending insights which belong in the inbox.
+    const orphans = blocks.filter(b => !usedIds.has(b.id) && b.content?.trim() && b.metadata?.insightStatus !== 'PENDING');
     orphans.forEach(o => result.push([o]));
 
     return result;
@@ -307,12 +407,12 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
   // Context info based on group
   const contextParent = activeBlock?.metadata?.depth > 0 ? activeBlock : null; 
 
-  const activeVerseId = activeBlock?.metadata?.parentVerseId;
+  const activeVerseId = activeBlock?.metadata?.parentVerseId || activeBlock?.metadata?.reference?.split(':')[1];
   const activeSourceId = activeBlock?.metadata?.bibleSourceId;
   const activeSource = sermonMeta?.bibleSources?.find((s: any) => s.id === activeSourceId) || (sermonMeta?.bibleSources?.[0]);
 
-  const finalSource = activeSource;
-  const finalVerseId = activeVerseId;
+  const finalSource = activeSource || { reference: activeBlock?.metadata?.reference, content: '' };
+  const finalVerseId = activeVerseId || 'ALL';
 
   const jumpToGroup = (idx: number) => {
     const block = blocks[idx];
@@ -439,9 +539,9 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Insights</span>
-                {blocks.filter(b => b.metadata?.isInsight && b.metadata?.insightStatus !== 'COMPLETED').length > 0 && (
+                {blocks.filter(b => b.metadata?.isInsight && b.metadata?.insightStatus === 'PENDING').length > 0 && (
                   <span className="flex items-center justify-center bg-brand-gold text-white text-[10px] px-2 py-0.5 rounded-full font-black min-w-[20px] shadow-lg shadow-brand-gold/20">
-                    {blocks.filter(b => b.metadata?.isInsight && b.metadata?.insightStatus !== 'COMPLETED').length}
+                    {blocks.filter(b => b.metadata?.isInsight && b.metadata?.insightStatus === 'PENDING').length}
                   </span>
                 )}
               </button>
@@ -481,101 +581,87 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                 </div>
               ) : sidebarTab === 'ESTRUTURA' ? (
                 <div className="p-5 flex flex-col gap-4 relative">
-                  {/* Tactical Roadmap Track */}
-                  <div className="absolute left-[2.1rem] top-12 bottom-12 w-0.5 bg-gradient-to-b from-brand-gold/30 via-brand-gold/10 to-transparent rounded-full -z-0" />
+                  {/* Clean Vertical Timeline */}
+                  <div className="absolute left-[38px] top-12 bottom-12 w-px bg-border/40 -z-0" />
 
-                  
                   {groupedBlocks.map((group, gIdx) => {
                     const isActive = activeGroupIndex === gIdx;
                     const isPast = activeGroupIndex > gIdx;
                     const rootBlock = group[0];
                     const insights = group.slice(1);
                     
-                    const category = (CATEGORY_MAP[rootBlock.type] || CATEGORY_MAP.CUSTOMIZAR) as { label: string, color: string, icon: React.ReactNode };
-
                     return (
                       <div key={gIdx} className="flex flex-col gap-1.5">
                         {/* Unit Step */}
                         <div 
                           onClick={() => { setActiveGroupIndex(gIdx); }}
                           className={cn(
-                            "relative flex items-center gap-4 py-1 transition-all cursor-pointer group pr-2",
-                            isActive ? "opacity-100 scale-[1.02] origin-left z-10" : isPast ? "opacity-50" : "opacity-30 hover:opacity-100"
+                            "relative flex items-center gap-4 py-3 transition-all cursor-pointer group rounded-2xl px-3",
+                            isActive ? "bg-surface shadow-xl border border-border/60" : "hover:bg-foreground/5",
+                            !isActive && isPast ? "opacity-40" : ""
                           )}
                         >
 
-                          {/* Tactical Marker - Diamond for Units */}
-                          <div className="relative z-10 flex flex-col items-center shrink-0">
+                          {/* Minimalist Marker */}
+                          <div className="relative z-10 flex flex-col items-center shrink-0 w-6">
                             <div className={cn(
-                              "w-10 h-10 transition-all duration-500 flex items-center justify-center rounded-xl rotate-45 border-2",
-                              isActive ? "bg-brand-red border-brand-gold shadow-[0_0_30px_rgba(114,47,39,0.6)] scale-125 z-20" : 
-                              isPast ? "bg-brand-gold/20 border-brand-gold/30 text-brand-gold" : "bg-surface border-border"
+                              "w-7 h-7 transition-all duration-300 flex items-center justify-center rounded-full border-[2px]",
+                              isActive ? "bg-brand-red border-brand-red shadow-[0_0_15px_rgba(114,47,39,0.3)] text-white scale-110" : 
+                              isPast ? "bg-border border-border text-foreground/40" : "bg-surface border-border/40 text-foreground/20"
                             )}>
-                               <div className="-rotate-45">
-                                 {isPast ? (
-                                   <CheckCircle2 className="w-5 h-5 stroke-[3px]" />
-                                 ) : (
-                                    <span className={cn(
-                                      "font-mono font-black text-[15px]",
-                                      isActive ? "text-white scale-110" : "text-muted-foreground"
-                                    )}>
-                                      {gIdx + 1}
-                                    </span>
-                                 )}
-                               </div>
+                               {isPast ? (
+                                 <CheckCircle2 className="w-4 h-4" />
+                               ) : (
+                                  <span className="font-sans font-black text-[12px]">
+                                    {gIdx + 1}
+                                  </span>
+                               )}
                             </div>
-                            {isActive && <div className="absolute inset-0 bg-brand-gold/40 blur-2xl rounded-full scale-150 -z-10 animate-pulse" />}
                           </div>
 
-          
                           {/* Info Block */}
-                          <div className={cn(
-                            "flex-1 flex flex-col gap-0.5 p-2.5 rounded-2xl transition-all duration-300 border ml-1",
-                            isActive ? "bg-brand-gold/10 border-brand-gold/30 shadow-2xl backdrop-blur-md ring-1 ring-white/10" : "bg-transparent border-transparent"
-                          )}>
-                            <div className="flex items-center justify-between gap-4">
-                               <div className="flex items-center gap-2">
-                                 <span className={cn(
-                                   "text-[9px] font-black uppercase tracking-[0.25em] px-2 py-0.5 rounded-md", 
-                                   isActive ? "bg-brand-gold text-white" : "text-muted-foreground/30"
-                                 )}>
-                                   {rootBlock.metadata?.customLabel || (CATEGORY_MAP[rootBlock.type]?.label || rootBlock.type).split(' / ')[0].split(' (')[0]}
-                                 </span>
-                               </div>
+                          <div className="flex-1 flex flex-col min-w-0 pr-1">
+                            <div className="flex items-center justify-between gap-2 mb-1.5">
+                               <span className={cn(
+                                 "text-[9px] font-black uppercase tracking-[0.2em]", 
+                                 isActive ? "text-brand-gold" : "text-muted-foreground/40"
+                               )}>
+                                 {rootBlock.metadata?.customLabel || (CATEGORY_MAP[rootBlock.type] || CATEGORY_MAP.CUSTOMIZAR)?.label.split(' / ')[0]}
+                               </span>
                                {rootBlock.metadata?.reference && (
                                  <span className={cn(
-                                   "text-[8.5px] font-mono font-black uppercase tracking-[0.1em] shrink-0",
-                                   isActive ? "opacity-60 text-brand-gold" : "opacity-20"
+                                   "text-[8px] font-mono font-black uppercase tracking-[0.05em] shrink-0",
+                                   isActive ? "text-brand-gold/60" : "opacity-30"
                                  )}>
                                    {rootBlock.metadata.reference.split(' (')[0]}
                                  </span>
                                )}
                             </div>
-                             <p className={cn(
-                               "text-[15px] font-medium leading-tight line-clamp-1 transition-all",
-                               isActive ? "text-foreground" : "text-foreground/40"
+                            <p className={cn(
+                               "text-[14px] font-medium leading-[1.3] truncate transition-all",
+                               isActive ? "text-foreground" : "text-foreground/60"
                              )}>
                               {rootBlock.content}
                             </p>
                           </div>
                         </div>
 
-
-                        {/* Insights List (Nested markers) */}
-                        {insights.length > 0 && (
-                          <div className="flex flex-col gap-1.5 ml-3 border-l-2 border-brand-gold/10 pl-8 my-0.5">
-                             {insights.map((insight: any) => {
+                        {/* Insights List */}
+                        {group.slice(1).length > 0 && (
+                          <div className={cn(
+                            "flex flex-col gap-1.5 ml-[42px] pl-4 border-l-2 my-1",
+                            isActive ? "border-brand-gold/20" : "border-border/20"
+                          )}>
+                             {group.slice(1).map((insight: any) => {
                                const iCat = (CATEGORY_MAP[insight.type] || CATEGORY_MAP.CUSTOMIZAR) as any;
                                return (
-                                 <div key={insight.id} className="flex items-center gap-3 py-1 opacity-40 hover:opacity-100 transition-opacity group/sub">
-                                    <div className="w-4 h-4 rounded-md border border-border flex items-center justify-center bg-surface group-hover/sub:border-brand-gold/30 shrink-0">
-                                       {React.cloneElement(iCat.icon as React.ReactElement<any>, { className: "w-2.5 h-2.5 stroke-[2.5px] opacity-40" })}
+                                 <div key={insight.id} className="flex items-start gap-2.5 py-1.5 opacity-60 hover:opacity-100 transition-opacity">
+                                    <div className="w-5 h-5 rounded flex flex-shrink-0 items-center justify-center border border-border/30 bg-surface shadow-sm" style={{ color: insight.metadata?.customColor || iCat.color }}>
+                                       {React.cloneElement(iCat.icon as React.ReactElement<any>, { className: "w-3 h-3 stroke-[2.5px]" })}
                                     </div>
-                                    <div className="flex flex-col min-w-0 flex-1">
-                                       <span className="text-[11px] font-medium text-foreground/40 group-hover/sub:text-foreground transition-colors italic truncate">
-                                          {insight.content}
-                                       </span>
-                                    </div>
+                                    <span className="text-[13px] font-medium text-foreground/80 leading-[1.4] line-clamp-2 mt-0.5" style={{ color: insight.metadata?.customColor ? insight.metadata.customColor : undefined }}>
+                                        {insight.content}
+                                    </span>
                                  </div>
                                );
                              })}
@@ -598,18 +684,24 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
               ) : (
                 <div className="p-6 flex flex-col gap-6">
                   <div className="flex flex-col gap-2">
-                    <h3 className="text-2xl font-sans font-black italic text-foreground/90">Novas Revelações</h3>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-brand-gold opacity-60">Capturadas durante o Altar</p>
+                    <h3 className="text-2xl font-sans font-black italic text-foreground/90">Desceu do Céu agora</h3>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-brand-gold opacity-60">Capturados durante o Altar</p>
                   </div>
                   
                   <div className="flex flex-col gap-4">
-                    {blocks.filter(b => b.metadata?.isInsight).reverse().map((block, idx) => (
+                    {blocks.filter(b => b.metadata?.isInsight && b.metadata?.insightStatus === 'PENDING').reverse().map((block, idx) => (
                       <motion.div 
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         key={block.id} 
-                        className="bg-surface border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-all group flex flex-col gap-4"
+                        className="bg-surface border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-all group flex flex-col gap-4 relative"
                       >
+                        <button 
+                          onClick={() => deletePulpitInsight(block.id)} 
+                          className="absolute -top-2 -right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-lg z-10"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-[10px] font-mono font-bold text-brand-gold uppercase tracking-tighter bg-brand-gold/10 px-2 py-0.5 rounded">
                             {block.metadata?.reference}
@@ -655,10 +747,10 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                       </motion.div>
                     ))}
                     
-                    {blocks.filter(b => b.metadata?.isInsight).length === 0 && (
+                    {blocks.filter(b => b.metadata?.isInsight && b.metadata?.insightStatus === 'PENDING').length === 0 && (
                       <div className="py-20 text-center flex flex-col items-center gap-4 opacity-20">
                         <Sparkles className="w-8 h-8" />
-                        <p className="text-[10px] font-black tracking-widest uppercase">Nenhum insight capturado ainda</p>
+                        <p className="text-[10px] font-black tracking-widest uppercase">Caixa de entrada limpa</p>
                       </div>
                     )}
                   </div>
@@ -719,7 +811,11 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
               </div>
 
               <button 
-                onClick={onExit}
+                onClick={async () => {
+                  await handleSave();
+                  localStorage.removeItem(`preachfy_study_backup_${sermonId}`);
+                  onExit();
+                }}
                 className="group flex items-center gap-3 px-6 h-16 rounded-full glass border-white/5 hover:bg-red-500/10 hover:border-red-500/20 transition-all active:scale-90"
                 title="Encerrar Púlpito"
               >
@@ -759,7 +855,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                       <div className="absolute left-[400px] top-1/2 -translate-y-1/2 w-16 h-1.5 bg-gradient-to-r from-brand-gold/80 to-brand-gold/40 -z-10 hidden lg:block shadow-[0_0_20px_rgba(176,141,87,0.4)] rounded-full" />
 
                       {/* COLUMN 1: THE ANCHOR (TEXTO BASE) */}
-                      {activeGroupBlocks[0] && (() => {
+                      {activeGroupBlocks[0] && activeGroupBlocks[0].content?.trim() !== '' && (() => {
                         const b = activeGroupBlocks[0];
                         const bCat = (CATEGORY_MAP[b.type] || CATEGORY_MAP.CUSTOMIZAR) as { label: string, color: string, icon: React.ReactNode };
                         return (
@@ -768,23 +864,32 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                             animate={{ x: 0, opacity: 1 }}
                             className="w-full lg:w-[400px] shrink-0"
                           >
-                            <div className="h-full flex flex-col gap-6 p-10 rounded-[1.5rem] bg-surface text-foreground border border-border/20 shadow-2xl relative group/anchor transition-all duration-700 hover:shadow-brand-gold/5 overflow-hidden">
+                            <div 
+                              onClick={() => { if (b.metadata?.reference) setShowContextPeek(true); }}
+                              className={cn(
+                                "h-full flex flex-col gap-6 p-10 rounded-[1.5rem] bg-surface text-foreground border border-border/20 shadow-2xl relative group/anchor transition-all duration-700 hover:shadow-brand-gold/5 overflow-hidden",
+                                b.metadata?.reference ? "cursor-pointer hover:-translate-y-1 hover:border-brand-gold/40" : ""
+                              )}
+                            >
                                  <div className="absolute left-0 top-0 bottom-0 w-2 rounded-l-[1.5rem]" style={{ backgroundColor: b.metadata?.color || 'var(--color-brand-red)' }} />
                                  
-                                 <div className="flex items-center justify-between relative z-10">
+                                 <div className="flex items-center justify-between relative z-10 mb-2">
                                    <div className="flex items-center gap-4">
-                                     <div className="w-12 h-12 rounded-xl bg-brand-gold/10 border border-brand-gold/20 flex items-center justify-center text-brand-gold shadow-sm transition-all group-hover/anchor:scale-110">
+                                     <div className="w-12 h-12 rounded-xl bg-brand-gold/10 border border-brand-gold/20 flex items-center justify-center text-brand-gold shadow-sm transition-all group-hover/anchor:scale-110 group-hover/anchor:bg-brand-gold group-hover/anchor:text-white">
                                        {React.cloneElement(bCat.icon as React.ReactElement<any>, { className: "w-6 h-6 stroke-[2.5px]" })}
                                      </div>
-                                     <div className="flex flex-col text-left">
+                                     <div className="flex flex-col text-left mb-1">
                                         <span className="text-[11px] font-black uppercase tracking-[0.3em] text-foreground/30">
                                           {(b.metadata?.customLabel || 'Texto Base').toUpperCase()}
                                         </span>
+                                        {b.metadata?.reference && (
+                                          <span className="text-[8px] font-black tracking-widest uppercase text-brand-gold opacity-0 group-hover/anchor:opacity-100 transition-opacity absolute -bottom-3">Ver Capítulo</span>
+                                        )}
                                      </div>
                                    </div>
                                    {b.metadata?.reference && (
-                                      <div className="flex items-center gap-2 px-5 py-2 rounded-full font-mono font-black text-[12px] border border-border/40 bg-foreground/5 text-foreground/60">
-                                        <BookOpen className="w-3.5 h-3.5 opacity-50 shrink-0" />
+                                      <div title="Ver Capítulo Completo" className="flex items-center gap-2 px-5 py-2 rounded-full font-mono font-black text-[12px] border border-border/40 bg-foreground/5 text-foreground/60 transition-all group-hover/anchor:bg-brand-gold group-hover/anchor:border-transparent group-hover/anchor:text-white">
+                                        <BookOpen className="w-3.5 h-3.5 opacity-80 shrink-0" />
                                         {b.metadata.reference.split(' (')[0]}
                                       </div>
                                    )}
@@ -836,7 +941,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                                              </div>
                                              <div className="flex flex-col">
                                                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40 italic">
-                                                    {(b.metadata?.customLabel || CATEGORY_MAP[b.type]?.label || b.type).toUpperCase()}
+                                                    {(b.metadata?.customLabel || (CATEGORY_MAP[b.type] as any)?.label || b.type).toUpperCase()}
                                                  </span>
                                              </div>
                                           </div>
@@ -869,10 +974,10 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                         ) : (
                           <div className="h-full min-h-[400px] ml-4 rounded-[3.5rem] border-[3px] border-dashed border-border/40 flex flex-col items-center justify-center gap-6 opacity-30 group hover:opacity-60 transition-opacity">
                              <div className="w-24 h-24 rounded-full bg-brand-gold/5 border-2 border-brand-gold/10 flex items-center justify-center shadow-inner transition-transform group-hover:scale-110">
-                                <Plus className="w-10 h-10 text-brand-gold" />
+                                <Sparkles className="w-10 h-10 text-brand-gold" />
                              </div>
                              <p className="text-[14px] font-black uppercase tracking-[0.6em] text-center text-brand-gold/60 leading-loose">
-                                Mapeie o texto<br/>
+                                Nenhum Apontamento<br/>
                                 <span className="text-[10px] tracking-[0.3em] font-medium text-muted-foreground">Adicione desdobramentos no Studio</span>
                              </p>
                           </div>
@@ -910,7 +1015,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                       </div>
                       <div className="flex flex-col">
                         <h3 className="text-[2.5rem] font-sans font-black italic leading-none tracking-tight text-foreground">
-                          {finalSource?.reference?.split(' (')[0].replace(/:\d+.*$/, '')}
+                          {finalSource?.reference ? finalSource.reference.split(' (')[0].replace(/:\d+.*$/, '') : 'Bíblia'}
                         </h3>
                         <p className="text-[10px] font-black tracking-[0.4em] uppercase opacity-30 mt-2 text-brand-gold">Capítulo Completo</p>
                       </div>
@@ -930,10 +1035,11 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                         <p className="text-[10px] font-black uppercase tracking-widest">Alimentando Altar com Escritura...</p>
                       </div>
                     ) : (
-                      <div className="font-sans font-medium text-foreground/60 leading-[2.2] text-justify">
+                      <div className="font-sans font-medium text-foreground/60 leading-[2.2] text-justify pt-6">
                         {fullChapterVerses.map((v, index) => {
-                          const isTarget = finalVerseId === 'ALL' || String(v.v) === finalVerseId;
-                          const currentRef = `${finalSource?.reference?.split(' (')[0].replace(/:\d+.*$/, '')}:${v.v}`;
+                          const isTarget = finalVerseId === 'ALL' || String(v.v) === String(finalVerseId);
+                          const rootRef = finalSource?.reference ? finalSource.reference.split(' (')[0].replace(/:\d+.*$/, '') : '';
+                          const currentRef = rootRef ? `${rootRef}:${v.v}` : `:${v.v}`;
                           const isSaved = blocks.some(b => b.metadata?.isInsight && b.metadata?.reference === currentRef);
                           
                           return (
@@ -941,7 +1047,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                               key={v.v} 
                               ref={isTarget && (finalVerseId !== 'ALL' || index === 0) ? activeVerseRef : null}
                               className={cn(
-                                "relative transition-all duration-1000 inline rounded-[1.5rem] px-3 py-1.5 group/line cursor-pointer",
+                                "relative transition-all duration-1000 inline rounded-[1.5rem] px-3 py-1 group/line cursor-pointer",
                                 isSaved ? "bg-emerald-500/10 text-emerald-500 shadow-[inset_0_0_15px_rgba(16,185,129,0.1)]" :
                                 isTarget ? "text-foreground opacity-100 bg-brand-gold/10 shadow-[inset_0_0_20px_rgba(99,102,241,0.1)]" : "text-foreground/30 hover:text-foreground/80 hover:bg-foreground/5"
                               )}
@@ -951,15 +1057,15 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                                 isSaved ? "text-emerald-500" : "text-brand-gold"
                               )}>{v.v}</span>
                               <span className="text-[1.6rem] leading-relaxed tracking-tight">{v.text} </span>
-                              
                               <button 
                                 onClick={(e) => { e.stopPropagation(); if(!isSaved) saveInsight(v, finalSource); }}
                                 className={cn(
-                                  "absolute -top-12 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full border flex items-center justify-center transition-all shadow-xl z-20",
+                                  "absolute left-1/2 -translate-x-1/2 w-10 h-10 rounded-full border flex items-center justify-center transition-all shadow-xl z-50",
                                   isSaved 
                                     ? "bg-emerald-500 text-white border-emerald-400 opacity-100 pointer-events-none scale-0" 
-                                    : "bg-surface border-border opacity-0 group-hover/line:opacity-100 hover:bg-brand-red hover:text-white hover:scale-110 active:scale-90 text-foreground/60"
+                                    : "bg-surface border-border opacity-0 group-hover/line:opacity-100 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 hover:scale-110 active:scale-90 text-foreground/60"
                                 )}
+                                style={{ top: '-1.5rem', marginTop: '-0.5rem' }}
                                 title={isSaved ? "Revelação Guardada" : "Salvar como Insight"}
                               >
                                 <Sparkles className="w-5 h-5" />

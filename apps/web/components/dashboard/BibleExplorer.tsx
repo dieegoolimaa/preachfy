@@ -101,7 +101,7 @@ const HI_COLORS = {
   cold: [
     { name: 'Emerald', color: '#6ee7b7', label: 'Vida / Crescimento' },
     { name: 'Teal', color: '#5eead4', label: 'Espírito Santo' },
-    { name: 'Sky', color: '#7dd3fc', label: 'Céu / Divino' },
+    { name: 'Sky', color: '#7dd3fc', label: 'Desceu do Céu' },
     { name: 'Blue', color: '#93c5fd', label: 'Profecia' },
     { name: 'Indigo', color: '#a5b4fc', label: 'Cristo / Realeza' },
     { name: 'Violet', color: '#c4b5fd', label: 'Adoração' },
@@ -163,6 +163,7 @@ export default function BibleExplorer({
     if (initialHighlights) {
       data = initialHighlights;
     } else {
+      // ONLY LOAD CACHE IF WE ARE NOT IN SNAPSHOT MODE. If we are in Native Bible mode, start fresh.
       const saved = localStorage.getItem('preachfy_bible_highlights');
       data = saved ? JSON.parse(saved) : {};
     }
@@ -221,9 +222,18 @@ export default function BibleExplorer({
   useEffect(() => {
     if (initialHighlights) {
       setHighlights(initialHighlights);
+    } else {
+       // BUGFIX: If a snapshot was unloaded, we restore to the global bible state to avoid lingering ghost data
+       const saved = localStorage.getItem('preachfy_bible_highlights');
+       setHighlights(saved ? JSON.parse(saved) : {});
     }
+    
     if (initialCustomLabels) {
       setCustomLabels(initialCustomLabels);
+    } else {
+       const savedLabels = localStorage.getItem('preachfy_bible_labels');
+       // Reload global dictionary if unmounted from snapshot mode
+       if (savedLabels) setCustomLabels(JSON.parse(savedLabels));
     }
   }, [initialHighlights, initialCustomLabels]);
 
@@ -685,24 +695,30 @@ export default function BibleExplorer({
               <ArrowLeft className="w-4 h-4" />
               <span className="font-medium">Voltar</span>
             </button>
-            <div className="w-px h-6 bg-border" />
-            <button
-              onClick={() => { setShowSidebar(!showSidebar); setIndexSelectedBook(null); }}
-              className={cn(
-                "w-9 h-9 rounded-lg flex items-center justify-center transition-all border",
-                showSidebar ? "bg-brand-red text-white border-brand-red" : "bg-foreground/5 border-border hover:bg-foreground/10"
-              )}
-              title="Índice"
-            >
-              <List className="w-4 h-4" />
-            </button>
-            <h1 className="text-lg font-serif font-bold italic">
-              <Book className="w-4 h-4 inline mr-2 text-brand-red" />
-              {isSnapshot && sermonTitle ? `Bíblia - ${sermonTitle}` : 'Bíblia'}
-            </h1>
+            {!isSnapshot && (
+              <>
+                <div className="w-px h-6 bg-border" />
+                <button
+                  onClick={() => { setShowSidebar(!showSidebar); setIndexSelectedBook(null); }}
+                  className={cn(
+                    "w-9 h-9 rounded-lg flex items-center justify-center transition-all border",
+                    showSidebar ? "bg-brand-red text-white border-brand-red" : "bg-foreground/5 border-border hover:bg-foreground/10"
+                  )}
+                  title="Índice"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </>
+            )}
+            {!isSnapshot && (
+              <h1 className="text-lg font-serif font-bold italic">
+                <Book className="w-4 h-4 inline mr-2 text-brand-red" />
+                Bíblia
+              </h1>
+            )}
             <div className="flex flex-col gap-0.5 ml-2">
               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">
-                {viewMode === 'COMPARE' ? `Comparando` : `Lendo em ${VERSION_LABELS[version] || version.toUpperCase()}`}
+                {isSnapshot && sermonTitle ? `Lendo Estudo: ${sermonTitle}` : (viewMode === 'COMPARE' ? `Comparando` : `Lendo em ${VERSION_LABELS[version] || version.toUpperCase()}`)}
               </span>
               <span className="text-[9px] font-bold text-brand-red/60 uppercase tracking-tighter">
                 {currentInfo.book} {currentInfo.chapter}
@@ -710,64 +726,66 @@ export default function BibleExplorer({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Compare Toggle */}
-            <button
-              onClick={() => viewMode === 'COMPARE' ? setViewMode('READ') : loadCompare()}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border",
-                viewMode === 'COMPARE' ? "bg-brand-red text-white border-brand-red" : "bg-foreground/5 border-border hover:bg-foreground/10"
+          {!isSnapshot && (
+            <div className="flex items-center gap-3">
+              {/* Compare Toggle */}
+              <button
+                onClick={() => viewMode === 'COMPARE' ? setViewMode('READ') : loadCompare()}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border",
+                  viewMode === 'COMPARE' ? "bg-brand-red text-white border-brand-red" : "bg-foreground/5 border-border hover:bg-foreground/10"
+                )}
+              >
+                <Columns className="w-3.5 h-3.5" />
+                Comparar
+              </button>
+
+              {/* Version Selector (hidden in compare) */}
+              {viewMode !== 'COMPARE' && (
+                <div className="flex items-center gap-1.5 bg-foreground/5 p-1 rounded-xl border border-border/50">
+                  <span className="text-[8px] font-black uppercase tracking-widest pl-2 opacity-30">Versão:</span>
+                  {versions.length > 0 ? versions.map(v => (
+                    <button
+                      key={v.id}
+                      onClick={() => {
+                          console.log("Setting version to:", v.id);
+                          setVersion(v.id);
+                      }}
+                      className={cn(
+                        "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                        version === v.id ? "bg-brand-red text-white shadow-lg" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >{v.id}</button>
+                  )) : ALL_VERSIONS.map(vid => (
+                    <button
+                      key={vid}
+                      onClick={() => setVersion(vid)}
+                      className={cn(
+                        "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                        version === vid ? "bg-brand-red text-white shadow-lg" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >{vid}</button>
+                  ))}
+                </div>
               )}
-            >
-              <Columns className="w-3.5 h-3.5" />
-              Comparar
-            </button>
 
-            {/* Version Selector (hidden in compare) */}
-            {viewMode !== 'COMPARE' && (
-              <div className="flex items-center gap-1.5 bg-foreground/5 p-1 rounded-xl border border-border/50">
-                <span className="text-[8px] font-black uppercase tracking-widest pl-2 opacity-30">Versão:</span>
-                {versions.length > 0 ? versions.map(v => (
-                  <button
-                    key={v.id}
-                    onClick={() => {
-                        console.log("Setting version to:", v.id);
-                        setVersion(v.id);
-                    }}
-                    className={cn(
-                      "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                      version === v.id ? "bg-brand-red text-white shadow-lg" : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >{v.id}</button>
-                )) : ALL_VERSIONS.map(vid => (
-                  <button
-                    key={vid}
-                    onClick={() => setVersion(vid)}
-                    className={cn(
-                      "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                      version === vid ? "bg-brand-red text-white shadow-lg" : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >{vid}</button>
-                ))}
-              </div>
-            )}
-
-            {/* Compare: version toggles */}
-            {viewMode === 'COMPARE' && (
-              <div className="flex items-center gap-1 bg-foreground/5 p-1 rounded-lg border border-border/50">
-                {ALL_VERSIONS.map(ver => (
-                  <button
-                    key={ver}
-                    onClick={() => toggleCompareVersion(ver)}
-                    className={cn(
-                      "px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all",
-                      compareVersions.includes(ver) ? "bg-brand-red text-white shadow-md" : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >{ver}</button>
-                ))}
-              </div>
-            )}
-          </div>
+              {/* Compare: version toggles */}
+              {viewMode === 'COMPARE' && (
+                <div className="flex items-center gap-1 bg-foreground/5 p-1 rounded-lg border border-border/50">
+                  {ALL_VERSIONS.map(ver => (
+                    <button
+                      key={ver}
+                      onClick={() => toggleCompareVersion(ver)}
+                      className={cn(
+                        "px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all",
+                        compareVersions.includes(ver) ? "bg-brand-red text-white shadow-md" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >{ver}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </header>
 
         {/* ── Search Bar ──────────────────────────────────── */}
@@ -802,7 +820,7 @@ export default function BibleExplorer({
               <div className="flex items-center gap-2">
                 {!isSnapshot && (
                   onCreateSermon && (
-                    <button onClick={createStudyFromInsights} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-brand-red px-3 py-1.5 rounded-lg bg-brand-red hover:bg-brand-red transition-all active:scale-95 shadow-md">
+                    <button onClick={createStudyFromInsights} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white px-3 py-1.5 rounded-lg bg-brand-red hover:bg-brand-red/90 transition-all active:scale-95 shadow-md">
                       <Sparkles className="w-3.5 h-3.5" /> Gerar Estudo Pronto
                     </button>
                   )

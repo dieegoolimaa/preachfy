@@ -19,6 +19,7 @@ model User {
   insights      GlobalInsight[]
   communities   CommunityMember[]
   ownedCommunities Community[] @relation("CommunityOwner")
+  posts         CommunityPost[]
   notifications Notification[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -32,6 +33,7 @@ model Community {
   ownerId       String    @db.ObjectId
   owner         User      @relation("CommunityOwner", fields: [ownerId], references: [id])
   inviteCode    String    @unique
+  meetLink      String?
   members       CommunityMember[]
   posts         CommunityPost[]
   events        CommunityEvent[]
@@ -57,7 +59,11 @@ model CommunityPost {
   community     Community @relation(fields: [communityId], references: [id])
   content       String
   authorId      String    @db.ObjectId
-  vistoPor      String[]  // Array de UserIds (knowledge acknowledgment)
+  author        User      @relation(fields: [authorId], references: [id])
+  type          String    @default("ALINHAMENTO") // ALINHAMENTO, SERMAO
+  vistoPor      String[]  // Array de UserIds (knowledge acknowledgment) — only for ALINHAMENTO
+  sermonId      String?   @db.ObjectId
+  eventId       String?   @db.ObjectId
   createdAt     DateTime  @default(now())
 }
 
@@ -68,7 +74,10 @@ model CommunityEvent {
   title         String
   description   String?
   date          DateTime
+  type          String    @default("ONLINE") // ONLINE, PRESENCIAL
   meetLink      String?
+  participants  String[]  // Array de UserIds convidados
+  createdById   String?   @db.ObjectId
   createdAt     DateTime  @default(now())
 }
 

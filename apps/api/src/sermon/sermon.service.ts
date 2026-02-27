@@ -76,21 +76,17 @@ export class SermonService {
   }
 
   async syncFullSermon(sermonId: string, blocks: any[]): Promise<void> {
-    // Delete existing blocks individually to avoid transactional requirement of deleteMany on MongoDB non-replica sets
-    const existingBlocks = await this.prisma.block.findMany({
-      where: { sermonId },
-      select: { id: true }
+    // Use deleteMany for atomicity and to avoid race conditions (P2025 errors)
+    await this.prisma.block.deleteMany({
+      where: { sermonId }
     });
-
-    for (const block of existingBlocks) {
-      await this.prisma.block.delete({ where: { id: block.id } });
-    }
 
     // Create new blocks
     for (let i = 0; i < blocks.length; i++) {
       const b = blocks[i];
       await this.prisma.block.create({
         data: {
+          id: typeof b.id === 'string' && b.id.length === 24 ? b.id : undefined,
           type: b.type,
           content: b.content,
           metadata: b.metadata ?? Prisma.JsonNull,
@@ -109,6 +105,47 @@ export class SermonService {
       where: { id: blockId },
       data: { preached: true },
     });
+  }
+
+  async cloneSermon(sermonId: string, newAuthorId: string): Promise<Sermon> {
+    const original = await this.prisma.sermon.findUnique({
+      where: { id: sermonId },
+      include: { blocks: { orderBy: { order: 'asc' } } }
+    });
+    if (!original) throw new Error('Sermão original não encontrado.');
+
+    // Create new sermon with same data but different author
+    const newSermon = await this.prisma.sermon.create({
+      data: {
+        title: original.title,
+        category: original.category,
+        status: 'DRAFT',
+        bibleVersion: original.bibleVersion,
+        bibleSources: original.bibleSources as any,
+        author: { connect: { id: newAuthorId } },
+      },
+    });
+
+    // Clone all blocks
+    for (const block of original.blocks) {
+      await this.prisma.block.create({
+        data: {
+          type: block.type,
+          content: block.content,
+          metadata: block.metadata as any,
+          order: block.order,
+          positionX: block.positionX,
+          positionY: block.positionY,
+          preached: false,
+          sermon: { connect: { id: newSermon.id } },
+        },
+      });
+    }
+
+    return this.prisma.sermon.findUnique({
+      where: { id: newSermon.id },
+      include: { blocks: { orderBy: { order: 'asc' } } },
+    }) as Promise<Sermon>;
   }
 
 }

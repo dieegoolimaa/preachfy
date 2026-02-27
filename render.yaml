@@ -1,0 +1,45 @@
+# Render Blueprint
+# Deploy both services from the same monorepo
+
+services:
+  # ─── BACKEND (NestJS API) ───────────────────────
+  - type: web
+    name: preachfy-api
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: |
+      npm install
+      cd packages/database && npx prisma generate
+      cd ../../apps/api && npm run build
+    startCommand: cd apps/api && npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false  # Set manually in Render dashboard
+      - key: PORT
+        value: 10000
+
+  # ─── FRONTEND (Next.js Web) ─────────────────────
+  - type: web
+    name: preachfy-web
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: |
+      npm install
+      cd packages/database && npx prisma generate
+      cd ../../apps/web && npm run build
+    startCommand: cd apps/web && npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        sync: false  # Set to the preachfy-api URL after deploying
+      - key: NEXTAUTH_URL
+        sync: false  # Set to the preachfy-web URL
+      - key: NEXTAUTH_SECRET
+        sync: false  # Generate a secret
+      - key: PORT
+        value: 10000

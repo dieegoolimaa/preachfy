@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Share2, Cloud, BookOpen, Lightbulb, Quote, Target, Trash2, HelpCircle, GripVertical, AlertTriangle, ArrowRight, CornerDownRight, Sparkles, ChevronDown, Info, X, MapPin, History, Plus, CheckCircle2, Link as LinkIcon, ArrowLeft, Play, Maximize2, Clock, Book, ChevronLeft, ChevronRight, Highlighter, Zap, MessageSquare, Download, Languages, Users } from 'lucide-react';
+import { Share2, Cloud, BookOpen, Lightbulb, Quote, Target, Trash2, HelpCircle, GripVertical, AlertTriangle, ArrowRight, CornerDownRight, Sparkles, ChevronDown, Info, X, MapPin, History, Plus, CheckCircle2, Link as LinkIcon, ArrowLeft, Play, Maximize2, Clock, Book, ChevronLeft, ChevronRight, Highlighter, Zap, MessageSquare, Download, Languages, Users, Shield } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useSermonSocket } from '@/hooks/useSermonSocket';
@@ -16,7 +16,7 @@ function cn(...inputs: ClassValue[]) {
 export type TheologyCategory = 
   'TEXTO_BASE' | 'EXEGESE' | 'APLICACAO' | 'ILUSTRACAO' | 'ENFASE' | 'CUSTOMIZAR' | 
   'ALERTA' | 'MANDAMENTO' | 'PROMESSA' | 'CONTEXTO' | 'VIDA' | 'ESPIRITO_SANTO' | 
-  'CEU' | 'PROFECIA' | 'CRISTO' | 'ADORACAO' | 'AMOR' | 'PECADO' | 'HISTORIA' | 'SIGNIFICADO';
+  'PROFECIA' | 'CRISTO' | 'ADORACAO' | 'AMOR' | 'PECADO' | 'HISTORIA' | 'SIGNIFICADO';
 
 export interface SermonBlock {
   id: string;
@@ -29,7 +29,6 @@ export interface SermonBlock {
     bibleSourceId?: string; 
     depth?: number;
     isInsight?: boolean;
-    insightStatus?: 'PENDING' | 'COMPLETED';
     reference?: string;
     verseText?: string;
     revelation?: string;
@@ -48,7 +47,6 @@ const CATEGORY_MAP: Record<string, { label: string, color: string, icon: React.R
   CONTEXTO: { label: 'Contexto', color: '#fef08a', icon: <Info className="w-4 h-4" /> },
   VIDA: { label: 'Vida / Crescimento', color: '#6ee7b7', icon: <Plus className="w-4 h-4" /> },
   ESPIRITO_SANTO: { label: 'Espírito Santo', color: '#5eead4', icon: <Zap className="w-4 h-4" /> },
-  CEU: { label: 'Céu / Divino', color: '#7dd3fc', icon: <Cloud className="w-4 h-4" /> },
   PROFECIA: { label: 'Profecia', color: '#93c5fd', icon: <History className="w-4 h-4" /> },
   CRISTO: { label: 'Cristo / Realeza', color: '#a5b4fc', icon: <Zap className="w-4 h-4" /> },
   ADORACAO: { label: 'Adoração', color: '#c4b5fd', icon: <Plus className="w-4 h-4" /> },
@@ -88,6 +86,17 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
   const [isSaving, setIsSaving] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [myCommunities, setMyCommunities] = useState<any[]>([]);
+
+  // System States
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  
+  // Undo/Cascade Delete State
+  const [undoState, setUndoState] = useState<{
+    message: string;
+    deletedBlocks: SermonBlock[];
+    deletedSources: any[];
+    timeoutId: NodeJS.Timeout | null;
+  } | null>(null);
 
   const initialMetaRef = useRef<string | null>(null);
   const titleRef = useRef<HTMLTextAreaElement>(null);
@@ -195,8 +204,85 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
 
 
 
+  const clearUndo = () => {
+    if (undoState?.timeoutId) clearTimeout(undoState.timeoutId);
+    setUndoState(null);
+  };
+
+  const performUndo = () => {
+    if (!undoState) return;
+    if (undoState.deletedSources.length > 0) {
+       setSermonMeta((prev: any) => ({
+         ...prev,
+         bibleSources: [...(prev.bibleSources || []), ...undoState.deletedSources]
+       }));
+    }
+    if (undoState.deletedBlocks.length > 0) {
+       setBlocks(prev => [...prev, ...undoState.deletedBlocks].sort((a,b) => (a as any).order - (b as any).order));
+    }
+    clearUndo();
+    showToast('Ação desfeita com sucesso!');
+  };
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
   const deleteBlock = (id: string) => {
-    setBlocks(prev => prev.filter(b => b.id !== id));
+    const blockToDelete = blocks.find(b => b.id === id);
+    if (!blockToDelete) return;
+
+    // Define all blocks to delete (cascade)
+    let blocksToDeleteIds = new Set<string>();
+    blocksToDeleteIds.add(id);
+
+    // If it's a base text, cascade delete all insights connected to it
+    if (blockToDelete.type === 'TEXTO_BASE') {
+      blocks.forEach(b => {
+        if (b.metadata.parentVerseId === id) blocksToDeleteIds.add(b.id);
+      });
+    }
+
+    const deletedBlocks = blocks.filter(b => blocksToDeleteIds.has(b.id));
+
+    setBlocks(prev => prev.filter(b => !blocksToDeleteIds.has(b.id)));
+
+    // Set Undo Timer (20 Seconds instead of 5)
+    clearUndo();
+    const timeoutId = setTimeout(() => setUndoState(null), 20000);
+
+    const isCascade = deletedBlocks.length > 1;
+    setUndoState({
+      message: isCascade ? `${deletedBlocks.length} itens removidos` : 'Item removido',
+      deletedBlocks,
+      deletedSources: [],
+      timeoutId
+    });
+  };
+
+  const deleteBibleSource = (id: string) => {
+    const srcToDelete = sermonMeta.bibleSources?.find((s: any) => s.id === id);
+    if (!srcToDelete) return;
+
+    const blocksToDelete = blocks.filter(b => b.metadata.bibleSourceId === id);
+    
+    setSermonMeta((prev: any) => ({
+      ...prev,
+      bibleSources: (prev.bibleSources || []).filter((s: any) => s.id !== id)
+    }));
+    setBlocks(prev => prev.filter(b => b.metadata.bibleSourceId !== id));
+
+    // Set Undo Timer (20 Seconds)
+    clearUndo();
+    const timeoutId = setTimeout(() => setUndoState(null), 20000);
+
+    setUndoState({
+      message: `Fonte e ${blocksToDelete.length} itens movidos para lixeira`,
+      deletedBlocks: blocksToDelete,
+      deletedSources: [srcToDelete],
+      timeoutId
+    });
   };
 
   const handleIndent = (id: string, delta: number) => {
@@ -455,6 +541,16 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
 
           <div className="h-6 w-px bg-border/40" />
 
+          {/* Admin panel button directly on HUD */}
+          <Button 
+            variant="ghost"
+            className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-11 px-6 rounded-full hover:bg-foreground/5 transition-all text-muted-foreground hover:text-foreground"
+            onClick={() => setIsDetailsOpen(true)}
+          >
+            <Shield className="w-4 h-4" />
+            ADMIN
+          </Button>
+
           <Button 
             variant="ghost"
             className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-11 px-6 rounded-full hover:bg-emerald-500/10 transition-all active:scale-95 text-emerald-600"
@@ -521,17 +617,17 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
 
 
         <div className="flex-1 w-full bg-background mb-40">
-          <div className="max-w-[1920px] mx-auto min-h-screen grid grid-cols-[1fr_1fr_1fr_60px] divide-x divide-border/10">
+          <div className="max-w-[1920px] mx-auto min-h-screen grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_60px] divide-x-0 lg:divide-x divide-border/10">
             
             {/* UNIFIED 3-COLUMN MATRIX GROUPED BY SOURCE */}
-            <div className="col-span-3 flex flex-col">
+            <div className="col-span-1 lg:col-span-3 flex flex-col">
               {/* 1. RENDER SOURCES AND THEIR CHILD BLOCKS */}
               {(sermonMeta?.bibleSources || []).map((source: any, sIdx: number) => {
                 const sourceBlocks = blocks.filter(b => b.metadata.bibleSourceId === source.id && b.type === 'TEXTO_BASE');
                 const pillarColor = '#6366f1'; // Unified Brand Color for Sources
 
                 return (
-                  <div key={source.id} className="grid grid-cols-[1fr_2fr] divide-x divide-border/10 border-b border-border/10 group/source-section bg-background/5">
+                  <div key={source.id} className="grid grid-cols-1 md:grid-cols-[1fr_2fr] divide-y md:divide-y-0 md:divide-x divide-border/10 group/source-section bg-background/5">
                     {/* COL 1: SOURCE PILLAR (Extended Height) */}
                     <div className="p-4 pb-20 border-r border-border/10 bg-background/5 relative">
                        <div className="sticky top-44 h-[calc(100vh-200px)] group/src relative bg-surface shadow-xl border border-border/40 rounded-[3rem] p-10 transition-all hover:shadow-2xl z-10 overflow-hidden flex flex-col">
@@ -613,13 +709,15 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                         }}
                       >
                         {sourceBlocks.map((block, rowIdx) => {
-                          const insights = blocks.filter(b => 
-                            b.metadata.bibleSourceId === source.id && 
-                            b.metadata.isInsight && (
-                              b.metadata.parentVerseId === block.id || 
-                              b.metadata.reference === block.metadata.reference
-                            )
-                          );
+                          const insights = blocks.filter(b => {
+                            // Only process valid insights and non-TEXTO_BASE types
+                            if (!CATEGORY_MAP[b.type] || b.type === 'TEXTO_BASE') return false;
+                            return b.metadata.bibleSourceId === source.id && 
+                                   b.metadata.isInsight && (
+                                     b.metadata.parentVerseId === block.id || 
+                                     b.metadata.reference === block.metadata.reference
+                                   );
+                          });
                           const blockColor = block.metadata.customColor || '#6366f1';
 
                           return (
@@ -627,7 +725,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                               key={block.id} 
                               value={block} 
                               className={cn(
-                                "grid grid-cols-2 group/master transition-all duration-500 items-start relative border-b border-border/5",
+                                "grid grid-cols-1 md:grid-cols-2 group/master transition-all duration-500 items-start relative border-b border-border/5",
                                 rowIdx % 2 === 0 ? "bg-surface/10" : "bg-transparent"
                               )}
                             >
@@ -729,7 +827,6 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                                                        <option value="CONTEXTO">Contexto</option>
                                                        <option value="VIDA">Vida / Crescimento</option>
                                                        <option value="ESPIRITO_SANTO">Espírito Santo</option>
-                                                       <option value="CEU">Céu / Divino</option>
                                                        <option value="PROFECIA">Profecia</option>
                                                        <option value="CRISTO">Cristo / Realeza</option>
                                                        <option value="ADORACAO">Adoração</option>
@@ -971,6 +1068,48 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* Undo Toast (Subtle bottom right aligned) */}
+      <AnimatePresence>
+        {undoState && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.95 }}
+            className="fixed bottom-6 right-6 z-[300] py-3 pr-2 pl-4 bg-surface text-foreground rounded-2xl shadow-xl border border-border/60 flex items-center gap-4 backdrop-blur-xl"
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-widest opacity-60">{undoState.message}</span>
+            </div>
+            <div className="w-px h-6 bg-border" />
+            <button 
+              onClick={performUndo}
+              className="px-4 py-1.5 bg-foreground text-background rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-brand-red hover:text-white transition-all active:scale-95 shrink-0"
+            >
+              Desfazer
+            </button>
+            <button onClick={clearUndo} className="p-1 text-muted-foreground hover:text-foreground transition-all rounded-md">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Success Toast */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="fixed top-6 right-6 z-[300] px-6 py-4 bg-emerald-50 text-emerald-900 rounded-2xl shadow-lg border border-emerald-100 flex items-center gap-3 backdrop-blur-xl"
+          >
+            {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <X className="w-4 h-4 text-red-500" />}
+            <span className="text-[10px] font-black uppercase tracking-widest">{toast.message}</span>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

@@ -1,4 +1,4 @@
 export const environment = {
     production: true,
-    apiUrl: 'https://api.preachfy.com', // Replace with actual production API URL when deploying
+    apiUrl: process.env.NEXT_PUBLIC_API_URL || 'https://preachfy-api.onrender.com',
 };

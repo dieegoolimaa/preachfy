@@ -1,4 +1,13 @@
-import { Controller, Post, Get, Body, Param, UseGuards, Req } from '@nestjs/common';
+import {
+    Controller,
+    Get,
+    Post,
+    Patch,
+    Delete,
+    Body,
+    Param,
+    Query,
+} from '@nestjs/common';
 import { CommunityService } from './community.service';
 
 @Controller('community')
@@ -6,56 +15,93 @@ export class CommunityController {
     constructor(private readonly communityService: CommunityService) { }
 
     @Post()
-    async create(@Body() body: { userId: string; name: string; description?: string }) {
-        return this.communityService.create(body.userId, body.name, body.description);
+    create(@Body() data: { ownerId: string; name: string; description?: string }) {
+        return this.communityService.create(data.ownerId, data.name, data.description);
     }
 
-    @Post('join/:inviteCode')
-    async join(@Param('inviteCode') inviteCode: string, @Body() body: { userId: string }) {
-        return this.communityService.joinByInvite(body.userId, inviteCode);
+    @Post('join')
+    join(@Body() data: { userId: string; inviteCode: string }) {
+        return this.communityService.joinByInvite(data.userId, data.inviteCode);
     }
 
     @Get('my/:userId')
-    async getMyCommunities(@Param('userId') userId: string) {
+    getMyCommunities(@Param('userId') userId: string) {
         return this.communityService.getMyCommunities(userId);
     }
 
-    @Post(':id/post')
-    async createPost(
-        @Param('id') communityId: string,
-        @Body() body: { userId: string; content: string },
-    ) {
-        return this.communityService.createPost(body.userId, communityId, body.content);
+    @Get(':communityId/members')
+    getMembers(@Param('communityId') communityId: string) {
+        return this.communityService.getMembers(communityId);
     }
 
-    @Get(':id/feed')
-    async getFeed(@Param('id') communityId: string) {
+    @Patch(':communityId')
+    updateCommunity(@Param('communityId') id: string, @Body() data: { userId: string; name?: string; meetLink?: string }) {
+        return this.communityService.updateCommunity(data.userId, id, data);
+    }
+
+    // ─── POSTS ──────────────────────────────────
+
+    @Post(':communityId/posts')
+    createPost(
+        @Param('communityId') communityId: string,
+        @Body() data: { userId: string; content: string; type?: string; sermonId?: string; eventId?: string },
+    ) {
+        return this.communityService.createPost(data.userId, communityId, data);
+    }
+
+    @Patch('posts/:postId')
+    updatePost(@Body() data: { userId: string; content?: string }, @Param('postId') postId: string) {
+        return this.communityService.updatePost(data.userId, postId, data);
+    }
+
+    @Delete('posts/:postId')
+    deletePost(@Query('userId') userId: string, @Param('postId') postId: string) {
+        return this.communityService.deletePost(userId, postId);
+    }
+
+    @Post(':communityId/posts/:postId/acknowledge')
+    acknowledge(@Param('postId') postId: string, @Body() data: { userId: string }) {
+        return this.communityService.acknowledgePost(data.userId, postId);
+    }
+
+    @Get(':communityId/feed')
+    getFeed(@Param('communityId') communityId: string) {
         return this.communityService.getFeed(communityId);
     }
 
-    @Post('post/:postId/acknowledge')
-    async acknowledge(@Param('postId') postId: string, @Body() body: { userId: string }) {
-        return this.communityService.acknowledgePost(body.userId, postId);
+    // Legacy: share sermon (creates a SERMAO post)
+    @Post(':communityId/share-sermon')
+    shareSermon(@Param('communityId') communityId: string, @Body() data: { userId: string; sermonId: string }) {
+        return this.communityService.shareSermon(data.userId, communityId, data.sermonId);
     }
 
-    @Post(':id/share-sermon')
-    async shareSermon(
-        @Param('id') communityId: string,
-        @Body() body: { userId: string; sermonId: string },
+    @Get(':communityId/shared-sermons')
+    getSharedSermons(@Param('communityId') communityId: string) {
+        return this.communityService.getSharedSermons(communityId);
+    }
+
+    // ─── EVENTS ─────────────────────────────────
+
+    @Post(':communityId/events')
+    createEvent(
+        @Param('communityId') communityId: string,
+        @Body() data: { userId: string; title: string; description?: string; date: string; meetLink?: string; type?: string; participants?: string[] },
     ) {
-        return this.communityService.shareSermon(body.userId, communityId, body.sermonId);
+        return this.communityService.createEvent(data.userId, communityId, data);
     }
 
-    @Post(':id/event')
-    async createEvent(
-        @Param('id') communityId: string,
-        @Body() body: { userId: string, title: string, description?: string, date: string, meetLink?: string },
-    ) {
-        return this.communityService.createEvent(body.userId, communityId, body);
-    }
-
-    @Get(':id/events')
-    async getEvents(@Param('id') communityId: string) {
+    @Get(':communityId/events')
+    getEvents(@Param('communityId') communityId: string) {
         return this.communityService.getEvents(communityId);
+    }
+
+    @Patch('events/:eventId')
+    updateEvent(@Param('eventId') eventId: string, @Body() data: any) {
+        return this.communityService.updateEvent(data.userId, eventId, data);
+    }
+
+    @Delete('events/:eventId')
+    deleteEvent(@Param('eventId') eventId: string, @Query('userId') userId: string) {
+        return this.communityService.deleteEvent(userId, eventId);
     }
 }

@@ -52,4 +52,9 @@ export class SermonController {
   remove(@Param('id') id: string) {
     return this.sermonService.deleteSermon(id);
   }
+
+  @Post(':id/clone')
+  clone(@Param('id') id: string, @Body() data: { userId: string }) {
+    return this.sermonService.cloneSermon(id, data.userId);
+  }
 }

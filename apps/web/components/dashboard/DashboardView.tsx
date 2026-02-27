@@ -29,9 +29,10 @@ interface DashboardViewProps {
   onStart: (sermon: SermonMeta, timeInMinutes: number) => void;
   onBible: () => void;
   onCommunity: () => void;
+  onDelete?: (id: string) => void;
 }
 
-export default function DashboardView({ onEdit, onStart, onBible, onCommunity }: DashboardViewProps) {
+export default function DashboardView({ onEdit, onStart, onBible, onCommunity, onDelete }: DashboardViewProps) {
   const { data: session } = useSession();
   const [sermons, setSermons] = useState<SermonMeta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,6 +108,7 @@ export default function DashboardView({ onEdit, onStart, onBible, onCommunity }:
       const res = await fetch(`${apiUrl}/sermons/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setSermons(sermons.filter(s => s.id !== id));
+        if (onDelete) onDelete(id);
       }
     } catch (e) {
       console.error("Failed to delete sermon", e);

@@ -120,7 +120,7 @@ export default function Home() {
         if (l.includes('promessa')) return 'PROMESSA';
         if (l.includes('contexto')) return 'CONTEXTO';
         if (l.includes('espirito santo')) return 'ESPIRITO_SANTO';
-        if (l.includes('ceu') || l.includes('divino')) return 'CEU';
+        if (l.includes('ceu') || l.includes('divino') || l.includes('desceu')) return 'CEU';
         if (l.includes('profecia')) return 'PROFECIA';
         if (l.includes('cristo') || l.includes('realeza')) return 'CRISTO';
         if (l.includes('adoracao')) return 'ADORACAO';
@@ -258,7 +258,14 @@ export default function Home() {
       {view !== 'pulpit' && (
         <Navbar 
           currentView={view} 
-          onViewChange={setView}
+          onViewChange={(v) => {
+            if (v === 'bible') {
+              setBibleSnapshot(null);
+              localStorage.removeItem('preachfy_bible_highlights');
+              localStorage.removeItem('preachfy_bible_labels');
+            }
+            setView(v);
+          }}
           onBack={view !== 'dashboard' ? () => setView('dashboard') : undefined}
         />
       )}
@@ -268,13 +275,32 @@ export default function Home() {
           <DashboardView 
             onEdit={handleEditSermon} 
             onStart={handleStartPulpit}
-            onBible={() => setView('bible')}
+            onBible={() => { setBibleSnapshot(null); setView('bible'); }}
             onCommunity={() => setView('community')}
+            onDelete={(id) => {
+              if (activeSermon?.id === id) setActiveSermon(null);
+              // Clear snapshot too if it belonged to this sermon (best effort)
+              setBibleSnapshot(null);
+            }}
           />
         )}
 
         {view === 'community' && (
-          <CommunityHub onBack={() => setView('dashboard')} />
+          <CommunityHub 
+            onBack={() => setView('dashboard')} 
+            onViewSermon={async (sermonId) => {
+              try {
+                const res = await fetch(`${environment.apiUrl}/sermons/${sermonId}`);
+                if (res.ok) {
+                  const data = await res.json();
+                  setActiveSermon(data);
+                  setView('study');
+                }
+              } catch (e) {
+                console.error("Failed to fetch shared sermon", e);
+              }
+            }}
+          />
         )}
         
         {view === 'study' && activeSermon && (

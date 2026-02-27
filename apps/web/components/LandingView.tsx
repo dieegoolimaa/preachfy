@@ -18,11 +18,11 @@ export default function LandingView() {
   };
 
   return (
-    <div className="h-screen w-full bg-[#0a0a0a] text-foreground flex overflow-hidden selection:bg-brand-red/20 selection:text-brand-red font-sans">
+    <div className="h-screen w-full bg-background text-foreground flex overflow-hidden selection:bg-brand-red/20 selection:text-brand-red font-sans">
       
       {/* Background Noise & Grid */}
-      <div className="absolute inset-0 z-0 opacity-[0.03] mix-blend-overlay pointer-events-none" style={{ backgroundImage: 'url("https://grainy-gradients.vercel.app/noise.svg")' }}></div>
-      <div className="absolute inset-0 z-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_10%,transparent_100%)] pointer-events-none"></div>
+      <div className="absolute inset-0 z-0 opacity-[0.4] mix-blend-overlay pointer-events-none" style={{ backgroundImage: 'url("https://grainy-gradients.vercel.app/noise.svg")' }}></div>
+      <div className="absolute inset-0 z-0 bg-[linear-gradient(rgba(0,0,0,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.03)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_10%,transparent_100%)] pointer-events-none"></div>
 
       {/* Left Panel: App Entrance & Auth */}
       <motion.div 
@@ -41,11 +41,11 @@ export default function LandingView() {
 
         <div className="flex flex-col gap-10 mt-12 mb-auto">
           <motion.div variants={fadeUp} className="flex flex-col gap-6">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-sans font-bold leading-[1.1] tracking-tighter">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-sans font-bold leading-[1.1] tracking-tighter text-foreground">
               Performance <br/> de Púlpito <span className="text-brand-red italic font-serif">Redefinida.</span>
             </h1>
             <p className="text-muted-foreground text-lg leading-relaxed max-w-md font-medium">
-              Conceituada na filosofia do <span className="text-foreground italic font-black">"Arroz com Feijão"</span>: A ideia de construirmos algo estupidamente simples de usar, mas que carrega o peso de uma verdadeira sustância funcional para te alimentar e edificar na hora da pregação.
+              <span className="text-foreground italic font-black">"Arroz com Feijão"</span>: A ideia de construirmos algo simples de usar, mas que carrega o peso de uma verdadeira sustância para te alimentar e edificar na hora da pregação e alimentar com o básico que é rico em edificação: a palavra de Deus!
             </p>
           </motion.div>
 
@@ -53,11 +53,13 @@ export default function LandingView() {
             <Button 
               onClick={() => signIn("google")}
               size="lg"
-              className="relative h-16 w-full rounded-2xl bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all text-sm font-black uppercase tracking-widest gap-4 border border-transparent hover:border-white/20 shadow-[0_0_40px_-10px_rgba(255,255,255,0.1)] group overflow-hidden"
+              className="relative h-16 w-full rounded-2xl bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98] transition-all text-sm font-black uppercase tracking-widest gap-4 border border-transparent shadow-[0_20px_40px_-15px_rgba(0,0,0,0.2)] group overflow-hidden"
             >
-              <img src="/google-icon.svg" className="w-5 h-5 z-10 relative" alt="Google" 
-                onError={(e) => { e.currentTarget.src = "https://www.google.com/favicon.ico"; }}
-              />
+              <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center relative z-10">
+                <img src="/google-icon.svg" className="w-4 h-4" alt="Google" 
+                  onError={(e) => { e.currentTarget.src = "https://www.google.com/favicon.ico"; }}
+                />
+              </div>
               <span className="z-10 relative">Autenticar Sistema</span>
               <ArrowRight className="w-4 h-4 ml-auto opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all z-10 relative" />
             </Button>
@@ -83,102 +85,130 @@ export default function LandingView() {
         
         {/* Ambient Glows */}
         <motion.div 
-          animate={{ rotate: 360, scale: [1, 1.2, 1] }} 
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute top-[20%] right-[20%] w-[500px] h-[500px] bg-brand-red/10 blur-[120px] rounded-full mix-blend-screen" 
+          animate={{ rotate: 360, scale: [1, 1.1, 1] }} 
+          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+          className="absolute top-[20%] right-[10%] w-[600px] h-[600px] bg-brand-red/10 blur-[120px] rounded-full mix-blend-multiply pointer-events-none" 
         />
         <motion.div 
-          animate={{ rotate: -360, scale: [1, 1.3, 1] }} 
-          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-          className="absolute bottom-[10%] left-[10%] w-[600px] h-[600px] bg-brand-gold/10 blur-[140px] rounded-full mix-blend-screen" 
+          animate={{ rotate: -360, scale: [1, 1.1, 1] }} 
+          transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+          className="absolute bottom-[0%] left-[10%] w-[800px] h-[800px] bg-brand-gold/10 blur-[150px] rounded-full mix-blend-multiply pointer-events-none" 
         />
 
-        {/* Pulpit Live Render Visualization */}
-        <div className="relative w-full max-w-3xl aspect-[16/10] flex items-center justify-center transform-style-3d">
+        {/* Pulpit Live Render Visualization - Ultra Realistic Replica */}
+        <div className="relative w-full max-w-[900px] aspect-[16/10] flex flex-col justify-end transform-style-3d perspective-1000">
           
           <motion.div 
-            initial={{ y: 50, opacity: 0, rotateX: 6, rotateY: -12 }}
-            animate={{ y: 0, opacity: 1, rotateX: 10, rotateY: -15 }}
-            transition={{ type: "spring", stiffness: 60, delay: 0.2 }}
-            className="absolute z-20 w-full h-full bg-surface/90 backdrop-blur-3xl border border-white/5 rounded-3xl shadow-[-20px_40px_100px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden text-left"
+            initial={{ y: 50, opacity: 0, rotateX: 15, rotateY: -20, rotateZ: 5 }}
+            animate={{ y: 0, opacity: 1, rotateX: 10, rotateY: -15, rotateZ: 0 }}
+            transition={{ type: "spring", stiffness: 60, damping: 20, delay: 0.2 }}
+            className="w-full h-[90%] bg-surface border border-border/40 rounded-t-[2.5rem] rounded-b-xl shadow-[-30px_50px_100px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden text-left relative z-20"
           >
-            {/* Header Fake */}
-            <div className="h-16 border-b border-border/20 flex items-center justify-between px-8 bg-black/40">
-              <div className="flex items-center gap-4">
-                 <div className="w-10 h-10 rounded-full bg-brand-red/10 animate-pulse border-2 border-brand-red/30 flex items-center justify-center">
-                    <div className="w-3 h-3 rounded-full bg-brand-red animate-ping" />
-                 </div>
-                 <div className="flex flex-col">
-                   <span className="text-xs font-black uppercase text-brand-red tracking-widest">Tempo Decorrido</span>
-                   <span className="text-2xl font-black font-serif italic text-white leading-none">42:15</span>
+            {/* Real Header Replica */}
+            <div className="h-[72px] shrink-0 border-b border-border/40 flex items-center justify-between px-10 bg-background/80 backdrop-blur-xl relative z-30">
+              <div className="flex items-center gap-6">
+                 <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-brand-red/10 animate-pulse border-2 border-brand-red/20 flex items-center justify-center">
+                        <div className="w-2.5 h-2.5 rounded-full bg-brand-red shadow-[0_0_10px_rgba(114,47,39,0.8)]" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-black uppercase text-brand-red tracking-[0.3em]">Tempo Decorrido</span>
+                      <span className="text-2xl font-black font-serif italic text-foreground leading-[1.1]">42:15</span>
+                    </div>
                  </div>
               </div>
-              <div className="flex gap-2">
-                 <div className="w-12 h-10 rounded-xl bg-white/5 border border-white/10" />
-                 <div className="w-12 h-10 rounded-xl bg-white/5 border border-white/10" />
-                 <div className="w-32 h-10 rounded-full bg-brand-red text-white flex items-center justify-center text-[10px] font-black uppercase tracking-widest shadow-lg shadow-brand-red/20">Finalizar Sermão</div>
+              <div className="flex gap-3">
+                 <div className="w-12 h-12 rounded-2xl bg-surface border border-border/60 flex items-center justify-center text-foreground/40 shadow-sm"><Layers className="w-5 h-5"/></div>
+                 <div className="w-12 h-12 rounded-2xl bg-surface border border-border/60 flex items-center justify-center text-foreground/40 shadow-sm"><BookOpen className="w-5 h-5"/></div>
+                 <div className="px-6 h-12 rounded-full bg-foreground text-background flex items-center justify-center text-[11px] font-black uppercase tracking-widest shadow-xl">Menu de Controle</div>
               </div>
             </div>
 
-            {/* Content Body */}
-            <div className="flex-1 p-8 py-12 flex gap-12 overflow-hidden relative">
-              <div className="absolute left-[380px] top-0 bottom-0 w-1 bg-gradient-to-b from-brand-gold/60 to-transparent hidden lg:block" />
+            {/* Content Body Replica */}
+            <div className="flex-1 px-10 py-12 flex gap-12 overflow-hidden relative bg-background/30">
+              
+              {/* Neural Bridge Glow Line */}
+              <div className="absolute left-[445px] top-0 bottom-0 w-1 bg-gradient-to-b from-brand-gold/40 via-brand-gold/10 to-transparent hidden lg:block" />
 
-              {/* Base Text Card */}
+              {/* Anchor Card (Texto Base) */}
               <motion.div 
-                animate={{ scale: [1, 1.01, 1], y: [0, -2, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="w-[350px] shrink-0 bg-surface border border-white/10 rounded-3xl p-8 flex flex-col gap-4 shadow-xl z-20 relative overflow-hidden"
+                animate={{ scale: [1, 1.005, 1], y: [0, -4, 0] }}
+                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                className="w-[400px] shrink-0 bg-surface border border-border/30 rounded-[2rem] p-10 flex flex-col shadow-2xl z-20 relative overflow-hidden h-fit"
               >
-                <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-brand-red" />
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-brand-red/10 flex items-center justify-center">
-                    <BookOpen className="w-4 h-4 text-brand-red" />
+                <div className="absolute left-0 top-0 bottom-0 w-2 bg-brand-red rounded-l-[2rem]" />
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-brand-gold/10 border border-brand-gold/20 flex items-center justify-center text-brand-gold">
+                      <BookOpen className="w-6 h-6" />
+                    </div>
+                    <span className="text-[11px] font-black uppercase tracking-[0.3em] text-foreground/40">Texto Base</span>
                   </div>
-                  <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/40">Texto Base</span>
+                  <div className="px-4 py-1.5 rounded-full border border-border/60 bg-foreground/5 text-foreground/60 text-[11px] font-black font-mono">Gênesis 1:1</div>
                 </div>
-                <p className="text-xl font-sans font-medium text-white leading-relaxed mt-2 line-clamp-4">
-                  "No princípio Deus criou os céus e a terra. Era a terra sem forma e vazia..."
+                <p className="text-[28px] font-sans font-medium text-foreground leading-[1.3] tracking-tight">
+                  No princípio Deus criou os céus e a terra. Era a terra sem forma e vazia...
                 </p>
               </motion.div>
 
-              {/* Insights List */}
-              <div className="flex-1 flex flex-col gap-6 pt-4">
+              {/* Derivatives Column (Insights) */}
+              <div className="flex-1 flex flex-col gap-8 pt-6 relative">
                  
+                 {/* Connection stem dot */}
+                 <div className="absolute -left-12 top-14 w-8 h-1 bg-brand-gold/20 rounded-full hidden lg:flex items-center">
+                    <div className="w-2 h-2 rounded-full bg-brand-gold ml-0" />
+                 </div>
+                 
+                 {/* Insight Card 1 */}
                  <motion.div 
                     initial={{ x: 20, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
-                    transition={{ delay: 0.5 }}
-                    className="w-full bg-surface border border-white/5 rounded-2xl p-6 relative group"
+                    transition={{ delay: 0.5, type: 'spring' }}
+                    className="w-full bg-surface border border-border/30 rounded-[1.5rem] p-8 relative shadow-xl hover:-translate-y-1 transition-transform"
                  >
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-gold rounded-l-2xl" />
-                    <div className="flex items-center gap-2 mb-3">
-                      <Zap className="w-3.5 h-3.5 text-brand-gold" />
-                      <span className="text-[8px] font-black uppercase tracking-[0.2em] text-brand-gold">Exegese</span>
+                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-brand-gold rounded-l-[1.5rem]" />
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-brand-gold/10 flex items-center justify-center text-brand-gold">
+                          <Zap className="w-4 h-4" />
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/50">Exegese</span>
+                      </div>
                     </div>
-                    <div className="w-full h-3 bg-white/10 rounded-full mb-2" />
-                    <div className="w-3/4 h-3 bg-white/10 rounded-full" />
+                    <p className="text-foreground/80 font-medium text-lg leading-relaxed mix-blend-multiply">
+                      A palavra hebraica "Bara" (criou) é usada exclusivamente para a ação divina de criar do nada absoluto.
+                    </p>
                  </motion.div>
 
+                 {/* Connection stem dot 2 */}
+                 <div className="absolute -left-12 top-[16.5rem] w-8 h-1 bg-blue-500/20 rounded-full hidden lg:flex items-center">
+                    <div className="w-2 h-2 rounded-full bg-blue-500 ml-0" />
+                 </div>
+
+                 {/* Insight Card 2 */}
                  <motion.div 
                     initial={{ x: 20, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
-                    transition={{ delay: 0.7 }}
-                    className="w-[90%] bg-surface border border-white/5 rounded-2xl p-6 relative group opacity-50"
+                    transition={{ delay: 0.7, type: 'spring' }}
+                    className="w-[90%] bg-surface border border-border/30 rounded-[1.5rem] p-8 relative shadow-lg opacity-80"
                  >
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-l-2xl" />
-                    <div className="flex items-center gap-2 mb-3">
-                      <Layers className="w-3.5 h-3.5 text-blue-500" />
-                      <span className="text-[8px] font-black uppercase tracking-[0.2em] text-blue-500">Contexto Histórico</span>
+                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-500 rounded-l-[1.5rem]" />
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
+                          <Layers className="w-4 h-4" />
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/50">Contexto Histórico</span>
+                      </div>
                     </div>
-                    <div className="w-full h-3 bg-white/5 rounded-full mb-2" />
-                    <div className="w-2/3 h-3 bg-white/5 rounded-full" />
+                    <div className="w-full h-4 bg-border/40 rounded-full mb-3" />
+                    <div className="w-2/3 h-4 bg-border/40 rounded-full" />
                  </motion.div>
 
               </div>
             </div>
             
-            <div className="absolute bottom-0 inset-x-0 h-32 bg-gradient-to-t from-black via-black/80 to-transparent pointer-events-none z-30" />
+            <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none z-30" />
           </motion.div>
         </div>
 

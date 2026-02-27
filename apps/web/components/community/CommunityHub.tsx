@@ -39,7 +39,7 @@ const LABEL_MAP: Record<string, { label: string; color: string }> = {
   CONTEXTO: { label: 'Contexto', color: '#fef08a' },
   VIDA: { label: 'Vida / Crescimento', color: '#6ee7b7' },
   ESPIRITO_SANTO: { label: 'Espírito Santo', color: '#5eead4' },
-  CEU: { label: 'Desceu do Céu', color: '#7dd3fc' },
+  REVELACAO: { label: 'Revelação / Rhema', color: '#7dd3fc' },
   PROFECIA: { label: 'Profecia', color: '#93c5fd' },
   CRISTO: { label: 'Cristo / Realeza', color: '#a5b4fc' },
   ADORACAO: { label: 'Adoração', color: '#c4b5fd' },
@@ -54,11 +54,14 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
   const [communities, setCommunities] = useState<any[]>([]);
   const [activeCommunity, setActiveCommunity] = useState<any>(null);
   const [feed, setFeed] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'FEED' | 'AGENDA'>('FEED');
+  const [activeTab, setActiveTab] = useState<'FEED' | 'AGENDA' | 'MEMBROS'>('FEED');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPostContent, setNewPostContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [isPosting, setIsPosting] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
   const [newCommunityName, setNewCommunityName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [events, setEvents] = useState<any[]>([]);
@@ -66,6 +69,11 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
   const [newEvent, setNewEvent] = useState({ title: '', date: '', type: 'ONLINE', meetLink: '', description: '', participants: [] as string[] });
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
   const [showCopyToast, setShowCopyToast] = useState(false);
+  const [showCloneToast, setShowCloneToast] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const inviteMessage = activeCommunity?.inviteCode 
+    ? `Paz! Gostaria de te convidar para nossa comunidade ministerial no Preachfy.\n\nAcesse no seu painel pelo código especial:\n${activeCommunity.inviteCode}\n\nLink direto: ${window.location.origin}/?join=${activeCommunity.inviteCode}`
+    : '';
   const [members, setMembers] = useState<any[]>([]);
   
   const [showEditEventModal, setShowEditEventModal] = useState(false);
@@ -97,6 +105,18 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
       fetchMembers(activeCommunity.id);
     }
   }, [activeCommunity?.id]);
+
+  // Close menus on click outside
+  useEffect(() => {
+    const handleGlobalClick = () => {
+      setPostMenuOpenId(null);
+      setEventMenuOpenId(null);
+    };
+    if (postMenuOpenId || eventMenuOpenId) {
+      window.addEventListener('click', handleGlobalClick);
+    }
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, [postMenuOpenId, eventMenuOpenId]);
 
   const fetchCommunities = async () => {
     try {
@@ -240,13 +260,70 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
       });
       if (res.ok) {
         const cloned = await res.json();
-        alert('Sermão adicionado ao seu Studio com sucesso!');
-        if (onViewSermon) onViewSermon(cloned.id);
+        setShowCloneToast(true);
+        setTimeout(() => {
+          setShowCloneToast(false);
+          if (onViewSermon) onViewSermon(cloned.id);
+        }, 1500);
       }
     } catch (e) { console.error("Failed to clone sermon", e); }
   };
 
   // ─── COMMUNITY ─────────────────────────────
+
+  const handleRemoveMember = async (targetUserId: string) => {
+    if (!activeCommunity || !session?.user?.id) return;
+    
+    // Check if user is removing themselves
+    const isSelf = targetUserId === session.user.id;
+    const confirmMessage = isSelf 
+      ? 'Tem certeza que deseja sair desta comunidade?' 
+      : 'Tem certeza que deseja remover este membro da comunidade?';
+      
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      const res = await fetch(`${environment.apiUrl}/community/${activeCommunity.id}/members/${targetUserId}?userId=${session.user.id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        if (isSelf) {
+          setActiveCommunity(null);
+          fetchCommunities();
+        } else {
+          fetchMembers(activeCommunity.id);
+        }
+      } else {
+        const errorText = await res.text();
+        alert(`Erro: ${errorText}`);
+      }
+    } catch (e) {
+      console.error("Failed to remove member", e);
+    }
+  };
+
+  const handleJoinCommunity = async () => {
+    if (!joinCode.trim() || !session?.user?.id) return;
+    setIsJoining(true);
+    try {
+      const res = await fetch(`${environment.apiUrl}/community/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: session.user.id, inviteCode: joinCode.trim() })
+      });
+      if (res.ok) {
+        await fetchCommunities();
+        setShowJoinModal(false);
+        setJoinCode('');
+      } else {
+        alert("Código inválido ou você já está na comunidade.");
+      }
+    } catch (e) {
+      console.error("Join failed", e);
+    } finally {
+      setIsJoining(false);
+    }
+  };
 
   const handleCreateCommunity = async () => {
     if (!newCommunityName || !session?.user?.id) return;
@@ -267,11 +344,11 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
   };
 
   const handleCopyInvite = () => {
-    if (!activeCommunity?.inviteCode) return;
-    const url = `${window.location.origin}${window.location.pathname}?join=${activeCommunity.inviteCode}`;
-    navigator.clipboard.writeText(`Paz! Gostaria de te convidar para nossa comunidade ministerial no Rice & Beans Preaching. Acesse pelo link: ${url}`);
+    if (!inviteMessage) return;
+    navigator.clipboard.writeText(inviteMessage);
     setShowCopyToast(true);
     setTimeout(() => setShowCopyToast(false), 3000);
+    setShowInviteModal(false);
   };
 
   // ─── EVENTS ─────────────────────────────
@@ -414,7 +491,7 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
           </span>
           <button 
             onClick={() => handleCloneSermon(sermon.id)}
-            className="flex items-center gap-2 px-5 py-2 bg-foreground text-background rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-brand-red transition-all active:scale-95"
+            className="flex items-center gap-2 px-5 py-2 bg-brand-red text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all active:scale-95"
           >
             <Plus className="w-3 h-3" />
             Adicionar ao Studio
@@ -461,11 +538,32 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
         <h1 className="text-2xl font-black italic font-serif mb-2">Comunidade Ministerial</h1>
         <p className="text-xs text-muted-foreground font-medium leading-relaxed mb-8">Crie ou junte-se a uma comunidade para alinhar sua visão ministerial com outros líderes.</p>
         <div className="flex flex-col gap-4">
-          <button onClick={() => setShowCreateModal(true)} className="w-full py-4 bg-foreground text-background rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-brand-red transition-all">
+          <button onClick={() => setShowCreateModal(true)} className="w-full py-4 bg-brand-red text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all">
             <Plus className="w-4 h-4 inline mr-2" />Criar Comunidade
+          </button>
+          <button onClick={() => setShowJoinModal(true)} className="w-full py-4 bg-foreground/5 text-foreground border border-border rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-foreground/10 transition-all focus:border-brand-red focus:ring-1 focus:ring-brand-red">
+            Entrar com Código
           </button>
         </div>
       </div>
+
+      {/* Join Modal */}
+      <AnimatePresence>
+        {showJoinModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-surface rounded-[2rem] p-8 w-full max-w-md border border-border shadow-2xl">
+              <h2 className="text-lg font-black italic font-serif mb-6">Entrar em uma Comunidade</h2>
+              <input value={joinCode} onChange={e => setJoinCode(e.target.value)} placeholder="Código Convite (Ex: abcxyz)" className="w-full px-5 py-4 bg-background border border-border rounded-xl text-3xl font-black font-serif tracking-[0.2em] uppercase text-center outline-none focus:border-brand-red focus:text-brand-red transition-all mb-6 placeholder:text-sm placeholder:font-sans placeholder:tracking-normal placeholder:normal-case placeholder:font-medium" />
+              <div className="flex gap-3">
+                <button onClick={() => setShowJoinModal(false)} className="flex-1 py-3 border border-border rounded-xl text-xs font-black uppercase tracking-widest hover:bg-muted transition-all">Cancelar</button>
+                <button onClick={handleJoinCommunity} disabled={isJoining || joinCode.length < 3} className="flex-1 py-3 bg-brand-red text-white rounded-xl text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all disabled:opacity-50">
+                  {isJoining ? 'Verificando...' : 'Acessar'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Create Modal */}
       <AnimatePresence>
@@ -476,7 +574,7 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
               <input value={newCommunityName} onChange={e => setNewCommunityName(e.target.value)} placeholder="Nome da comunidade..." className="w-full px-5 py-4 bg-background border border-border rounded-xl text-sm outline-none focus:border-brand-red transition-all mb-6" />
               <div className="flex gap-3">
                 <button onClick={() => setShowCreateModal(false)} className="flex-1 py-3 border border-border rounded-xl text-xs font-black uppercase tracking-widest hover:bg-muted transition-all">Cancelar</button>
-                <button onClick={handleCreateCommunity} disabled={isCreating} className="flex-1 py-3 bg-foreground text-background rounded-xl text-xs font-black uppercase tracking-widest hover:bg-brand-red transition-all disabled:opacity-50">
+                <button onClick={handleCreateCommunity} disabled={isCreating} className="flex-1 py-3 bg-brand-red text-white rounded-xl text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all disabled:opacity-50">
                   {isCreating ? 'Criando...' : 'Criar'}
                 </button>
               </div>
@@ -507,7 +605,7 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
           </div>
 
           <div className="flex items-center gap-3">
-            <button onClick={handleCopyInvite} className="px-4 py-2 bg-surface border border-border rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-foreground hover:text-background transition-all flex items-center gap-2">
+            <button onClick={() => setShowInviteModal(true)} className="px-4 py-2 bg-surface border border-border rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-foreground hover:text-background transition-all flex items-center gap-2">
               <LinkIcon className="w-3 h-3" />Convidar
             </button>
           </div>
@@ -515,13 +613,15 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
 
         {/* Tabs */}
         <div className="max-w-4xl mx-auto px-6 flex gap-1">
-          {(['FEED', 'AGENDA'] as const).map(tab => (
+          {(['FEED', 'AGENDA', 'MEMBROS'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={cn(
                 "px-6 py-3 text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2",
                 activeTab === tab ? "border-brand-red text-brand-red" : "border-transparent text-muted-foreground hover:text-foreground"
               )}
-            >{tab === 'FEED' ? 'Feed' : 'Agenda'}</button>
+            >
+              {tab === 'FEED' ? 'Feed' : tab === 'AGENDA' ? 'Agenda' : 'Membros'}
+            </button>
           ))}
         </div>
       </div>
@@ -609,8 +709,7 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
                   ) : (
                     <div className="grid grid-cols-2 gap-3">
                       <input value={inlineEvent.title} onChange={e => setInlineEvent(p => ({ ...p, title: e.target.value }))} placeholder="Título do evento" className="col-span-2 px-4 py-2 bg-background border border-border rounded-xl text-xs outline-none focus:border-brand-gold transition-all" />
-                      <input type="datetime-local" value={inlineEvent.date} onChange={e => setInlineEvent(p => ({ ...p, date: e.target.value }))} className="px-4 py-2 bg-background border border-border rounded-xl text-xs outline-none focus:border-brand-gold transition-all" />
-                      <input value={inlineEvent.meetLink} onChange={e => setInlineEvent(p => ({ ...p, meetLink: e.target.value }))} placeholder="Link da reunião (opcional)" className="px-4 py-2 bg-background border border-border rounded-xl text-xs outline-none focus:border-brand-gold transition-all" />
+                      <input type="datetime-local" value={inlineEvent.date} onChange={e => setInlineEvent(p => ({ ...p, date: e.target.value }))} className="col-span-2 px-4 py-2 bg-background border border-border rounded-xl text-xs outline-none focus:border-brand-gold transition-all" />
                     </div>
                   )}
                 </div>
@@ -627,7 +726,7 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
                   ><Calendar className="w-3.5 h-3.5" />Evento</button>
                 </div>
                 <button onClick={handleCreatePost} disabled={isPosting || !newPostContent.trim()}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-foreground text-background rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-brand-red transition-all disabled:opacity-30 active:scale-95"
+                  className="flex items-center gap-2 px-6 py-2.5 bg-brand-red text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all disabled:opacity-30 active:scale-95"
                 >
                   {isPosting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
                   Publicar
@@ -641,7 +740,10 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
                 key={post.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-surface border border-border/80 rounded-[2rem] overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                className={cn(
+                  "bg-surface border border-border/80 rounded-[2rem] shadow-sm hover:shadow-md transition-shadow relative",
+                  postMenuOpenId === post.id ? "z-50" : "z-10"
+                )}
               >
                 <div className="p-6">
                   {/* Post Header */}
@@ -669,7 +771,7 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
                     {/* Actions menu */}
                     {canManagePost(post) && (
                       <div className="relative">
-                        <button onClick={() => setPostMenuOpenId(postMenuOpenId === post.id ? null : post.id)}
+                        <button onClick={(e) => { e.stopPropagation(); setPostMenuOpenId(postMenuOpenId === post.id ? null : post.id); }}
                           className="w-8 h-8 rounded-full hover:bg-muted flex items-center justify-center transition-all"
                         ><MoreVertical className="w-4 h-4 text-muted-foreground" /></button>
                         {postMenuOpenId === post.id && (
@@ -693,7 +795,7 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
                         className="w-full bg-background border border-border rounded-xl p-4 text-sm outline-none resize-none min-h-[80px] focus:border-brand-red transition-all" />
                       <div className="flex gap-2 justify-end">
                         <button onClick={() => setEditingPost(null)} className="px-4 py-2 border border-border rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-muted">Cancelar</button>
-                        <button onClick={handleUpdatePost} className="px-4 py-2 bg-foreground text-background rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-brand-red">Salvar</button>
+                        <button onClick={handleUpdatePost} className="px-4 py-2 bg-brand-red text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:brightness-110">Salvar</button>
                       </div>
                     </div>
                   ) : (
@@ -752,7 +854,7 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
                 <span className="text-[9px] font-black uppercase tracking-[0.4em] text-muted-foreground">Eventos e reuniões</span>
               </div>
               <button onClick={() => setShowEventModal(true)}
-                className="flex items-center gap-2 px-5 py-3 bg-foreground text-background rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-brand-red transition-all"
+                className="flex items-center gap-2 px-5 py-3 bg-brand-red text-white rounded-2xl text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all"
               ><Plus className="w-4 h-4" />Novo Evento</button>
             </div>
 
@@ -760,7 +862,11 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
               const isPast = new Date(event.date) < new Date();
               return (
                 <motion.div key={event.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                  className={cn("bg-surface border border-border/80 rounded-[2rem] overflow-hidden shadow-sm", isPast && "opacity-40")}
+                  className={cn(
+                    "bg-surface border border-border/80 rounded-[2rem] shadow-sm relative", 
+                    isPast && "opacity-40",
+                    eventMenuOpenId === event.id ? "z-50" : "z-10"
+                  )}
                 >
                   <div className="p-6">
                     <div className="flex items-center justify-between mb-4">
@@ -782,7 +888,7 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
                           >Aceder à Reunião</a>
                         )}
                         <div className="relative">
-                          <button onClick={() => setEventMenuOpenId(eventMenuOpenId === event.id ? null : event.id)}
+                          <button onClick={(e) => { e.stopPropagation(); setEventMenuOpenId(eventMenuOpenId === event.id ? null : event.id); }}
                             className="w-8 h-8 rounded-full hover:bg-muted flex items-center justify-center"
                           ><MoreVertical className="w-4 h-4 text-muted-foreground" /></button>
                           {eventMenuOpenId === event.id && (
@@ -812,6 +918,57 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
             )}
           </div>
         )}
+
+        {/* ────── MEMBROS TAB ────── */}
+        {activeTab === 'MEMBROS' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between pb-6 border-b border-border/40">
+              <h3 className="text-lg font-black italic font-serif text-foreground">Equipe Ministerial</h3>
+              <button 
+                onClick={() => handleRemoveMember(session?.user?.id as string)}
+                className="px-4 py-2 border border-brand-red/20 text-[9px] font-black uppercase tracking-widest text-brand-red hover:bg-brand-red/10 rounded-xl transition-all flex items-center gap-2"
+              >
+                Sair da Comunidade
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {members.map(m => {
+                const isMe = m.userId === session?.user?.id;
+                const iAmLeader = members.find(mx => mx.userId === session?.user?.id)?.role === 'LEADER';
+                const canRemove = iAmLeader && !isMe && m.userId !== activeCommunity?.ownerId;
+
+                return (
+                  <div key={m.id} className="p-6 bg-surface border border-border/60 rounded-3xl flex flex-col gap-4 relative group hover:border-brand-red/30 transition-all">
+                    {m.role === 'LEADER' && (
+                      <div className="absolute top-4 right-4 bg-brand-gold/10 border border-brand-gold/30 text-[8px] font-black tracking-widest uppercase text-brand-gold px-2 py-0.5 rounded-full">
+                        Líder
+                      </div>
+                    )}
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-full bg-brand-red/10 overflow-hidden shrink-0 border border-brand-red/20">
+                         {m.user?.image ? <img src={m.user.image} className="w-full h-full object-cover" alt="" /> : <div className="w-full h-full flex items-center justify-center font-bold text-brand-red">{m.user?.name?.[0]}</div>}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-foreground line-clamp-1">{isMe ? 'Você' : m.user?.name}</span>
+                        <span className="text-[10px] text-muted-foreground">{m.user?.email}</span>
+                      </div>
+                    </div>
+
+                    {canRemove && (
+                      <button 
+                        onClick={() => handleRemoveMember(m.userId)}
+                        className="mt-2 text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-white border border-red-500/20 hover:bg-red-500 px-4 py-2 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                      >
+                        Remover Membro
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ─── MODALS ─── */}
@@ -824,9 +981,8 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
               <h2 className="text-lg font-black italic font-serif mb-6">Novo Evento</h2>
               <div className="space-y-4">
                 <input value={newEvent.title} onChange={e => setNewEvent(p => ({ ...p, title: e.target.value }))} placeholder="Título do evento" className="w-full px-5 py-3 bg-background border border-border rounded-xl text-sm outline-none focus:border-brand-red transition-all" />
-                <textarea value={newEvent.description} onChange={e => setNewEvent(p => ({ ...p, description: e.target.value }))} placeholder="Descrição (opcional)" rows={2} className="w-full px-5 py-3 bg-background border border-border rounded-xl text-sm outline-none resize-none focus:border-brand-red transition-all" />
+                <textarea value={newEvent.description} onChange={e => setNewEvent(p => ({ ...p, description: e.target.value }))} placeholder="Descrição" rows={2} className="w-full px-5 py-3 bg-background border border-border rounded-xl text-sm outline-none resize-none focus:border-brand-red transition-all" />
                 <input type="datetime-local" value={newEvent.date} onChange={e => setNewEvent(p => ({ ...p, date: e.target.value }))} className="w-full px-5 py-3 bg-background border border-border rounded-xl text-sm outline-none focus:border-brand-red transition-all" />
-                <input value={newEvent.meetLink} onChange={e => setNewEvent(p => ({ ...p, meetLink: e.target.value }))} placeholder="Link da reunião (opcional)" className="w-full px-5 py-3 bg-background border border-border rounded-xl text-sm outline-none focus:border-brand-red transition-all" />
                 
                 {/* Participant Selection */}
                 <div>
@@ -857,7 +1013,7 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
               </div>
               <div className="flex gap-3 mt-6">
                 <button onClick={() => setShowEventModal(false)} className="flex-1 py-3 border border-border rounded-xl text-xs font-black uppercase tracking-widest hover:bg-muted transition-all">Cancelar</button>
-                <button onClick={handleCreateEvent} disabled={isCreatingEvent} className="flex-1 py-3 bg-foreground text-background rounded-xl text-xs font-black uppercase tracking-widest hover:bg-brand-red transition-all disabled:opacity-50">
+                <button onClick={handleCreateEvent} disabled={isCreatingEvent} className="flex-1 py-3 bg-brand-red text-white rounded-xl text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all disabled:opacity-50">
                   {isCreatingEvent ? 'Criando...' : 'Criar Evento'}
                 </button>
               </div>
@@ -876,11 +1032,10 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
                 <input value={editingEvent.title} onChange={e => setEditingEvent((p: any) => ({ ...p, title: e.target.value }))} className="w-full px-5 py-3 bg-background border border-border rounded-xl text-sm outline-none focus:border-brand-red transition-all" />
                 <textarea value={editingEvent.description || ''} onChange={e => setEditingEvent((p: any) => ({ ...p, description: e.target.value }))} placeholder="Descrição" rows={2} className="w-full px-5 py-3 bg-background border border-border rounded-xl text-sm outline-none resize-none focus:border-brand-red transition-all" />
                 <input type="datetime-local" value={editingEvent.date ? new Date(editingEvent.date).toISOString().slice(0, 16) : ''} onChange={e => setEditingEvent((p: any) => ({ ...p, date: e.target.value }))} className="w-full px-5 py-3 bg-background border border-border rounded-xl text-sm outline-none focus:border-brand-red transition-all" />
-                <input value={editingEvent.meetLink || ''} onChange={e => setEditingEvent((p: any) => ({ ...p, meetLink: e.target.value }))} placeholder="Link da reunião" className="w-full px-5 py-3 bg-background border border-border rounded-xl text-sm outline-none focus:border-brand-red transition-all" />
               </div>
               <div className="flex gap-3 mt-6">
                 <button onClick={() => setShowEditEventModal(false)} className="flex-1 py-3 border border-border rounded-xl text-xs font-black uppercase tracking-widest hover:bg-muted transition-all">Cancelar</button>
-                <button onClick={handleUpdateEvent} disabled={isCreatingEvent} className="flex-1 py-3 bg-foreground text-background rounded-xl text-xs font-black uppercase tracking-widest hover:bg-brand-red transition-all disabled:opacity-50">
+                <button onClick={handleUpdateEvent} disabled={isCreatingEvent} className="flex-1 py-3 bg-brand-red text-white rounded-xl text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all disabled:opacity-50">
                   {isCreatingEvent ? 'Salvando...' : 'Salvar Alterações'}
                 </button>
               </div>
@@ -889,14 +1044,67 @@ export default function CommunityHub({ onBack, onViewSermon }: { onBack?: () => 
         )}
       </AnimatePresence>
 
+      {/* Invite Modal */}
+      <AnimatePresence>
+        {showInviteModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-surface rounded-[2rem] p-8 w-full max-w-lg border border-border shadow-2xl">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 rounded-2xl bg-brand-red/10 flex items-center justify-center text-brand-red">
+                  <LinkIcon className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black italic font-serif">Convidar para Comunidade</h2>
+                  <p className="text-[10px] font-sans font-black uppercase tracking-[0.2em] opacity-30 mt-1">Envie o link para novos membros</p>
+                </div>
+              </div>
+              
+              <div className="bg-background/50 border border-border rounded-2xl p-6 mb-8 text-center">
+                <p className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4">Código da sua comunidade</p>
+                <div className="bg-brand-red/10 border-2 border-brand-red/20 rounded-2xl py-4 px-6 text-3xl font-black font-serif tracking-[0.2em] text-brand-red mb-6">
+                  {activeCommunity?.inviteCode}
+                </div>
+                <p className="text-xs font-medium leading-relaxed italic opacity-70 whitespace-pre-wrap text-left bg-surface p-4 rounded-xl border border-border">
+                  {inviteMessage}
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setShowInviteModal(false)} className="flex-1 py-3 border border-border rounded-xl text-xs font-black uppercase tracking-widest hover:bg-muted transition-all">Cancelar</button>
+                <button onClick={handleCopyInvite} className="flex-[2] py-3 bg-brand-red text-white rounded-xl text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all flex items-center justify-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" />
+                  COPIAR E FECHAR
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+
+
       {/* Copy Invite Toast */}
       <AnimatePresence>
         {showCopyToast && (
           <motion.div initial={{ opacity: 0, y: 100 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 100 }}
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 px-8 py-4 bg-foreground text-background rounded-[2rem] shadow-2xl flex items-center gap-3"
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 px-8 py-4 bg-brand-red text-white rounded-[2rem] shadow-2xl flex items-center gap-3"
           >
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             <span className="text-xs font-black uppercase tracking-widest">Link copiado!</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Clone Sermon Toast */}
+      <AnimatePresence>
+        {showCloneToast && (
+          <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 p-2 bg-background border border-border rounded-full shadow-2xl flex items-center gap-4 pr-6"
+          >
+            <div className="w-10 h-10 rounded-full bg-brand-red/10 flex items-center justify-center text-brand-red">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-black uppercase tracking-widest text-foreground">Sermão clonado para o seu Studio!</span>
           </motion.div>
         )}
       </AnimatePresence>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit2, Play, Clock, MoreVertical, Calendar, Search, History, Sparkles, ChevronRight, X, Zap, BookOpen, Layout, Trash2, Users } from 'lucide-react';
+import { Plus, Edit2, Play, Clock, MoreVertical, Calendar, Search, History, ChevronRight, X, Zap, BookOpen, Layout, Trash2, Users } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -229,7 +229,7 @@ export default function DashboardView({ onEdit, onStart, onBible, onCommunity, o
                           setPreparingStartId(null);
                           onStart(sermon, targetTime);
                         }}
-                        className="flex items-center gap-3 px-8 py-4 rounded-full bg-foreground text-background font-sans text-[11px] font-black uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-xl shadow-black/20"
+                        className="flex items-center gap-3 px-8 py-4 rounded-full bg-brand-red text-white font-sans text-[11px] font-black uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-xl shadow-brand-red/20"
                       >
                         <Play className="w-4 h-4 fill-current" /> Começar
                       </button>
@@ -251,7 +251,7 @@ export default function DashboardView({ onEdit, onStart, onBible, onCommunity, o
                       
                       <button 
                         onClick={() => setPreparingStartId(sermon.id)}
-                        className="w-14 h-12 flex items-center justify-center rounded-[1.25rem] bg-foreground text-background hover:scale-105 transition-all shadow-xl shadow-foreground/10 group/play"
+                        className="w-14 h-12 flex items-center justify-center rounded-[1.25rem] bg-brand-red text-white hover:scale-105 transition-all shadow-xl shadow-brand-red/10 group/play"
                       >
                         <Play className="w-5 h-5 ml-0.5 fill-current" />
                       </button>
@@ -272,7 +272,7 @@ export default function DashboardView({ onEdit, onStart, onBible, onCommunity, o
 
           {filteredSermons.length === 0 && !loading && (
              <div className="py-32 text-center opacity-20 italic flex flex-col items-center">
-                <Sparkles className="w-12 h-12 mx-auto mb-6 opacity-40" />
+                <BookOpen className="w-12 h-12 mx-auto mb-6 opacity-40" />
                 <p className="mb-8">Nenhuma pregação encontrada com esses critérios.</p>
              </div>
           )}
@@ -303,30 +303,30 @@ export default function DashboardView({ onEdit, onStart, onBible, onCommunity, o
                 </div>
 
                 <div className="flex flex-col gap-10">
-                  <div className="flex flex-col gap-4">
-                    <label className="text-[11px] font-sans font-black uppercase tracking-[0.3em] opacity-40 ml-1">Tema Principal da Mensagem</label>
+                  <div className="flex flex-col gap-6">
+                    <label className="text-[10px] font-sans font-black uppercase tracking-[0.4em] opacity-30 ml-1">Tema Principal da Mensagem</label>
                     <input 
                       autoFocus
                       type="text"
                       placeholder="Ex: A Parábola do Filho Pródigo"
                       value={newSermonData.title}
                       onChange={e => setNewSermonData({...newSermonData, title: e.target.value})}
-                      className="w-full bg-transparent border-b-2 border-border py-4 text-3xl font-serif font-bold italic outline-none focus:border-foreground transition-all placeholder:opacity-10"
+                      className="w-full bg-transparent border-b-2 border-border/40 py-6 text-4xl font-serif font-black italic outline-none focus:border-brand-gold transition-all placeholder:opacity-10"
                     />
                   </div>
 
-                  <div className="flex flex-col gap-4">
-                    <label className="text-[11px] font-sans font-black uppercase tracking-[0.3em] opacity-40 ml-1">Selecione a Categoria</label>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="flex flex-col gap-6">
+                    <label className="text-[10px] font-sans font-black uppercase tracking-[0.4em] opacity-30 ml-1">Selecione a Categoria Teológica</label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                       {CATEGORIES.map(cat => (
                         <button
                           key={cat}
                           onClick={() => setNewSermonData({...newSermonData, category: cat})}
                           className={cn(
-                            "px-6 py-4 rounded-2xl border text-[10px] font-black tracking-[0.1em] uppercase transition-all shadow-sm",
+                            "px-4 py-4 rounded-xl border text-[9px] font-black tracking-widest uppercase transition-all duration-300",
                             newSermonData.category === cat 
-                              ? "bg-foreground text-background border-foreground shadow-[0_10px_30px_rgb(0,0,0,0.1)] scale-105" 
-                              : "bg-surface border-border text-muted-foreground/60 hover:border-foreground/30"
+                              ? "bg-brand-gold text-white border-brand-gold shadow-lg shadow-brand-gold/20 -translate-y-1" 
+                              : "bg-background/50 border-border/60 text-muted-foreground/60 hover:border-brand-gold/30 hover:bg-background"
                           )}
                         >
                           {cat}
@@ -346,7 +346,7 @@ export default function DashboardView({ onEdit, onStart, onBible, onCommunity, o
                   <button 
                     onClick={handleCreateNew}
                     disabled={!newSermonData.title}
-                    className="flex-[2] px-12 py-5 rounded-full bg-foreground text-background text-[11px] font-black tracking-widest uppercase shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-30 flex items-center justify-center gap-3"
+                    className="flex-[2] px-12 py-5 rounded-full bg-brand-red text-white text-[11px] font-black tracking-widest uppercase shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-30 flex items-center justify-center gap-3"
                   >
                     Iniciar Preparação <ChevronRight className="w-4 h-4" />
                   </button>

@@ -39,6 +39,15 @@ export class CommunityController {
         return this.communityService.updateCommunity(data.userId, id, data);
     }
 
+    @Delete(':communityId/members/:targetUserId')
+    removeMember(
+        @Param('communityId') communityId: string,
+        @Param('targetUserId') targetUserId: string,
+        @Query('userId') requesterId: string
+    ) {
+        return this.communityService.removeMember(requesterId, communityId, targetUserId);
+    }
+
     // ─── POSTS ──────────────────────────────────
 
     @Post(':communityId/posts')

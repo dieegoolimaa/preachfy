@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Share2, Cloud, BookOpen, Lightbulb, Quote, Target, Trash2, HelpCircle, GripVertical, AlertTriangle, ArrowRight, CornerDownRight, Sparkles, ChevronDown, Info, X, MapPin, History, Plus, CheckCircle2, Link as LinkIcon, ArrowLeft, Play, Maximize2, Clock, Book, ChevronLeft, ChevronRight, Highlighter, Zap, MessageSquare, Download, Languages, Users, Shield } from 'lucide-react';
+import { Share2, Cloud, BookOpen, Lightbulb, Quote, Target, Trash2, HelpCircle, GripVertical, AlertTriangle, ArrowRight, CornerDownRight, ChevronDown, Info, X, MapPin, History, Plus, CheckCircle2, Link as LinkIcon, ArrowLeft, Play, Maximize2, Clock, Book, ChevronLeft, ChevronRight, Highlighter, Zap, MessageSquare, Download, Languages, Users, Shield, Star, Compass, Bookmark } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useSermonSocket } from '@/hooks/useSermonSocket';
@@ -16,7 +16,7 @@ function cn(...inputs: ClassValue[]) {
 export type TheologyCategory = 
   'TEXTO_BASE' | 'EXEGESE' | 'APLICACAO' | 'ILUSTRACAO' | 'ENFASE' | 'CUSTOMIZAR' | 
   'ALERTA' | 'MANDAMENTO' | 'PROMESSA' | 'CONTEXTO' | 'VIDA' | 'ESPIRITO_SANTO' | 
-  'PROFECIA' | 'CRISTO' | 'ADORACAO' | 'AMOR' | 'PECADO' | 'HISTORIA' | 'SIGNIFICADO';
+  'PROFECIA' | 'CRISTO' | 'ADORACAO' | 'AMOR' | 'PECADO' | 'HISTORIA' | 'SIGNIFICADO' | 'REVELACAO';
 
 export interface SermonBlock {
   id: string;
@@ -43,7 +43,7 @@ const CATEGORY_MAP: Record<string, { label: string, color: string, icon: React.R
   ENFASE: { label: 'Ênfase / Alerta', color: '#fca5a5', icon: <AlertTriangle className="w-4 h-4" /> },
   ALERTA: { label: 'Alerta / Aviso', color: '#fca5a5', icon: <AlertTriangle className="w-4 h-4" /> },
   MANDAMENTO: { label: 'Mandamento', color: '#fdba74', icon: <Highlighter className="w-4 h-4" /> },
-  PROMESSA: { label: 'Promessa', color: '#fcd34d', icon: <Sparkles className="w-4 h-4" /> },
+  PROMESSA: { label: 'Promessa', color: '#fcd34d', icon: <Star className="w-4 h-4" /> },
   CONTEXTO: { label: 'Contexto', color: '#fef08a', icon: <Info className="w-4 h-4" /> },
   VIDA: { label: 'Vida / Crescimento', color: '#6ee7b7', icon: <Plus className="w-4 h-4" /> },
   ESPIRITO_SANTO: { label: 'Espírito Santo', color: '#5eead4', icon: <Zap className="w-4 h-4" /> },
@@ -54,6 +54,7 @@ const CATEGORY_MAP: Record<string, { label: string, color: string, icon: React.R
   PECADO: { label: 'Pecado / Perdão', color: '#f5d0fe', icon: <Trash2 className="w-4 h-4" /> },
   HISTORIA: { label: 'História', color: '#cbd5e1', icon: <History className="w-4 h-4" /> },
   SIGNIFICADO: { label: 'Significado de Palavra', color: '#a8a29e', icon: <Languages className="w-4 h-4" /> },
+  REVELACAO: { label: 'Revelação / Rhema', color: '#7dd3fc', icon: <Zap className="w-4 h-4" /> },
   CUSTOMIZAR: { label: 'Customizar...', color: 'var(--color-custom)', icon: <MessageSquare className="w-4 h-4" /> }
 };
 
@@ -89,6 +90,9 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
 
   // System States
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [selectedCommunityForPost, setSelectedCommunityForPost] = useState<any | null>(null);
+  const [postContent, setPostContent] = useState('');
+  const [isPosting, setIsPosting] = useState(false);
   
   // Undo/Cascade Delete State
   const [undoState, setUndoState] = useState<{
@@ -164,24 +168,38 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
     }
   };
 
-  const handleShareSermon = async (communityId: string) => {
+  const handleShareSermon = async () => {
+    if (!selectedCommunityForPost) return;
     const { environment } = require('@/environments');
     const { getSession } = require('next-auth/react');
     const session = await getSession();
     if (!session?.user?.id) return;
 
+    setIsPosting(true);
     try {
-      const res = await fetch(`${environment.apiUrl}/community/${communityId}/share-sermon`, {
+      const res = await fetch(`${environment.apiUrl}/community/${selectedCommunityForPost.id}/posts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: session.user.id, sermonId })
+        body: JSON.stringify({ 
+          userId: session.user.id, 
+          sermonId,
+          content: postContent,
+          type: 'SERMAO'
+        })
       });
       if (res.ok) {
-        alert("Sermão partilhado com sucesso!");
+        showToast("Estudo partilhado com sucesso!");
         setIsShareModalOpen(false);
+        setSelectedCommunityForPost(null);
+        setPostContent('');
+      } else {
+        showToast("Erro ao partilhar estudo.", "error");
       }
     } catch (e) {
       console.error("Failed to share", e);
+      showToast("Erro de conexão.", "error");
+    } finally {
+      setIsPosting(false);
     }
   };
 
@@ -528,94 +546,151 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
 
   return (
     <div className="flex flex-col w-full min-h-screen bg-background text-foreground pb-40 transition-all duration-700 relative">
-      {/* MINISTERIAL TOOLBAR - Floating Actions */}
-      <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] group/hud">
-        <div className="bg-surface/90 backdrop-blur-2xl border border-border/80 px-8 py-4 rounded-[3rem] shadow-[0_40px_80px_-15px_rgba(0,114,245,0.2)] flex items-center gap-4 transition-all hover:scale-[1.02]">
-          <div className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-full text-[9px] font-black tracking-widest border transition-all duration-500",
-            isConnected ? "text-emerald-500 bg-emerald-500/5 border-emerald-500/20" : "text-muted-foreground bg-surface border-border"
-          )}>
-            <div className={cn("w-1.5 h-1.5 rounded-full bg-emerald-500", isConnected && "animate-pulse")} /> 
-            <span className="max-sm:hidden">{isConnected ? 'SINC. ATIVA' : 'OFFLINE'}</span>
-          </div>
-
-          <div className="h-6 w-px bg-border/40" />
-
-          {/* Admin panel button directly on HUD */}
-          <Button 
-            variant="ghost"
-            className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-11 px-6 rounded-full hover:bg-foreground/5 transition-all text-muted-foreground hover:text-foreground"
-            onClick={() => setIsDetailsOpen(true)}
-          >
-            <Shield className="w-4 h-4" />
-            ADMIN
-          </Button>
-
-          <Button 
-            variant="ghost"
-            className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-11 px-6 rounded-full hover:bg-emerald-500/10 transition-all active:scale-95 text-emerald-600"
-            onClick={() => {
-              fetchMyCommunities();
-              setIsShareModalOpen(true);
-            }}
-          >
-            <Share2 className="w-4 h-4" />
-            PARTILHAR
-          </Button>
-
-          <Button 
-            variant="ghost"
-            className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-11 px-6 rounded-full hover:bg-foreground/5 transition-all text-muted-foreground hover:text-foreground"
-            onClick={handleExport}
-          >
-            <Download className="w-4 h-4" />
-            EXPORTAR
-          </Button>
-
-          <Button 
-            variant="default"
-            className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-11 px-8 bg-brand-red text-white hover:opacity-90 rounded-full transition-all shadow-xl shadow-brand-red/20 active:scale-95 group"
-            onClick={handleSave}
-            disabled={isSaving}
-          >
-            {isSaving ? <CheckCircle2 className="w-4 h-4 animate-pulse" /> : <Cloud className="w-4 h-4" />}
-            {isSaving ? 'SALVANDO...' : 'SALVAR'}
-          </Button>
-          
-          <button 
-            onClick={() => onStart?.()}
-            className="w-11 h-11 rounded-full bg-surface border border-border flex items-center justify-center hover:bg-foreground hover:text-background transition-all text-muted-foreground hover:border-foreground active:scale-90"
-            title="Iniciar Púlpito"
-          >
-            <Play className="w-5 h-5 fill-current" />
-          </button>
-        </div>
-      </div>
+      {/* No fixed bottom bar needed anymore */}
 
       <main className="flex-1 w-full bg-background !overflow-visible">
-        {/* Sermon Header - WORKBENCH STYLE */}
-        <div className="border-b border-border bg-muted/20 px-12 py-8">
-          <div className="max-w-7xl mx-auto flex flex-col gap-2">
-            <textarea 
-              ref={titleRef}
-              value={sermonMeta?.title || ''}
-              onChange={e => handleMetaChange('title', e.target.value)}
-              placeholder="Título do Sermão..."
-              rows={1}
-              onInput={(e) => {
-                e.currentTarget.style.height = 'auto';
-                e.currentTarget.style.height = (e.currentTarget.scrollHeight) + 'px';
-              }}
-              className="w-full bg-transparent border-none outline-none font-sans text-3xl font-bold italic tracking-tight text-foreground placeholder:opacity-10 leading-tight focus:placeholder:opacity-5 transition-all resize-none !overflow-visible"
-            />
-            <div className="flex items-center gap-3 ml-1">
-               <span className="text-[10px] font-sans font-black tracking-[0.4em] uppercase opacity-30">Categoria:</span>
-               <span className="text-[11px] font-sans font-black tracking-[0.3em] uppercase text-foreground px-4 py-1 rounded-full bg-surface border border-border shadow-sm">{sermonMeta?.category || 'Geral'}</span>
+        {/* Sermon Header - PREMIUM STUDIO DESIGN */}
+        <div className="border-b border-border/60 bg-background/80 backdrop-blur-xl px-12 py-6 sticky top-[-1px] z-30 transition-all duration-500">
+          <div className="max-w-7xl mx-auto flex flex-col gap-5">
+            {/* Top Row: Title & Annotations */}
+            <div className="flex items-start justify-between gap-12">
+              <div className="flex-1 flex flex-col gap-1">
+                <div className="flex items-center gap-3 opacity-30 mb-1 translate-x-1">
+                   <Target className="w-3.5 h-3.5" />
+                   <span className="text-[9px] font-black uppercase tracking-[0.4em]">Estúdio de Preparação Teológica</span>
+                </div>
+                <textarea 
+                  ref={titleRef}
+                  value={sermonMeta?.title || ''}
+                  onChange={e => handleMetaChange('title', e.target.value)}
+                  placeholder="Título do Sermão..."
+                  rows={1}
+                  onInput={(e) => {
+                    e.currentTarget.style.height = 'auto';
+                    e.currentTarget.style.height = (e.currentTarget.scrollHeight) + 'px';
+                  }}
+                  className="w-full bg-transparent border-none outline-none font-serif text-[2.6rem] font-black italic tracking-tight text-foreground placeholder:opacity-5 leading-none focus:placeholder:opacity-0 transition-all resize-none !overflow-visible"
+                />
+              </div>
+
+              <button 
+                onClick={() => {
+                  if (sermonMeta?.bibleSources?.[0]?.explorerSnapshot) {
+                    onViewSnapshot?.(sermonMeta.bibleSources[0].explorerSnapshot);
+                  } else {
+                    onViewSnapshot?.({});
+                  }
+                }}
+                className="group/annot flex items-center justify-center gap-3 px-6 py-3 bg-brand-gold/[0.03] border border-brand-gold/20 rounded-full hover:bg-brand-gold hover:border-brand-gold transition-all shadow-sm hover:shadow-2xl hover:shadow-brand-gold/20 shrink-0 hover:-translate-y-0.5 active:scale-95 duration-500"
+              >
+                <div className="w-7 h-7 rounded-full bg-brand-gold/10 flex items-center justify-center group-hover/annot:bg-white/20 transition-colors">
+                  <Compass className="w-4 h-4 text-brand-gold group-hover/annot:text-white" />
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-brand-gold/80 group-hover/annot:text-white mt-0.5">Anotações Bíblicas</span>
+              </button>
+            </div>
+
+            {/* Bottom Row: Metadata & Quick Actions */}
+            <div className="flex items-center justify-between pt-4 border-t border-border/40">
+              <div className="flex items-center gap-8 translate-x-1">
+                 <div className="flex items-center gap-4 group/meta">
+                   <div className="w-7 h-7 rounded-lg bg-surface border border-border/60 flex items-center justify-center text-[10px] font-black opacity-40 group-hover/meta:opacity-100 group-hover/meta:border-brand-gold group-hover/meta:text-brand-gold transition-all">
+                     <Bookmark className="w-3.5 h-3.5" />
+                   </div>
+                   <div className="flex flex-col">
+                     <span className="text-[8px] font-black uppercase tracking-[0.3em] opacity-30 mb-1">Categoria</span>
+                     <select 
+                       value={sermonMeta?.category || 'Geral'} 
+                       onChange={e => handleMetaChange('category', e.target.value)} 
+                       className="bg-transparent text-[11px] font-black uppercase tracking-widest outline-none cursor-pointer hover:text-brand-gold transition-colors appearance-none pr-4"
+                     >
+                       {['Geral', 'Evangelística', 'Expositiva', 'Temática', 'Doutrinária', 'Festiva', 'Estudo Bíblico'].map(c => <option key={c} value={c}>{c}</option>)}
+                     </select>
+                   </div>
+                 </div>
+
+                 <div className="w-px h-8 bg-border/40" />
+
+                 <div className="flex items-center gap-4 group/meta">
+                   <div className="w-7 h-7 rounded-lg bg-surface border border-border/60 flex items-center justify-center text-[10px] font-black opacity-40 group-hover/meta:opacity-100 group-hover/meta:border-brand-gold group-hover/meta:text-brand-gold transition-all">
+                     <Highlighter className="w-3.5 h-3.5" />
+                   </div>
+                   <div className="flex flex-col">
+                     <span className="text-[8px] font-black uppercase tracking-[0.3em] opacity-30 mb-1">Status do Fluxo</span>
+                     <select 
+                       value={sermonMeta?.status || 'DRAFT'} 
+                       onChange={e => handleMetaChange('status', e.target.value)} 
+                       className="bg-transparent text-[11px] font-black uppercase tracking-widest outline-none cursor-pointer hover:text-brand-gold transition-colors appearance-none pr-4"
+                     >
+                       {['DRAFT', 'READY', 'ARCHIVED'].map(s => <option key={s} value={s}>{s === 'DRAFT' ? 'RASCUNHO' : s === 'READY' ? 'PRONTO' : 'ARQUIVADO'}</option>)}
+                     </select>
+                   </div>
+                 </div>
+              </div>
+
+              {/* Workbench Actions (was below, now integrated) */}
+              <div className="flex items-center gap-4 bg-background border border-border/60 p-1.5 rounded-full shadow-sm hover:shadow-md transition-all duration-500">
+               <div className={cn(
+                 "flex items-center gap-2 px-4 py-2 rounded-full text-[9px] font-black tracking-widest border transition-all duration-500",
+                 isConnected ? "text-emerald-500 bg-emerald-500/5 border-emerald-500/20" : "text-muted-foreground bg-surface border-border"
+               )}>
+                 <div className={cn("w-1.5 h-1.5 rounded-full bg-emerald-500", isConnected && "animate-pulse")} /> 
+                 <span className="max-sm:hidden">{isConnected ? 'SINC. ATIVA' : 'OFFLINE'}</span>
+               </div>
+
+               <div className="h-6 w-px bg-border/40" />
+
+               <Button 
+                 variant="ghost"
+                 className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-10 px-4 rounded-full hover:bg-brand-gold/10 hover:text-brand-gold transition-all text-muted-foreground"
+                 onClick={() => setIsDetailsOpen(true)}
+               >
+                 <Shield className="w-4 h-4" />
+                 ADMIN
+               </Button>
+
+               <Button 
+                 variant="ghost"
+                 className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-10 px-4 rounded-full hover:bg-emerald-500/10 transition-all active:scale-95 text-emerald-600"
+                 onClick={() => {
+                   fetchMyCommunities();
+                   setIsShareModalOpen(true);
+                 }}
+               >
+                 <Share2 className="w-4 h-4" />
+                 PARTILHAR
+               </Button>
+
+               <Button 
+                 variant="ghost"
+                 className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-10 px-4 rounded-full hover:bg-brand-red/10 hover:text-brand-red transition-all text-muted-foreground"
+                 onClick={handleExport}
+               >
+                 <Download className="w-4 h-4" />
+                 EXPORTAR
+               </Button>
+
+               <Button 
+                 variant="default"
+                 className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-10 px-6 bg-brand-red text-white hover:opacity-90 rounded-full transition-all shadow-xl shadow-brand-red/20 active:scale-95 group"
+                 onClick={handleSave}
+                 disabled={isSaving}
+               >
+                 {isSaving ? <CheckCircle2 className="w-4 h-4 animate-pulse" /> : <Cloud className="w-4 h-4" />}
+                 {isSaving ? 'SALVANDO...' : 'SALVAR'}
+               </Button>
+               
+               <button 
+                 onClick={() => onStart?.()}
+                 className="w-10 h-10 rounded-full bg-surface border border-border flex items-center justify-center hover:bg-brand-red hover:text-white hover:border-brand-red transition-all text-muted-foreground active:scale-90 shadow-sm"
+                 title="Iniciar Púlpito"
+               >
+                 <Play className="w-5 h-5 fill-current" />
+               </button>
+              </div>
             </div>
           </div>
         </div>
-
-
         <div className="flex-1 w-full bg-background mb-40">
           <div className="max-w-[1920px] mx-auto min-h-screen grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_60px] divide-x-0 lg:divide-x divide-border/10">
             
@@ -656,19 +731,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
 
                           {/* Center Content Area */}
                           <div className="flex-1 flex flex-col justify-start mt-4 ml-4 relative h-full">
-                            {/* Prominent Snapshot Button */}
-                            {source.explorerSnapshot && onViewSnapshot && (
-                               <button 
-                                 onClick={async () => {
-                                   await handleSave(); // SAFETY FIRST: Save before navigating
-                                   onViewSnapshot(source.explorerSnapshot);
-                                 }}
-                                 className="mb-6 w-full py-4 px-6 bg-brand-gold/10 border border-brand-gold/20 rounded-2xl flex flex-col items-center justify-center gap-2 group/snap hover:bg-brand-gold hover:border-brand-gold transition-all shadow-lg hover:shadow-brand-gold/40"
-                               >
-                                 <Sparkles className="w-5 h-5 text-brand-gold group-hover/snap:text-white transition-colors" />
-                                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-brand-gold group-hover/snap:text-white transition-colors">Mapa Visual do Estudo</span>
-                               </button>
-                            )}
+
 
                             {/* Subtle background reference */}
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none">
@@ -689,7 +752,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                           </div>
                        </div>
                     </div>
-
+                  
                     {/* COL 2 & 3: SOURCE MATRIX */}
                     <div className="flex flex-col pt-2">
                       <Reorder.Group 
@@ -880,7 +943,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                             <span className="text-[9px] font-black uppercase tracking-[0.3em] opacity-10 group-hover:opacity-100 transition-opacity">Novo Texto em {source.reference}</span>
                           </button>
                         </div>
-                      </Reorder.Group>
+                       </Reorder.Group>
                     </div>
                   </div>
                 );
@@ -964,62 +1027,91 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
         {isDetailsOpen && (
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsDetailsOpen(false)} className="fixed inset-0 bg-background/60 backdrop-blur-md z-[100]" />
-            <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-surface/95 backdrop-blur-3xl border-l border-border z-[101] shadow-2xl flex flex-col">
-              <div className="p-10 border-b border-border flex items-center justify-between">
+            <motion.div initial={{ x: '100%', opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: '100%', opacity: 0 }} transition={{ type: 'spring', damping: 28, stiffness: 220 }} className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-background/95 backdrop-blur-3xl border-l border-border/40 z-[101] shadow-2xl flex flex-col overflow-hidden">
+              <div className="p-12 border-b border-border/40 flex items-center justify-between bg-foreground/[0.02]">
                 <div>
-                  <h2 className="text-2xl font-serif font-bold italic tracking-tight">Administração</h2>
-                  <p className="text-[10px] font-sans font-black tracking-[0.3em] uppercase opacity-30">Métricas & Histórico</p>
+                  <h2 className="text-[2.2rem] font-serif font-black italic tracking-tight text-foreground/90">Registro de Pregações</h2>
+                  <p className="text-[10px] font-sans font-black tracking-[0.4em] uppercase text-brand-gold opacity-60 mt-2">Histórico Ministerial do Sermão</p>
                 </div>
-                <button onClick={() => setIsDetailsOpen(false)} className="w-12 h-12 rounded-full border border-border flex items-center justify-center hover:bg-foreground hover:text-background transition-all"><X className="w-6 h-6" /></button>
+                <button 
+                  onClick={() => setIsDetailsOpen(false)} 
+                  className="w-14 h-14 rounded-full bg-surface border border-border/60 flex items-center justify-center hover:bg-brand-red hover:text-white transition-all shadow-xl active:scale-90 group"
+                >
+                  <X className="w-7 h-7 group-hover:rotate-90 transition-transform duration-500" />
+                </button>
               </div>
-              <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
-                <div className="flex flex-col gap-8 mb-12">
-                  <div className="flex flex-col gap-2.5">
-                    <label className="text-[11px] font-mono font-bold uppercase tracking-[0.2em] opacity-40 ml-1">Título do Sermão</label>
-                    <input type="text" value={sermonMeta?.title || ''} onChange={e => handleMetaChange('title', e.target.value)} className="bg-transparent text-xl font-serif outline-none border-b border-border/40 focus:border-foreground transition-all font-bold italic py-2" />
+              <div className="flex-1 overflow-y-auto p-12 custom-scrollbar-premium">
+                <div className="flex flex-col gap-10 mb-16">
+                  <div className="flex flex-col gap-4">
+                    <label className="text-[10px] font-mono font-black uppercase tracking-[0.3em] text-brand-gold opacity-50 ml-1">Registo de Estudo</label>
+                    <input type="text" value={sermonMeta?.title || ''} onChange={e => handleMetaChange('title', e.target.value)} className="bg-transparent text-[1.8rem] font-serif outline-none border-b-2 border-border/20 focus:border-brand-gold transition-all font-black italic py-4" placeholder="Título do Sermão..." />
                   </div>
-                  <div className="grid grid-cols-2 gap-8">
-                    <div className="flex flex-col gap-2.5">
-                      <label className="text-[11px] font-mono font-bold uppercase tracking-[0.2em] opacity-40 ml-1">Categoria</label>
-                      <select value={sermonMeta?.category || 'Geral'} onChange={e => handleMetaChange('category', e.target.value)} className="w-full bg-surface border border-border rounded-2xl px-5 py-3 text-xs font-black uppercase tracking-widest outline-none focus:border-foreground transition-all">{['Geral', 'Evangelística', 'Expositiva', 'Temática', 'Doutrinária', 'Festiva', 'Estudo Bíblico'].map(c => <option key={c} value={c}>{c}</option>)}</select>
+                  <div className="flex flex-col gap-6">
+                    <div className="flex flex-col gap-3">
+                      <label className="text-[9px] font-black uppercase tracking-[0.3em] text-brand-gold opacity-40 ml-1">Cânone Preferencial</label>
+                      <select value={sermonMeta?.bibleVersion || 'nvi'} onChange={e => handleMetaChange('bibleVersion', e.target.value)} className="w-full bg-surface/50 border border-border/60 rounded-2xl px-6 py-4 text-[10px] font-black uppercase tracking-widest outline-none focus:border-brand-gold transition-all appearance-none cursor-pointer">
+                        {['nvi', 'ra', 'acf'].map(v => <option key={v} value={v}>{v.toUpperCase()} — {v === 'nvi' ? 'Nova Versão Internacional' : v === 'ra' ? 'Almeida Revista' : 'Almeida Corrigida'}</option>)}
+                      </select>
                     </div>
-                    <div className="flex flex-col gap-2.5">
-                      <label className="text-[11px] font-mono font-bold uppercase tracking-[0.2em] opacity-40 ml-1">Status</label>
-                      <select value={sermonMeta?.status || 'DRAFT'} onChange={e => handleMetaChange('status', e.target.value)} className="w-full bg-surface border border-border rounded-2xl px-5 py-3 text-xs font-black uppercase tracking-widest outline-none focus:border-foreground transition-all">{['DRAFT', 'READY', 'ARCHIVED'].map(s => <option key={s} value={s}>{s}</option>)}</select>
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2.5">
-                    <label className="text-[11px] font-mono font-bold uppercase tracking-[0.2em] opacity-40 ml-1">Versão da Bíblia (Preferencial)</label>
-                    <select value={sermonMeta?.bibleVersion || 'nvi'} onChange={e => handleMetaChange('bibleVersion', e.target.value)} className="w-full bg-surface border border-border rounded-2xl px-5 py-3 text-xs font-black uppercase tracking-widest outline-none focus:border-foreground transition-all">
-                      {['nvi', 'ra', 'acf'].map(v => <option key={v} value={v}>{v.toUpperCase()}</option>)}
-                    </select>
                   </div>
                 </div>
-                <div className="h-px bg-border/40 mb-12" />
-                <div className="flex flex-col gap-8">
+                <div className="h-px bg-gradient-to-r from-transparent via-border/40 to-transparent mb-16" />
+                <div className="flex flex-col gap-10">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-sans font-black tracking-[0.3em] uppercase">Registros de Ministração</h3>
-                    <Button variant="outline" size="sm" onClick={() => setIsAddingHistory(!isAddingHistory)} className="rounded-full h-10 px-6 text-[11px] font-black uppercase tracking-widest border-border hover:border-foreground">{isAddingHistory ? 'FECHAR' : 'NOVO REGISTRO'}</Button>
+                    <div>
+                      <h3 className="text-sm font-black tracking-[0.3em] uppercase opacity-70">Ministrações</h3>
+                      <p className="text-[8px] font-mono tracking-widest uppercase opacity-30 mt-1">Registo de execução pública</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => setIsAddingHistory(!isAddingHistory)} className="rounded-full h-12 px-8 text-[10px] font-black uppercase tracking-widest border-brand-gold/30 hover:bg-brand-gold hover:text-white transition-all shadow-xl shadow-brand-gold/5">{isAddingHistory ? 'FECHAR' : 'ADICIONAR'}</Button>
                   </div>
                   {isAddingHistory && (
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-8 bg-foreground/5 border border-border rounded-[2.5rem] flex flex-col gap-5">
-                      <input placeholder="Igreja ou Local" className="bg-transparent border-b border-border p-3 text-base outline-none font-medium placeholder:opacity-20" value={newHistory.location} onChange={e => setNewHistory({...newHistory, location: e.target.value})} />
-                      <input placeholder="Cidade / Estado" className="bg-transparent border-b border-border p-3 text-base outline-none font-medium placeholder:opacity-20" value={newHistory.city} onChange={e => setNewHistory({...newHistory, city: e.target.value})} />
-                      <textarea placeholder="Observações e Feedback..." className="bg-transparent border-b border-border p-3 text-base h-24 resize-none outline-none font-medium placeholder:opacity-20" value={newHistory.notes} onChange={e => setNewHistory({...newHistory, notes: e.target.value})} />
-                      <Button onClick={handleAddHistory} className="h-12 text-[11px] font-black uppercase tracking-widest rounded-2xl">SALVAR REGISTRO</Button>
+                    <motion.div initial={{ opacity: 0, scale: 0.98, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} className="p-10 bg-brand-gold/[0.03] border border-brand-gold/20 rounded-[3rem] shadow-inner flex flex-col gap-6">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-[8px] font-black uppercase tracking-widest opacity-30 px-1">Local da Ministração</label>
+                        <input placeholder="Igreja ou Instituição..." className="bg-transparent border-b border-border/40 p-4 text-base outline-none font-medium placeholder:opacity-20 focus:border-brand-gold transition-colors" value={newHistory.location} onChange={e => setNewHistory({...newHistory, location: e.target.value})} />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-[8px] font-black uppercase tracking-widest opacity-30 px-1">Geografia</label>
+                        <input placeholder="Cidade / Estado..." className="bg-transparent border-b border-border/40 p-4 text-base outline-none font-medium placeholder:opacity-20 focus:border-brand-gold transition-colors" value={newHistory.city} onChange={e => setNewHistory({...newHistory, city: e.target.value})} />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-[8px] font-black uppercase tracking-widest opacity-30 px-1">Observações Rhema</label>
+                        <textarea placeholder="Feedback, número de conversões, ou percepção espiritual..." className="bg-transparent border-b border-border/40 p-4 text-base h-32 resize-none outline-none font-medium placeholder:opacity-20 focus:border-brand-gold transition-colors" value={newHistory.notes} onChange={e => setNewHistory({...newHistory, notes: e.target.value})} />
+                      </div>
+                      <Button onClick={handleAddHistory} className="h-14 bg-brand-gold text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-brand-gold/20 hover:scale-[1.02] transition-all">SALVAR REGISTRO</Button>
                     </motion.div>
                   )}
                   {(sermonMeta?.history || []).length === 0 && !isAddingHistory && (
-                    <div className="px-10 py-16 text-center border border-dashed border-border rounded-[2.5rem] opacity-20 text-[11px] font-black uppercase tracking-[0.3em]">Nenhum histórico registrado</div>
+                    <div className="px-10 py-24 text-center border-2 border-dashed border-border/10 rounded-[3rem] opacity-20 flex flex-col items-center gap-4">
+                      <History className="w-10 h-10" />
+                      <span className="text-[9px] font-black uppercase tracking-[0.4em]">Histórico de ministração vazio</span>
+                    </div>
                   )}
                   {(sermonMeta?.history || []).map((h: any) => (
-                    <div key={h.id} className="p-8 border border-border rounded-[2.5rem] bg-surface/50 hover:bg-surface hover:shadow-xl transition-all duration-500 group">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-brand-gold">{new Date(h.date).toLocaleDateString('pt-BR')}</div>
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div key={h.id} className="p-8 border border-border/40 rounded-[2.5rem] bg-surface/50 hover:bg-surface hover:shadow-2xl transition-all duration-500 group relative border-l-4" style={{ borderLeftColor: 'var(--color-brand-gold)' }}>
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-brand-gold/10 flex items-center justify-center text-brand-gold">
+                            <Clock className="w-5 h-5" />
+                          </div>
+                          <div className="text-[11px] font-black uppercase tracking-widest text-foreground/60">{new Date(h.date).toLocaleDateString('pt-BR')}</div>
+                        </div>
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500 opacity-20 group-hover:opacity-100 transition-opacity" />
                       </div>
-                      <div className="flex items-center gap-3 mb-3"><MapPin className="w-4 h-4 text-muted-foreground" /><span className="text-lg font-bold font-serif italic">{h.location}</span><span className="text-sm opacity-40 font-sans">{h.city}</span></div>
-                      {h.notes && <p className="text-base italic text-muted-foreground/80 leading-relaxed pl-7 border-l-2 border-border/40">&quot;{h.notes}&quot;</p>}
+                      <div className="flex items-start gap-5 mb-4">
+                        <div className="w-10 h-10 rounded-full border border-border flex items-center justify-center shrink-0">
+                          <MapPin className="w-4 h-4 text-brand-gold/60" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-xl font-black font-serif italic text-foreground">{h.location}</span>
+                          <span className="text-[10px] font-sans font-black uppercase tracking-widest opacity-30 mt-1">{h.city}</span>
+                        </div>
+                      </div>
+                      {h.notes && (
+                        <div className="mt-6 p-6 rounded-2xl bg-foreground/[0.02] border border-border/20">
+                          <p className="text-sm italic text-foreground/70 leading-relaxed">&quot;{h.notes}&quot;</p>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1032,7 +1124,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
       <AnimatePresence>
         {isShareModalOpen && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsShareModalOpen(false)} className="fixed inset-0 bg-background/80 backdrop-blur-md z-[200]" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setIsShareModalOpen(false); setSelectedCommunityForPost(null); }} className="fixed inset-0 bg-background/80 backdrop-blur-md z-[200]" />
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 20 }} 
               animate={{ opacity: 1, scale: 1, y: 0 }} 
@@ -1040,31 +1132,71 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
               className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-surface border border-border rounded-[3rem] z-[201] shadow-2xl p-10"
             >
               <div className="flex flex-col gap-8">
-                <div>
-                  <h2 className="text-2xl font-serif font-black italic">Partilhar Estudo</h2>
-                  <p className="text-[10px] font-sans font-black tracking-[0.3em] uppercase opacity-30 mt-1">Selecione uma comunidade ministerial</p>
-                </div>
-
-                <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto custom-scrollbar">
-                  {myCommunities.map((c) => (
-                    <button 
-                      key={c.id}
-                      onClick={() => handleShareSermon(c.id)}
-                      className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-foreground/5 border border-transparent hover:border-border transition-all group"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-brand-gold/10 flex items-center justify-center text-brand-gold"><Users className="w-5 h-5" /></div>
-                        <span className="font-bold text-sm uppercase tracking-tight">{c.name}</span>
+                {selectedCommunityForPost ? (
+                  <div className="flex flex-col gap-6">
+                    <div>
+                      <div className="flex items-center gap-2 text-brand-gold mb-2 h-auto">
+                        <Users className="w-4 h-4" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">{selectedCommunityForPost.name}</span>
                       </div>
-                      <ChevronRight className="w-4 h-4 opacity-20 group-hover:opacity-100 transition-opacity" />
-                    </button>
-                  ))}
-                  {myCommunities.length === 0 && (
-                    <div className="py-12 text-center opacity-30 text-xs italic">Nenhuma comunidade ativa encontrada.</div>
-                  )}
-                </div>
+                      <h2 className="text-2xl font-serif font-black italic">Criar Publicação</h2>
+                      <p className="text-[10px] font-sans font-black tracking-[0.3em] uppercase opacity-30 mt-1">O estudo será anexado automaticamente</p>
+                    </div>
 
-                <Button variant="ghost" onClick={() => setIsShareModalOpen(false)} className="w-full rounded-2xl h-12 uppercase font-black text-[10px] tracking-widest border border-border">Cancelar</Button>
+                    <textarea
+                      placeholder="Escreva algo sobre este estudo para a comunidade..."
+                      value={postContent}
+                      onChange={(e) => setPostContent(e.target.value)}
+                      className="w-full bg-foreground/[0.03] border border-border rounded-2xl p-6 text-base font-medium outline-none focus:border-brand-gold/30 transition-all min-h-[160px] resize-none"
+                    />
+
+                    <div className="flex gap-4">
+                      <Button variant="ghost" onClick={() => setSelectedCommunityForPost(null)} className="flex-1 rounded-2xl h-12 uppercase font-black text-[10px] tracking-widest border border-border">Voltar</Button>
+                      <Button 
+                        onClick={handleShareSermon} 
+                        disabled={isPosting || !postContent.trim()}
+                        className="flex-1 rounded-2xl h-12 uppercase font-black text-[10px] tracking-widest bg-brand-red text-white hover:opacity-90 transition-all shadow-xl shadow-brand-red/10"
+                      >
+                        {isPosting ? 'Publicando...' : 'Publicar Agora'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-8">
+                    <div>
+                      <h2 className="text-2xl font-serif font-black italic">Partilhar Estudo</h2>
+                      <p className="text-[10px] font-sans font-black tracking-[0.3em] uppercase opacity-30 mt-1">Selecione uma comunidade ministerial</p>
+                    </div>
+
+                    <div className="flex flex-col gap-3 max-h-[350px] overflow-y-auto custom-scrollbar-premium pr-2">
+                      {myCommunities.map((c) => (
+                        <button 
+                          key={c.id}
+                          onClick={() => setSelectedCommunityForPost(c)}
+                          className="w-full flex items-center justify-between p-6 rounded-[1.5rem] bg-background border border-border/60 hover:border-brand-gold hover:bg-brand-gold/5 transition-all group shadow-sm hover:shadow-xl hover:-translate-y-0.5 duration-300"
+                        >
+                          <div className="flex items-center gap-5">
+                            <div className="w-12 h-12 rounded-2xl bg-brand-gold/10 flex items-center justify-center text-brand-gold group-hover:bg-brand-gold group-hover:text-white transition-all">
+                              <Users className="w-6 h-6" />
+                            </div>
+                            <div className="flex flex-col text-left">
+                              <span className="font-black text-sm uppercase tracking-tight text-foreground">{c.name}</span>
+                              <span className="text-[9px] font-black uppercase tracking-widest opacity-30 mt-1">Comunidade Ministerial</span>
+                            </div>
+                          </div>
+                          <div className="w-10 h-10 rounded-full border border-border flex items-center justify-center group-hover:border-brand-gold/40 transition-all">
+                            <ChevronRight className="w-5 h-5 opacity-40 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                          </div>
+                        </button>
+                      ))}
+                      {myCommunities.length === 0 && (
+                        <div className="py-12 text-center opacity-30 text-xs italic">Nenhuma comunidade ativa encontrada.</div>
+                      )}
+                    </div>
+
+                    <Button variant="ghost" onClick={() => setIsShareModalOpen(false)} className="w-full rounded-2xl h-12 uppercase font-black text-[10px] tracking-widest border border-border">Cancelar</Button>
+                  </div>
+                )}
               </div>
             </motion.div>
           </>
@@ -1078,21 +1210,21 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
             initial={{ opacity: 0, y: 50, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.95 }}
-            className="fixed bottom-6 right-6 z-[300] py-3 pr-2 pl-4 bg-surface text-foreground rounded-2xl shadow-xl border border-border/60 flex items-center gap-4 backdrop-blur-xl"
+            className="fixed bottom-6 right-6 z-[300] py-2 pr-2 pl-4 bg-surface/80 hover:bg-surface text-foreground rounded-xl shadow-lg border border-border/40 flex items-center gap-3 backdrop-blur-xl transition-all group"
           >
             <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse" />
-              <span className="text-[10px] font-black uppercase tracking-widest opacity-60">{undoState.message}</span>
+              <div className="w-1 h-1 rounded-full bg-brand-red animate-pulse" />
+              <span className="text-[9px] font-black uppercase tracking-widest opacity-40 group-hover:opacity-70 transition-opacity">{undoState.message}</span>
             </div>
-            <div className="w-px h-6 bg-border" />
+            <div className="w-px h-4 bg-border/40" />
             <button 
               onClick={performUndo}
-              className="px-4 py-1.5 bg-foreground text-background rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-brand-red hover:text-white transition-all active:scale-95 shrink-0"
+              className="px-3 py-1 bg-brand-red text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all active:scale-95 shrink-0"
             >
               Desfazer
             </button>
-            <button onClick={clearUndo} className="p-1 text-muted-foreground hover:text-foreground transition-all rounded-md">
-              <X className="w-3.5 h-3.5" />
+            <button onClick={clearUndo} className="p-1 text-muted-foreground/30 hover:text-foreground transition-all rounded-md">
+              <X className="w-3 h-3" />
             </button>
           </motion.div>
         )}

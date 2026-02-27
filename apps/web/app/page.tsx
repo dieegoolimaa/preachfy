@@ -49,10 +49,10 @@ export default function Home() {
     const inviteCode = params.get('join');
     if (inviteCode && session?.user?.id) {
       const { environment } = require('@/environments');
-      fetch(`${environment.apiUrl}/community/join/${inviteCode}`, {
+      fetch(`${environment.apiUrl}/community/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: session.user.id })
+        body: JSON.stringify({ userId: session.user.id, inviteCode })
       }).then(res => {
         if (res.ok) {
           alert("Você entrou em uma nova comunidade ministerial!");
@@ -120,7 +120,7 @@ export default function Home() {
         if (l.includes('promessa')) return 'PROMESSA';
         if (l.includes('contexto')) return 'CONTEXTO';
         if (l.includes('espirito santo')) return 'ESPIRITO_SANTO';
-        if (l.includes('ceu') || l.includes('divino') || l.includes('desceu')) return 'CEU';
+        if (l.includes('revelação') || l.includes('divino') || l.includes('rhema')) return 'REVELACAO';
         if (l.includes('profecia')) return 'PROFECIA';
         if (l.includes('cristo') || l.includes('realeza')) return 'CRISTO';
         if (l.includes('adoracao')) return 'ADORACAO';
@@ -323,8 +323,12 @@ export default function Home() {
             <PulpitView 
               sermonId={activeSermon.id}
               targetTime={targetTime} 
-              onExit={() => setView('dashboard')} 
+              onExit={() => { 
+                localStorage.removeItem(`preachfy_pulpit_end_${activeSermon.id}`);
+                setView('dashboard');
+              }} 
               onStudy={() => setView('study')}
+              onMinimize={() => setView('bible')}
             />
           </div>
         )}
@@ -340,6 +344,8 @@ export default function Home() {
             initialAbbrev={bibleSnapshot?.abbrev}
             initialVersion={bibleSnapshot?.version}
             sermonTitle={activeSermon?.title}
+            activePulpitSermonId={activeSermon?.id}
+            onResumePulpit={() => setView('pulpit')}
           />
         )}
       </div>

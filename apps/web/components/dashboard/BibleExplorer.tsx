@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Book, X, ChevronLeft, ChevronRight, BookOpen, Check, Copy, Highlighter, List, Columns, ArrowLeft, Plus, Sparkles, MessageSquare, Palette, Trash2, Save, Languages, ExternalLink } from 'lucide-react';
+import { Search, Book, X, ChevronLeft, ChevronRight, BookOpen, Check, Copy, Highlighter, List, Columns, ArrowLeft, Plus, MessageSquare, Palette, Trash2, Save, Languages, ExternalLink, Zap } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -101,7 +101,7 @@ const HI_COLORS = {
   cold: [
     { name: 'Emerald', color: '#6ee7b7', label: 'Vida / Crescimento' },
     { name: 'Teal', color: '#5eead4', label: 'Espírito Santo' },
-    { name: 'Sky', color: '#7dd3fc', label: 'Desceu do Céu' },
+    { name: 'Sky', color: '#7dd3fc', label: 'Revelação / Rhema' },
     { name: 'Blue', color: '#93c5fd', label: 'Profecia' },
     { name: 'Indigo', color: '#a5b4fc', label: 'Cristo / Realeza' },
     { name: 'Violet', color: '#c4b5fd', label: 'Adoração' },
@@ -129,7 +129,9 @@ export default function BibleExplorer({
   initialChapter,
   initialAbbrev,
   initialVersion,
-  sermonTitle
+  sermonTitle,
+  activePulpitSermonId,
+  onResumePulpit
 }: { 
   onBack: () => void, 
   onCreateSermon?: (reference: string, content: string) => void,
@@ -139,7 +141,9 @@ export default function BibleExplorer({
   initialChapter?: number,
   initialAbbrev?: string,
   initialVersion?: string,
-  sermonTitle?: string
+  sermonTitle?: string,
+  activePulpitSermonId?: string,
+  onResumePulpit?: () => void
 }) {
   const { environment } = require('@/environments');
   const isSnapshot = !!initialHighlights;
@@ -215,8 +219,18 @@ export default function BibleExplorer({
   const [compareData, setCompareData] = useState<Record<string, any>>({});
   const [compareVersions, setCompareVersions] = useState<string[]>(['nvi', 'ra']);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [isPulpitActive, setIsPulpitActive] = useState(false);
   const isInitialMount = useRef(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && activePulpitSermonId) {
+      const pEndTime = localStorage.getItem(`preachfy_pulpit_end_${activePulpitSermonId}`);
+      if (pEndTime) {
+         setIsPulpitActive(true);
+      }
+    }
+  }, [activePulpitSermonId]);
 
   // Sync with snapshot if prop changes (for Restoration Mode)
   useEffect(() => {
@@ -695,6 +709,17 @@ export default function BibleExplorer({
               <ArrowLeft className="w-4 h-4" />
               <span className="font-medium">Voltar</span>
             </button>
+
+            {isPulpitActive && onResumePulpit && (
+              <button 
+                onClick={onResumePulpit}
+                className="flex items-center gap-2 px-4 py-1.5 ml-2 bg-brand-red/10 border border-brand-red/20 text-brand-red rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-brand-red hover:text-white transition-all animate-pulse"
+              >
+                <div className="w-2 h-2 rounded-full bg-brand-red animate-ping" />
+                No Púlpito
+              </button>
+            )}
+
             {!isSnapshot && (
               <>
                 <div className="w-px h-6 bg-border" />
@@ -821,7 +846,7 @@ export default function BibleExplorer({
                 {!isSnapshot && (
                   onCreateSermon && (
                     <button onClick={createStudyFromInsights} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white px-3 py-1.5 rounded-lg bg-brand-red hover:bg-brand-red/90 transition-all active:scale-95 shadow-md">
-                      <Sparkles className="w-3.5 h-3.5" /> Gerar Estudo Pronto
+                      <Zap className="w-3.5 h-3.5" /> Gerar Estudo Pronto
                     </button>
                   )
                 )}

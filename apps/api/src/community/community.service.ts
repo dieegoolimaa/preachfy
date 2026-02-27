@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma.service';
 import { Community, CommunityMember, CommunityPost, Prisma } from '@preachfy/database';
 import { nanoid } from 'nanoid';
 
+
 @Injectable()
 export class CommunityService {
     constructor(private prisma: PrismaService) { }
@@ -82,6 +83,32 @@ export class CommunityService {
             where: { id },
             data
         });
+    }
+
+    async removeMember(requesterId: string, communityId: string, targetUserId: string) {
+        const community = await this.prisma.community.findUnique({ where: { id: communityId } });
+        if (!community) throw new NotFoundException('Comunidade não encontrada.');
+
+        const requesterMember = await this.prisma.communityMember.findUnique({
+            where: { userId_communityId: { userId: requesterId, communityId } }
+        });
+        if (!requesterMember) throw new ForbiddenException('Não autorizado.');
+
+        // O usuário pode sair (remover a si mesmo) ou um LEADER (owner) pode remover.
+        // E detalhe: O dono da comunidade nunca pode ser removido (nem por ele mesmo, para não perder o grupo. Deveria apagar o grupo inteiro).
+        if (targetUserId === community.ownerId) {
+            throw new ForbiddenException('O criador da comunidade não pode sair sem excluí-la.');
+        }
+
+        if (requesterId !== targetUserId && requesterMember.role !== 'LEADER') {
+            throw new ForbiddenException('Você não tem permissão para remover membros.');
+        }
+
+        await this.prisma.communityMember.delete({
+            where: { userId_communityId: { userId: targetUserId, communityId } }
+        });
+
+        return { success: true };
     }
 
     // ─── POSTS (Unified Feed) ──────────────────────────────────
@@ -280,7 +307,7 @@ export class CommunityService {
         if (!member) throw new ForbiddenException('Não autorizado.');
 
         const community = await this.prisma.community.findUnique({ where: { id: communityId } }) as any;
-        let meetLink = data.meetLink || community?.meetLink;
+        let meetLink = data.meetLink || community?.meetLink || null;
 
         return (this.prisma.communityEvent as any).create({
             data: {
@@ -324,7 +351,9 @@ export class CommunityService {
         if (data.description !== undefined) updateData.description = data.description;
         if (data.date !== undefined) updateData.date = new Date(data.date);
         if (data.type !== undefined) updateData.type = data.type;
-        if (data.meetLink !== undefined) updateData.meetLink = data.meetLink;
+        if (data.meetLink !== undefined) {
+            updateData.meetLink = data.meetLink;
+        }
         if (data.participants !== undefined) updateData.participants = data.participants;
 
         return (this.prisma.communityEvent as any).update({

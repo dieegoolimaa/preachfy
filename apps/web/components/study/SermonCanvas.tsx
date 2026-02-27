@@ -1,13 +1,12 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Share2, Cloud, BookOpen, Lightbulb, Quote, Target, Trash2, HelpCircle, GripVertical, AlertTriangle, ArrowRight, CornerDownRight, Sparkles, ChevronDown, Info, X, MapPin, History, Plus, CheckCircle2, Link as LinkIcon, ArrowLeft, Play, Maximize2, Clock, Book, ChevronLeft, ChevronRight, Highlighter, Zap, MessageSquare, Download } from 'lucide-react';
+import { Share2, Cloud, BookOpen, Lightbulb, Quote, Target, Trash2, HelpCircle, GripVertical, AlertTriangle, ArrowRight, CornerDownRight, Sparkles, ChevronDown, Info, X, MapPin, History, Plus, CheckCircle2, Link as LinkIcon, ArrowLeft, Play, Maximize2, Clock, Book, ChevronLeft, ChevronRight, Highlighter, Zap, MessageSquare, Download, Languages, Users } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useSermonSocket } from '@/hooks/useSermonSocket';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
-import { ThemeToggle } from '@/components/theme-toggle';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -17,7 +16,7 @@ function cn(...inputs: ClassValue[]) {
 export type TheologyCategory = 
   'TEXTO_BASE' | 'EXEGESE' | 'APLICACAO' | 'ILUSTRACAO' | 'ENFASE' | 'CUSTOMIZAR' | 
   'ALERTA' | 'MANDAMENTO' | 'PROMESSA' | 'CONTEXTO' | 'VIDA' | 'ESPIRITO_SANTO' | 
-  'CEU' | 'PROFECIA' | 'CRISTO' | 'ADORACAO' | 'AMOR' | 'PECADO' | 'HISTORIA';
+  'CEU' | 'PROFECIA' | 'CRISTO' | 'ADORACAO' | 'AMOR' | 'PECADO' | 'HISTORIA' | 'SIGNIFICADO';
 
 export interface SermonBlock {
   id: string;
@@ -56,6 +55,7 @@ const CATEGORY_MAP: Record<string, { label: string, color: string, icon: React.R
   AMOR: { label: 'Amor / Graça', color: '#fda4af', icon: <Plus className="w-4 h-4" /> },
   PECADO: { label: 'Pecado / Perdão', color: '#f5d0fe', icon: <Trash2 className="w-4 h-4" /> },
   HISTORIA: { label: 'História', color: '#cbd5e1', icon: <History className="w-4 h-4" /> },
+  SIGNIFICADO: { label: 'Significado de Palavra', color: '#a8a29e', icon: <Languages className="w-4 h-4" /> },
   CUSTOMIZAR: { label: 'Customizar...', color: 'var(--color-custom)', icon: <MessageSquare className="w-4 h-4" /> }
 };
 
@@ -86,6 +86,8 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
   const [isAddingHistory, setIsAddingHistory] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<{ id: string; type: 'category' | 'link' } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [myCommunities, setMyCommunities] = useState<any[]>([]);
 
   const initialMetaRef = useRef<string | null>(null);
   const titleRef = useRef<HTMLTextAreaElement>(null);
@@ -138,6 +140,42 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
     fetchSermon();
   }, [sermonId]);
 
+  const fetchMyCommunities = async () => {
+    const { environment } = require('@/environments');
+    const { getSession } = require('next-auth/react');
+    const session = await getSession();
+    if (!session?.user?.id) return;
+
+    try {
+      const res = await fetch(`${environment.apiUrl}/community/my/${session.user.id}`);
+      const data = await res.json();
+      setMyCommunities(data);
+    } catch (e) {
+      console.error("Failed to fetch communities", e);
+    }
+  };
+
+  const handleShareSermon = async (communityId: string) => {
+    const { environment } = require('@/environments');
+    const { getSession } = require('next-auth/react');
+    const session = await getSession();
+    if (!session?.user?.id) return;
+
+    try {
+      const res = await fetch(`${environment.apiUrl}/community/${communityId}/share-sermon`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: session.user.id, sermonId })
+      });
+      if (res.ok) {
+        alert("Sermão partilhado com sucesso!");
+        setIsShareModalOpen(false);
+      }
+    } catch (e) {
+      console.error("Failed to share", e);
+    }
+  };
+
   const handleContentChange = (id: string, newContent: string) => {
     setBlocks(prev => prev.map(b => b.id === id ? { ...b, content: newContent } : b));
   };
@@ -173,7 +211,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
     const newBlock: SermonBlock = {
       id: `new-${Date.now()}`,
       type,
-      content: '',
+      content: type === 'SIGNIFICADO' ? 'Palavra: \nSignificado: ' : '',
       metadata: { depth: 0, ...metadata }
     };
     setBlocks(prev => [...prev, newBlock]);
@@ -307,7 +345,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Preachfy - ${sermonMeta.title.replace(/[^a-z0-9]/gi, '_')}.txt`;
+    link.download = `Rice_and_Beans_Preaching - ${sermonMeta.title.replace(/[^a-z0-9]/gi, '_')}.txt`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -403,64 +441,60 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
   );
 
   return (
-    <div className="flex flex-col w-full min-h-screen bg-background text-foreground pb-32 transition-all duration-700">
-      {/* GLOBAL TOP NAVIGATION - PREMIUM WORKBENCH STYLE */}
-      <header className="h-24 sticky top-0 border-b border-border bg-surface/80 backdrop-blur-md flex items-center justify-between px-12 z-50">
-        <div className="flex items-center gap-8">
-          {onBack && (
-            <button 
-              onClick={onBack}
-              className="group flex items-center justify-center w-12 h-12 rounded-full bg-surface border border-border hover:bg-foreground hover:text-background transition-all active:scale-90"
-            >
-              <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-            </button>
-          )}
-          <h1 className="text-2xl font-sans tracking-tight">
-            <span className="font-bold">Preachfy</span> 
-            <span className="font-light opacity-40 ml-2 uppercase text-[10px] tracking-[0.2em] relative top-[-1px]">Studio</span>
-          </h1>
-        </div>
-
-        <div className="flex items-center gap-6">
+    <div className="flex flex-col w-full min-h-screen bg-background text-foreground pb-40 transition-all duration-700 relative">
+      {/* MINISTERIAL TOOLBAR - Floating Actions */}
+      <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] group/hud">
+        <div className="bg-surface/90 backdrop-blur-2xl border border-border/80 px-8 py-4 rounded-[3rem] shadow-[0_40px_80px_-15px_rgba(0,114,245,0.2)] flex items-center gap-4 transition-all hover:scale-[1.02]">
           <div className={cn(
-            "flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black tracking-widest border transition-all duration-500 shadow-sm",
+            "flex items-center gap-2 px-4 py-2 rounded-full text-[9px] font-black tracking-widest border transition-all duration-500",
             isConnected ? "text-emerald-500 bg-emerald-500/5 border-emerald-500/20" : "text-muted-foreground bg-surface border-border"
           )}>
             <div className={cn("w-1.5 h-1.5 rounded-full bg-emerald-500", isConnected && "animate-pulse")} /> 
             <span className="max-sm:hidden">{isConnected ? 'SINC. ATIVA' : 'OFFLINE'}</span>
           </div>
 
-          <div className="h-8 w-px bg-border/40" />
-          
-          <ThemeToggle />
+          <div className="h-6 w-px bg-border/40" />
 
           <Button 
             variant="ghost"
-            className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-11 px-6 rounded-full hover:bg-surface border border-border transition-all active:scale-95 text-muted-foreground hover:text-foreground"
+            className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-11 px-6 rounded-full hover:bg-emerald-500/10 transition-all active:scale-95 text-emerald-600"
+            onClick={() => {
+              fetchMyCommunities();
+              setIsShareModalOpen(true);
+            }}
+          >
+            <Share2 className="w-4 h-4" />
+            PARTILHAR
+          </Button>
+
+          <Button 
+            variant="ghost"
+            className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-11 px-6 rounded-full hover:bg-foreground/5 transition-all text-muted-foreground hover:text-foreground"
             onClick={handleExport}
           >
             <Download className="w-4 h-4" />
-            EXPORTAR ESTUDO
+            EXPORTAR
           </Button>
 
           <Button 
             variant="default"
-            className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-11 px-8 bg-indigo-600 text-white hover:bg-indigo-700 rounded-full transition-all shadow-xl shadow-indigo-500/20 active:scale-95 group"
+            className="font-sans text-[11px] font-black gap-2 tracking-[0.1em] h-11 px-8 bg-brand-red text-white hover:opacity-90 rounded-full transition-all shadow-xl shadow-brand-red/20 active:scale-95 group"
             onClick={handleSave}
             disabled={isSaving}
           >
-            {isSaving ? <CheckCircle2 className="w-4 h-4 animate-pulse" /> : <Cloud className="w-4 h-4 group-hover:scale-110 transition-transform" />}
-            {isSaving ? 'SALVANDO...' : 'SALVAR ALTERAÇÕES'}
+            {isSaving ? <CheckCircle2 className="w-4 h-4 animate-pulse" /> : <Cloud className="w-4 h-4" />}
+            {isSaving ? 'SALVANDO...' : 'SALVAR'}
           </Button>
           
           <button 
-            onClick={() => setIsDetailsOpen(true)}
+            onClick={() => onStart?.()}
             className="w-11 h-11 rounded-full bg-surface border border-border flex items-center justify-center hover:bg-foreground hover:text-background transition-all text-muted-foreground hover:border-foreground active:scale-90"
+            title="Iniciar Púlpito"
           >
-            <Info className="w-5 h-5" />
+            <Play className="w-5 h-5 fill-current" />
           </button>
         </div>
-      </header>
+      </div>
 
       <main className="flex-1 w-full bg-background !overflow-visible">
         {/* Sermon Header - WORKBENCH STYLE */}
@@ -476,7 +510,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                 e.currentTarget.style.height = 'auto';
                 e.currentTarget.style.height = (e.currentTarget.scrollHeight) + 'px';
               }}
-              className="w-full bg-transparent border-none outline-none font-serif text-3xl font-bold italic tracking-tight text-foreground placeholder:opacity-10 leading-tight focus:placeholder:opacity-5 transition-all resize-none !overflow-visible"
+              className="w-full bg-transparent border-none outline-none font-sans text-3xl font-bold italic tracking-tight text-foreground placeholder:opacity-10 leading-tight focus:placeholder:opacity-5 transition-all resize-none !overflow-visible"
             />
             <div className="flex items-center gap-3 ml-1">
                <span className="text-[10px] font-sans font-black tracking-[0.4em] uppercase opacity-30">Categoria:</span>
@@ -503,17 +537,17 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                        <div className="sticky top-44 h-[calc(100vh-200px)] group/src relative bg-surface shadow-xl border border-border/40 rounded-[3rem] p-10 transition-all hover:shadow-2xl z-10 overflow-hidden flex flex-col">
                           
                           {/* Accent Pillar */}
-                          <div className="absolute top-0 left-0 bottom-0 w-3 bg-indigo-500" />
+                          <div className="absolute top-0 left-0 bottom-0 w-3 bg-brand-gold rounded-l-[3rem]" />
                           
                           {/* Header */}
                           <div className="flex items-center justify-between mb-8 border-b border-border/5 pb-4 ml-4">
                             <div className="flex items-center gap-3 flex-1">
-                              <Book className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                              <Book className="w-4 h-4 text-brand-gold flex-shrink-0" />
                               <input 
                                 type="text"
                                 value={source.reference || ''}
                                 onChange={e => updateBibleSource(sIdx, 'reference', e.target.value)}
-                                className="bg-transparent border-none text-xs font-mono font-black uppercase tracking-[0.2em] text-indigo-500 outline-none w-full"
+                                className="bg-transparent border-none text-xs font-mono font-black uppercase tracking-[0.2em] text-brand-gold outline-none w-full"
                                 placeholder="REFERÊNCIA"
                                />
                              </div>
@@ -533,10 +567,10 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                                    await handleSave(); // SAFETY FIRST: Save before navigating
                                    onViewSnapshot(source.explorerSnapshot);
                                  }}
-                                 className="mb-6 w-full py-4 px-6 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl flex flex-col items-center justify-center gap-2 group/snap hover:bg-indigo-500 hover:border-indigo-500 transition-all shadow-lg hover:shadow-indigo-500/40"
+                                 className="mb-6 w-full py-4 px-6 bg-brand-gold/10 border border-brand-gold/20 rounded-2xl flex flex-col items-center justify-center gap-2 group/snap hover:bg-brand-gold hover:border-brand-gold transition-all shadow-lg hover:shadow-brand-gold/40"
                                >
-                                 <Sparkles className="w-5 h-5 text-indigo-500 group-hover/snap:text-white transition-colors" />
-                                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-500 group-hover/snap:text-white transition-colors">Mapa Visual do Estudo</span>
+                                 <Sparkles className="w-5 h-5 text-brand-gold group-hover/snap:text-white transition-colors" />
+                                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-brand-gold group-hover/snap:text-white transition-colors">Mapa Visual do Estudo</span>
                                </button>
                             )}
 
@@ -604,7 +638,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                                    className={cn(
                                      "w-full bg-surface shadow-xl border border-border/40 rounded-2xl p-6 transition-all duration-500 flex flex-col group/card relative z-10",
                                      "group-hover/master:shadow-2xl",
-                                     activeVerseFocusId === block.id ? "ring-2 ring-indigo-500/20" : ""
+                                     activeVerseFocusId === block.id ? "ring-2 ring-brand-gold/20" : ""
                                    )}
                                    style={{ 
                                      borderLeft: `8px solid ${blockColor}`,
@@ -633,7 +667,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                                     <div className="flex items-center gap-1 opacity-0 group-hover/card:opacity-100 transition-all">
                                        <button 
                                          onClick={() => addBlockAfter(block.id, 'APLICACAO', { parentVerseId: block.id, isInsight: true, bibleSourceId: source.id })}
-                                         className="h-7 px-3 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-full text-[9px] font-black tracking-widest transition-all uppercase"
+                                         className="h-7 px-3 bg-indigo-50 text-brand-red hover:bg-brand-red hover:text-white rounded-full text-[9px] font-black tracking-widest transition-all uppercase"
                                        >
                                          + Insight
                                        </button>
@@ -702,17 +736,27 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                                                        <option value="AMOR">Amor / Graça</option>
                                                        <option value="PECADO">Pecado / Perdão</option>
                                                        <option value="HISTORIA">História</option>
+                                                       <option value="SIGNIFICADO">Significado / Léxico</option>
                                                      </optgroup>
                                                    </select>
                                                  </div>
                                                </div>
                                                <button onClick={() => deleteBlock(subBlock.id)} className="opacity-0 group-hover/insight:opacity-100 p-1 text-red-400 hover:text-red-500 transition-all"><Trash2 className="w-3 h-3" /></button>
-                                             </div>
+                                              </div>
+                                              {subBlock.type === 'SIGNIFICADO' && (
+                                                <div className="flex items-center gap-1.5 mb-2">
+                                                  <div className="w-1.5 h-1.5 rounded-full bg-brand-gold" />
+                                                  <span className="text-[9px] font-black uppercase tracking-widest text-brand-gold/60 italic">Léxico / Original</span>
+                                                </div>
+                                              )}
                                              <textarea
                                                value={subBlock.content}
                                                onChange={(e) => handleContentChange(subBlock.id, e.target.value)}
                                                placeholder="Reflexão ou aplicação..."
-                                               className="w-full bg-transparent border-none outline-none resize-none font-sans text-base font-medium leading-relaxed text-foreground transition-all custom-scrollbar h-auto p-0"
+                                               className={cn(
+                                                 "w-full bg-transparent border-none outline-none resize-none font-sans text-base leading-relaxed text-foreground transition-all custom-scrollbar h-auto p-0",
+                                                 subBlock.type === 'SIGNIFICADO' ? "font-bold" : "font-medium"
+                                               )}
                                                onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
                                              />
                                            </div>
@@ -733,9 +777,9 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                         <div className="p-6 pt-2 pb-12">
                           <button 
                             onClick={() => addBlock('TEXTO_BASE', { bibleSourceId: source.id })}
-                            className="w-full py-6 border border-dashed border-border/20 rounded-2xl flex items-center justify-center gap-3 hover:bg-surface hover:border-indigo-500/20 transition-all group hover:shadow-xl group/add-btn"
+                            className="w-full py-6 border border-dashed border-border/20 rounded-2xl flex items-center justify-center gap-3 hover:bg-surface hover:border-brand-gold/20 transition-all group hover:shadow-xl group/add-btn"
                           >
-                            <Plus className="w-4 h-4 text-muted-foreground group-hover:text-indigo-500 transition-all" />
+                            <Plus className="w-4 h-4 text-muted-foreground group-hover:text-brand-gold transition-all" />
                             <span className="text-[9px] font-black uppercase tracking-[0.3em] opacity-10 group-hover:opacity-100 transition-opacity">Novo Texto em {source.reference}</span>
                           </button>
                         </div>
@@ -749,9 +793,9 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
               <div className="p-20 border-t border-border/10 bg-background/5 flex justify-center">
                 <button 
                   onClick={addBibleSource}
-                  className="px-16 py-12 border-2 border-dashed border-border/20 rounded-[4rem] flex flex-col items-center justify-center gap-6 hover:bg-surface hover:border-indigo-500/40 transition-all group shadow-sm hover:shadow-2xl"
+                  className="px-16 py-12 border-2 border-dashed border-border/20 rounded-[4rem] flex flex-col items-center justify-center gap-6 hover:bg-surface hover:border-brand-gold/40 transition-all group shadow-sm hover:shadow-2xl"
                 >
-                  <Plus className="w-10 h-10 text-indigo-500 group-hover:scale-125 transition-transform" />
+                  <Plus className="w-10 h-10 text-brand-gold group-hover:scale-125 transition-transform" />
                   <span className="text-[12px] font-black uppercase tracking-[0.5em] text-foreground/40 group-hover:text-foreground">Adicionar Nova Fonte Bíblica</span>
                 </button>
               </div>
@@ -796,7 +840,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                       value={source.reference} 
                       onChange={e => updateBibleSource(idx, 'reference', e.target.value)}
                       placeholder="Referência..."
-                      className="bg-transparent border-none outline-none font-mono text-base font-black text-indigo-500 uppercase tracking-[0.2em] placeholder:opacity-20"
+                      className="bg-transparent border-none outline-none font-mono text-base font-black text-brand-gold uppercase tracking-[0.2em] placeholder:opacity-20"
                     />
                     <textarea 
                       value={source.content} 
@@ -874,7 +918,7 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
                   {(sermonMeta?.history || []).map((h: any) => (
                     <div key={h.id} className="p-8 border border-border rounded-[2.5rem] bg-surface/50 hover:bg-surface hover:shadow-xl transition-all duration-500 group">
                       <div className="flex items-center justify-between mb-4">
-                        <div className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-indigo-500">{new Date(h.date).toLocaleDateString('pt-BR')}</div>
+                        <div className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-brand-gold">{new Date(h.date).toLocaleDateString('pt-BR')}</div>
                         <CheckCircle2 className="w-4 h-4 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
                       <div className="flex items-center gap-3 mb-3"><MapPin className="w-4 h-4 text-muted-foreground" /><span className="text-lg font-bold font-serif italic">{h.location}</span><span className="text-sm opacity-40 font-sans">{h.city}</span></div>
@@ -888,22 +932,47 @@ export default function SermonCanvas({ sermonId, initialData, onBack, onStart, o
         )}
       </AnimatePresence>
 
-      {/* FIXED ACTION BAR AT THE BOTTOM */}
-      <footer className="fixed bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-4 px-8 py-4 bg-foreground/90 text-background backdrop-blur-xl rounded-full shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] z-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
-         <div className="flex items-center gap-3 pr-6 border-r border-background/20">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgb(16,185,129)]" />
-            <span className="text-[10px] font-sans font-black tracking-widest uppercase opacity-60">Sessão Pronta</span>
-         </div>
-         <Button 
-            className="bg-background text-foreground hover:bg-background/90 flex items-center gap-3 h-10 px-10 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl shadow-background/10 active:scale-95 transition-all"
-            onClick={() => {
-              handleSave();
-              if (onStart) onStart();
-            }}
-          >
-           <Play className="w-3.5 h-3.5 fill-current" /> Começar Sessão
-          </Button>
-      </footer>
+      <AnimatePresence>
+        {isShareModalOpen && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsShareModalOpen(false)} className="fixed inset-0 bg-background/80 backdrop-blur-md z-[200]" />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }} 
+              animate={{ opacity: 1, scale: 1, y: 0 }} 
+              exit={{ opacity: 0, scale: 0.95, y: 20 }} 
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-surface border border-border rounded-[3rem] z-[201] shadow-2xl p-10"
+            >
+              <div className="flex flex-col gap-8">
+                <div>
+                  <h2 className="text-2xl font-serif font-black italic">Partilhar Estudo</h2>
+                  <p className="text-[10px] font-sans font-black tracking-[0.3em] uppercase opacity-30 mt-1">Selecione uma comunidade ministerial</p>
+                </div>
+
+                <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto custom-scrollbar">
+                  {myCommunities.map((c) => (
+                    <button 
+                      key={c.id}
+                      onClick={() => handleShareSermon(c.id)}
+                      className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-foreground/5 border border-transparent hover:border-border transition-all group"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-brand-gold/10 flex items-center justify-center text-brand-gold"><Users className="w-5 h-5" /></div>
+                        <span className="font-bold text-sm uppercase tracking-tight">{c.name}</span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 opacity-20 group-hover:opacity-100 transition-opacity" />
+                    </button>
+                  ))}
+                  {myCommunities.length === 0 && (
+                    <div className="py-12 text-center opacity-30 text-xs italic">Nenhuma comunidade ativa encontrada.</div>
+                  )}
+                </div>
+
+                <Button variant="ghost" onClick={() => setIsShareModalOpen(false)} className="w-full rounded-2xl h-12 uppercase font-black text-[10px] tracking-widest border border-border">Cancelar</Button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

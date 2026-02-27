@@ -1,15 +1,19 @@
 @import "tailwindcss";
 
 @theme {
-  --font-serif: var(--font-playfair-display), ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-  --font-sans: var(--font-outfit), -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-  --font-modern: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
-  --font-theological: var(--font-lora), ui-serif, Georgia, serif;
-  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, monospace;
+  --font-serif: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-modern: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-theological: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, monospace;
   
-  --color-exegesis: #64748b;
-  --color-application: #a8a29e;
-  --color-emphasis: #737373;
+  --color-brand-red: #722f27;
+  --color-brand-gold: #b08d57;
+  --color-brand-rice: #f2f0e6;
+
+  --color-exegesis: var(--color-brand-gold);
+  --color-application: var(--color-brand-red);
+  --color-emphasis: #ff3b30;
 
   --color-background: var(--bg-primary);
   --color-foreground: var(--text-primary);
@@ -20,41 +24,22 @@
 }
 
 :root {
-  /* LIGHT THEME (Premium Studio White) */
-  --bg-primary: #f8fafc;
-  --bg-surface: #ffffff;
-  --text-primary: #0f172a;
-  --text-secondary: #64748b;
-  --border-color: #e2e8f0;
-  --glow-opacity: 0.1;
-  --glass-bg: rgba(255, 255, 255, 0.8);
+  /* RICE & BEANS PRO LIGHT THEME */
+  --bg-primary: #fdfdfb;       /* Warm Rice White */
+  --bg-surface: #f7f6f2;       /* Creamy Surface */
+  --text-primary: #1d1d1f;     /* Apple Neutral Black */
+  --text-secondary: #722f27;   /* Bean Red as secondary emphasis */
+  --border-color: #e5e2d9;     /* Earthy Border */
+  --glow-opacity: 0.03;
+  --glass-bg: rgba(253, 253, 251, 0.85);
   
-  /* Unified Theological Palette - Light Optimized */
-  --color-texto: #6366f1;      
-  --color-exegese: #4f46e5;    
-  --color-aplicacao: #d97706;  
-  --color-ilustracao: #059669; 
-  --color-enfase: #e11d48;     
-  --color-custom: #64748b;     
-}
-
-.dark {
-  /* DARK THEME (Sophisticated Ink & Slate) */
-  --bg-primary: #0a0b0d;   /* Deep charcoal ink */
-  --bg-surface: #121418;   /* Elevated surface */
-  --text-primary: #f8fafc;  /* Pristine text for readability */
-  --text-secondary: #94a3b8; /* Slate grey for hierarchy */
-  --border-color: #262933;  /* Well-defined boundaries */
-  --glow-opacity: 0.3;
-  --glass-bg: rgba(10, 11, 13, 0.8);
-  
-  /* Unified Theological Palette - Dark Optimized */
-  --color-texto: #818cf8;      
-  --color-exegese: #6366f1;    
-  --color-aplicacao: #fbbf24;  
-  --color-ilustracao: #10b981; 
-  --color-enfase: #f43f5e;     
-  --color-custom: #94a3b8;     
+  /* Shared Accent (Rice & Beans Identity) */
+  --color-texto: #722f27;      /* Bean Red */
+  --color-exegese: #b08d57;    /* Bowl Gold */
+  --color-aplicacao: #8b4513;  
+  --color-ilustracao: #b8860b; 
+  --color-enfase: #722f27;     
+  --color-custom: #1d1d1f;     
 }
 
 body {
@@ -66,8 +51,12 @@ body {
 }
 
 @layer base {
-  h1, h2, h3 {
-    font-family: var(--font-playfair-display), serif;
+  body {
+    font-family: var(--font-sans);
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-sans);
+    letter-spacing: -0.02em;
   }
 }
 

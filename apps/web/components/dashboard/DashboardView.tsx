@@ -2,14 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit2, Play, Clock, MoreVertical, Calendar, Search, History, Sparkles, ChevronRight, X, Zap, BookOpen, Layout, Trash2 } from 'lucide-react';
+import { Plus, Edit2, Play, Clock, MoreVertical, Calendar, Search, History, Sparkles, ChevronRight, X, Zap, BookOpen, Layout, Trash2, Users } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
-import { ThemeToggle } from '@/components/theme-toggle';
 import { useSession } from "next-auth/react";
 import { UserMenu } from "@/components/auth-components";
 
@@ -29,9 +28,10 @@ interface DashboardViewProps {
   onEdit: (sermon: SermonMeta) => void;
   onStart: (sermon: SermonMeta, timeInMinutes: number) => void;
   onBible: () => void;
+  onCommunity: () => void;
 }
 
-export default function DashboardView({ onEdit, onStart, onBible }: DashboardViewProps) {
+export default function DashboardView({ onEdit, onStart, onBible, onCommunity }: DashboardViewProps) {
   const { data: session } = useSession();
   const [sermons, setSermons] = useState<SermonMeta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,93 +115,72 @@ export default function DashboardView({ onEdit, onStart, onBible }: DashboardVie
 
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col relative transition-colors duration-500">
-      <header className="h-24 sticky top-0 border-b border-border bg-surface/80 backdrop-blur-md flex items-center justify-between px-12 z-50">
-        <h1 className="text-2xl font-sans tracking-tight">
-          <span className="font-bold">Preachfy</span> 
-          <span className="font-light opacity-40 ml-2 uppercase text-[10px] tracking-[0.2em] relative top-[-1px]">Workbench</span>
-        </h1>
-        <div className="flex items-center gap-8">
-          <ThemeToggle />
-          <button 
-            onClick={onBible}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 hover:bg-indigo-500 hover:text-white transition-all text-[11px] font-black uppercase tracking-widest group"
-          >
-            <BookOpen className="w-4 h-4 group-hover:scale-110 transition-transform" />
-            Bíblia
-          </button>
-          <UserMenu />
-        </div>
-      </header>
+    <div className="bg-background text-foreground flex flex-col relative">
 
-      <main className="flex-1 w-full max-w-6xl mx-auto mt-16 px-12 pb-32">
+      <main className="flex-1 w-full max-w-5xl mx-auto mt-12 px-8 pb-32">
         {/* Welcome Section */}
-          <div className="flex flex-col gap-2">
-            <h2 className="text-4xl font-serif font-bold italic tracking-tight text-foreground">Graça e Paz, {session?.user?.name?.split(' ')[0] || 'Pregador'}.</h2>
-            <p className="text-sm font-sans font-medium text-muted-foreground opacity-60">Sua biblioteca de mensagens está pronta para ser expandida.</p>
-          </div>
+        <section className="mb-12">
+          <h2 className="text-3xl font-semibold tracking-tight text-foreground">Graça e Paz, {session?.user?.name?.split(' ')[0] || 'Pregador'}.</h2>
+          <p className="text-sm font-medium text-muted-foreground mt-1">Sua biblioteca de mensagens está pronta para ser expandida.</p>
+        </section>
 
-        <div className="flex items-center justify-between mb-10">
-          <h2 className="text-[11px] font-sans font-black tracking-[0.4em] uppercase text-muted-foreground flex-shrink-0">Meus Sermões</h2>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4 flex-1 max-w-md">
+            <div className="relative w-full group">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-colors group-focus-within:text-foreground" />
+              <input 
+                type="text" 
+                placeholder="Pesquisar sermões..." 
+                className="w-full h-11 bg-foreground/5 border-none rounded-xl pl-10 pr-4 text-sm font-medium placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-foreground/10 transition-all font-sans"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
           
-          <div className="flex-1 max-w-xl mx-12 relative group">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/30 group-focus-within:text-foreground transition-colors" />
-            <input 
-              type="text" 
-              placeholder="Buscar pregações por tema ou versículo..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-surface/40 border border-border/80 rounded-full py-4 pl-14 pr-6 text-sm font-sans text-foreground outline-none focus:border-foreground/20 focus:bg-surface/60 transition-all shadow-sm"
-            />
-          </div>
-
-          <div className="flex items-center gap-4">
-
-            <button 
-              onClick={() => setIsCreating(true)}
-              className="flex items-center gap-3 px-8 py-3.5 rounded-full bg-foreground text-background font-sans text-[11px] font-black uppercase tracking-[0.15em] hover:scale-[1.02] active:scale-[0.98] transition-all flex-shrink-0 shadow-xl shadow-foreground/10"
-            >
-              <Plus className="w-4 h-4" /> Criar Novo
-            </button>
-          </div>
+          <button 
+            onClick={() => setIsCreating(true)}
+            className="h-11 px-6 rounded-full bg-brand-red text-white font-semibold text-sm hover:opacity-90 transition-all shadow-sm"
+          >
+            Novo Estudo
+          </button>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-1 gap-3">
           {filteredSermons.map((sermon) => (
             <motion.div 
               layout
               key={sermon.id} 
-              className="group relative flex items-center justify-between bg-surface/30 border border-border hover:border-foreground/10 rounded-[2.5rem] p-4 pr-10 hover:shadow-2xl hover:shadow-black/5 transition-all duration-500 overflow-hidden min-h-[140px]"
+              className="group relative flex items-center justify-between bg-surface/50 border border-border rounded-2xl p-6 hover:bg-surface transition-all"
             >
-              <div className="flex items-center flex-1 h-full pl-6 pr-4 gap-12 min-w-0">
-                <div className="flex flex-col gap-1 w-32 shrink-0">
-                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-500/50">Postado</span>
-                  <span className="text-xs font-mono font-bold text-foreground/40">{sermon.date}</span>
+              <div className="flex items-center gap-8 flex-1 min-w-0">
+                <div className="flex flex-col gap-1 w-24 shrink-0">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Criado</span>
+                  <span className="text-xs font-semibold">{sermon.date}</span>
                 </div>
 
-                <div className="flex flex-col flex-1 gap-1.5 min-w-0">
-                  <h3 className="text-2xl font-serif font-black text-foreground flex items-center flex-wrap gap-4 group-hover:italic transition-all leading-tight">
-                    <span className="line-clamp-2">{sermon.title}</span>
+                <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-semibold tracking-tight text-foreground truncate">{sermon.title}</h3>
                     {sermon.category && (
-                      <span className="text-[10px] font-sans font-black uppercase tracking-widest px-3 py-1 rounded-full bg-foreground/5 border border-border opacity-60 shrink-0">
+                      <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md bg-foreground/5 text-muted-foreground border border-border/50">
                         {sermon.category}
                       </span>
                     )}
-                  </h3>
-
-                  <div className="flex items-center gap-6 text-[10px] font-sans font-black uppercase tracking-[0.2em] opacity-30 group-hover:opacity-50 transition-opacity">
-                    <div className="flex items-center gap-2">
+                  </div>
+                  
+                  <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
                       <History className="w-3.5 h-3.5" />
-                      <span>{sermon._count?.history || 0}</span>
+                      <span>{sermon._count?.history || 0} ministrações</span>
                     </div>
                     {sermon.status && (
                       <div className={cn(
-                        "flex items-center gap-2",
-                        sermon.status === 'READY' ? "text-emerald-500 opacity-100" : 
-                        sermon.status === 'DRAFT' ? "text-amber-500 opacity-100" : ""
+                        "flex items-center gap-1.5",
+                        sermon.status === 'READY' ? "text-brand-gold" : "text-orange-500"
                       )}>
-                         <Sparkles className="w-3.5 h-3.5" />
-                         <span>{sermon.status}</span>
+                        <div className="w-1.5 h-1.5 rounded-full bg-current" />
+                        <span>{sermon.status}</span>
                       </div>
                     )}
                   </div>

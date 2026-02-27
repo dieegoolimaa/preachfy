@@ -7,5 +7,10 @@ export type {
     Session,
     VerificationToken,
     MinistryHistory,
-    GlobalInsight
+    GlobalInsight,
+    Community,
+    CommunityMember,
+    CommunityPost,
+    CommunityEvent,
+    Notification
 } from '@prisma/client';

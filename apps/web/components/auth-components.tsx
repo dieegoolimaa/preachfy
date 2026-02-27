@@ -21,26 +21,32 @@ export function UserMenu() {
   if (!session?.user) return <LoginButton />;
 
   return (
-    <div className="flex items-center gap-4">
-      <div className="flex flex-col items-end max-sm:hidden">
-        <span className="text-[11px] font-black uppercase tracking-widest">{session.user.name}</span>
-        <span className="text-[9px] opacity-40 font-mono italic">{session.user.email}</span>
+    <div className="flex items-center gap-3">
+      <div className="flex flex-col items-end hidden md:flex">
+        <span className="text-xs font-semibold tracking-tight leading-none">{session.user.name}</span>
+        <span className="text-[10px] text-muted-foreground mt-0.5">{session.user.email}</span>
       </div>
-      {session.user.image && (
-        <img 
-          src={session.user.image} 
-          alt={session.user.name || "User"} 
-          className="w-10 h-10 rounded-full border border-border shadow-sm"
-        />
-      )}
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        onClick={() => signOut()}
-        className="rounded-full hover:bg-red-500/10 hover:text-red-500"
-      >
-        <LogOut className="w-4 h-4" />
-      </Button>
+      <div className="relative group">
+        <button 
+          onClick={() => signOut()}
+          className="relative block"
+        >
+          {session.user.image ? (
+            <img 
+              src={session.user.image} 
+              alt={session.user.name || "User"} 
+              className="w-8 h-8 rounded-full border border-border bg-foreground/5 shadow-sm"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full border border-border bg-foreground/[0.02] flex items-center justify-center text-[10px] font-bold">
+              {session.user.name?.[0] || 'U'}
+            </div>
+          )}
+          <div className="absolute inset-0 bg-red-500 rounded-full opacity-0 group-hover:opacity-10 transition-opacity flex items-center justify-center">
+            <LogOut className="w-3 h-3 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+        </button>
+      </div>
     </div>
   );
 }

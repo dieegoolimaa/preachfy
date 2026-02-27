@@ -8,8 +8,10 @@ import BibleExplorer from "@/components/dashboard/BibleExplorer";
 import LandingView from "@/components/LandingView";
 import { useSession } from "next-auth/react";
 import { Loader2 } from "lucide-react";
+import CommunityHub from "@/components/community/CommunityHub";
+import { Navbar } from "@/components/layout/Navbar";
 
-type ViewState = 'dashboard' | 'study' | 'pulpit' | 'bible';
+type ViewState = 'dashboard' | 'study' | 'pulpit' | 'bible' | 'community';
 
 export default function Home() {
   const { environment } = require('@/environments');
@@ -41,7 +43,26 @@ export default function Home() {
 
     const savedSnapshot = localStorage.getItem('preachfy_bible_snapshot');
     if (savedSnapshot) setBibleSnapshot(JSON.parse(savedSnapshot));
-  }, []);
+
+    // Check for Community Auto-Join Link
+    const params = new URLSearchParams(window.location.search);
+    const inviteCode = params.get('join');
+    if (inviteCode && session?.user?.id) {
+      const { environment } = require('@/environments');
+      fetch(`${environment.apiUrl}/community/join/${inviteCode}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: session.user.id })
+      }).then(res => {
+        if (res.ok) {
+          alert("Você entrou em uma nova comunidade ministerial!");
+          setView('community');
+          // Clean URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      });
+    }
+  }, [session?.user?.id]);
 
   // Save state on change
   useEffect(() => {
@@ -103,9 +124,9 @@ export default function Home() {
         if (l.includes('profecia')) return 'PROFECIA';
         if (l.includes('cristo') || l.includes('realeza')) return 'CRISTO';
         if (l.includes('adoracao')) return 'ADORACAO';
-        if (l.includes('amor') || l.includes('graca')) return 'AMOR';
         if (l.includes('pecado') || l.includes('perdao')) return 'PECADO';
         if (l.includes('historia')) return 'HISTORIA';
+        if (l.includes('significado') || l.includes('lexico') || l.includes('original')) return 'SIGNIFICADO';
         return 'APLICACAO';
       };
 
@@ -233,59 +254,69 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-background relative">
-      {view === 'dashboard' && (
-        <DashboardView 
-          onEdit={handleEditSermon} 
-          onStart={handleStartPulpit}
-          onBible={() => {
-            setBibleSnapshot(null);
-            localStorage.removeItem('preachfy_bible_highlights');
-            localStorage.removeItem('preachfy_bible_labels');
-            setView('bible');
-          }}
+    <main className="min-h-screen bg-background relative flex flex-col">
+      {view !== 'pulpit' && (
+        <Navbar 
+          currentView={view} 
+          onViewChange={setView}
+          onBack={view !== 'dashboard' ? () => setView('dashboard') : undefined}
         />
       )}
-      
-      {view === 'study' && activeSermon && (
-        <div className="relative w-full">
-          <SermonCanvas 
-            sermonId={activeSermon.id} 
-            initialData={activeSermon}
-            onBack={() => setView('dashboard')} 
-            onStart={() => setView('pulpit')}
-            onViewSnapshot={(snapshot) => {
-              setBibleSnapshot(snapshot);
-              setView('bible');
-            }}
-          />
-        </div>
-      )}
 
-      {view === 'pulpit' && activeSermon && (
-        <div className="relative w-full h-full">
-          <PulpitView 
-            sermonId={activeSermon.id}
-            targetTime={targetTime} 
-            onExit={() => setView('dashboard')} 
-            onStudy={() => setView('study')}
+      <div className="flex-1 overflow-hidden h-full">
+        {view === 'dashboard' && (
+          <DashboardView 
+            onEdit={handleEditSermon} 
+            onStart={handleStartPulpit}
+            onBible={() => setView('bible')}
+            onCommunity={() => setView('community')}
           />
-        </div>
-      )}
+        )}
 
-      {view === 'bible' && (
-        <BibleExplorer 
-          onBack={() => setView(activeSermon ? 'study' : 'dashboard')} 
-          onCreateSermon={handleCreateSermonFromBible}
-          initialHighlights={bibleSnapshot?.highlights}
-          initialCustomLabels={bibleSnapshot?.labels}
-          initialBook={bibleSnapshot?.book}
-          initialChapter={bibleSnapshot?.chapter}
-          initialAbbrev={bibleSnapshot?.abbrev}
-          initialVersion={bibleSnapshot?.version}
-          sermonTitle={activeSermon?.title}
-        />
-      )}
+        {view === 'community' && (
+          <CommunityHub onBack={() => setView('dashboard')} />
+        )}
+        
+        {view === 'study' && activeSermon && (
+          <div className="relative w-full">
+            <SermonCanvas 
+              sermonId={activeSermon.id} 
+              initialData={activeSermon}
+              onBack={() => setView('dashboard')} 
+              onStart={() => setView('pulpit')}
+              onViewSnapshot={(snapshot) => {
+                setBibleSnapshot(snapshot);
+                setView('bible');
+              }}
+            />
+          </div>
+        )}
+
+        {view === 'pulpit' && activeSermon && (
+          <div className="relative w-full h-full">
+            <PulpitView 
+              sermonId={activeSermon.id}
+              targetTime={targetTime} 
+              onExit={() => setView('dashboard')} 
+              onStudy={() => setView('study')}
+            />
+          </div>
+        )}
+
+        {view === 'bible' && (
+          <BibleExplorer 
+            onBack={() => setView(activeSermon ? 'study' : 'dashboard')} 
+            onCreateSermon={handleCreateSermonFromBible}
+            initialHighlights={bibleSnapshot?.highlights}
+            initialCustomLabels={bibleSnapshot?.labels}
+            initialBook={bibleSnapshot?.book}
+            initialChapter={bibleSnapshot?.chapter}
+            initialAbbrev={bibleSnapshot?.abbrev}
+            initialVersion={bibleSnapshot?.version}
+            sermonTitle={activeSermon?.title}
+          />
+        )}
+      </div>
     </main>
   );
 }

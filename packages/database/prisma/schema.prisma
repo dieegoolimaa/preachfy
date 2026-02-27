@@ -17,8 +17,71 @@ model User {
   sessions      Session[]
   sermons       Sermon[]
   insights      GlobalInsight[]
+  communities   CommunityMember[]
+  ownedCommunities Community[] @relation("CommunityOwner")
+  notifications Notification[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+}
+
+
+model Community {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  description   String?
+  ownerId       String    @db.ObjectId
+  owner         User      @relation("CommunityOwner", fields: [ownerId], references: [id])
+  inviteCode    String    @unique
+  members       CommunityMember[]
+  posts         CommunityPost[]
+  events        CommunityEvent[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model CommunityMember {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String    @db.ObjectId
+  user          User      @relation(fields: [userId], references: [id])
+  communityId   String    @db.ObjectId
+  community     Community @relation(fields: [communityId], references: [id])
+  role          String    @default("MEMBER") // LEADER, MEMBER
+  joinedAt      DateTime  @default(now())
+
+  @@unique([userId, communityId])
+}
+
+model CommunityPost {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  communityId   String    @db.ObjectId
+  community     Community @relation(fields: [communityId], references: [id])
+  content       String
+  authorId      String    @db.ObjectId
+  vistoPor      String[]  // Array de UserIds (knowledge acknowledgment)
+  createdAt     DateTime  @default(now())
+}
+
+model CommunityEvent {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  communityId   String    @db.ObjectId
+  community     Community @relation(fields: [communityId], references: [id])
+  title         String
+  description   String?
+  date          DateTime
+  meetLink      String?
+  createdAt     DateTime  @default(now())
+}
+
+model Notification {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String    @db.ObjectId
+  user          User      @relation(fields: [userId], references: [id])
+  type          String    // INFO, COMMUNITY, EVENT
+  title         String
+  message       String
+  link          String?
+  read          Boolean   @default(false)
+  createdAt     DateTime  @default(now())
 }
 
 model Account {

@@ -9,8 +9,8 @@ export default function LandingView() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center relative overflow-hidden p-6">
       {/* Background Orbs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/10 blur-[120px] rounded-full" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-500/10 blur-[120px] rounded-full" />
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand-red/5 blur-[120px] rounded-full" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-brand-gold/5 blur-[120px] rounded-full" />
 
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
@@ -25,13 +25,13 @@ export default function LandingView() {
           >
             <Zap className="w-10 h-10 text-background fill-current" />
           </motion.div>
-          <h1 className="text-6xl font-serif font-black italic tracking-tighter">Preachfy</h1>
-          <p className="text-[12px] font-sans font-black tracking-[0.4em] uppercase opacity-30">Pulpit Performance Engine</p>
+          <h1 className="text-5xl font-sans font-black tracking-tight">Rice & Beans Preaching</h1>
+          <p className="text-[11px] font-sans font-black tracking-[0.4em] uppercase opacity-30 mt-1">Pulpit Performance Engine</p>
         </div>
 
         <div className="flex flex-col gap-6">
-          <h2 className="text-4xl md:text-5xl font-serif font-bold leading-[1.1]">
-            A arte da pregação elevada por um <span className="text-indigo-500 italic">design focado</span>.
+          <h2 className="text-4xl md:text-5xl font-sans font-bold leading-[1.15] tracking-tight">
+            A arte da pregação elevada por um <span className="text-brand-red italic">design focado</span>.
           </h2>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto leading-relaxed">
             Organize seu fluxo teológico, gerencie referências bíblicas e entregue sua mensagem com clareza absoluta no Púlpito.

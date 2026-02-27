@@ -7,7 +7,7 @@ import {
   Maximize2, Minimize2, ArrowLeft, ArrowRight, MoreVertical, 
   LayoutGrid, Zap, Sparkles, GripVertical, CheckCircle2,
   Quote, CornerDownRight, LinkIcon, Trash2, Layout, LogOut, Plus, Highlighter, MessageSquare,
-  BookOpen, HelpCircle, Target, Lightbulb, AlertTriangle, Cloud, Info, History
+  BookOpen, HelpCircle, Target, Lightbulb, AlertTriangle, Cloud, Info, History, Languages
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -46,6 +46,7 @@ const CATEGORY_MAP: Record<string, { label: string, color: string, icon: React.R
   AMOR: { label: 'Amor / Graça', color: '#fda4af', icon: <Plus className="w-4 h-4" /> },
   PECADO: { label: 'Pecado / Perdão', color: '#f5d0fe', icon: <Trash2 className="w-4 h-4" /> },
   HISTORIA: { label: 'História', color: '#cbd5e1', icon: <History className="w-4 h-4" /> },
+  SIGNIFICADO: { label: 'Significado de Palavra', color: '#a8a29e', icon: <Languages className="w-4 h-4" /> },
   CUSTOMIZAR: { label: 'Customizar...', color: 'var(--color-custom)', icon: <MessageSquare className="w-4 h-4" /> }
 };
 
@@ -266,10 +267,8 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
   // Enhanced grouping logic: Group by parent-child relationship
   const groupedBlocks = React.useMemo(() => {
     const result: any[][] = [];
+    
     const usedIds = new Set<string>();
-
-    // 1. First capture primary anchors (anything NOT marked as Insight)
-    // They maintain their original order
     const anchors = blocks.filter(b => !b.metadata?.isInsight);
 
     anchors.forEach(anchor => {
@@ -394,14 +393,14 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
   if (loading) {
     return (
       <div className="fixed inset-0 bg-background flex flex-col items-center justify-center gap-6">
-        <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+        <div className="w-16 h-16 border-4 border-brand-gold/20 border-t-brand-gold rounded-full animate-spin" />
         <p className="text-[12px] font-black uppercase tracking-[0.4em] opacity-40">Preparando Altar...</p>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-background text-foreground flex overflow-hidden font-sans selection:bg-indigo-500/30">
+    <div className="fixed inset-0 bg-background text-foreground flex overflow-hidden font-sans selection:bg-brand-gold/30">
       <AnimatePresence>
         {isSidebarOpen && (
           <motion.aside 
@@ -416,17 +415,17 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
               <button 
                 onClick={() => setSidebarTab('BIBLIA')}
                 className={cn(
-                  "flex-1 py-4 text-[16px] font-black tracking-[0.3em] uppercase transition-all flex items-center justify-center gap-3",
-                  sidebarTab === 'BIBLIA' ? "text-foreground bg-foreground/5 shadow-[inset_0_-2px_0_var(--foreground)]" : "text-muted-foreground hover:text-foreground"
+                  "flex-1 py-4 text-[11px] font-black tracking-[0.3em] uppercase transition-all flex items-center justify-center gap-2",
+                  sidebarTab === 'BIBLIA' ? "text-brand-red bg-foreground/5 shadow-[inset_0_-2px_0_var(--color-brand-red)]" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Book className="w-4 h-4" /> Bíblia
+                <Book className="w-3.5 h-3.5" /> Bíblia
               </button>
               <button 
                 onClick={() => setSidebarTab('ESTRUTURA')}
                 className={cn(
-                  "flex-1 py-4 text-[13px] font-black tracking-[0.2em] uppercase transition-all flex items-center justify-center gap-2",
-                  sidebarTab === 'ESTRUTURA' ? "text-foreground bg-foreground/5 shadow-[inset_0_-2px_0_var(--foreground)]" : "text-muted-foreground hover:text-foreground"
+                  "flex-1 py-4 text-[11px] font-black tracking-[0.2em] uppercase transition-all flex items-center justify-center gap-2",
+                  sidebarTab === 'ESTRUTURA' ? "text-brand-red bg-foreground/5 shadow-[inset_0_-2px_0_var(--color-brand-red)]" : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <LayoutGrid className="w-3.5 h-3.5" /> Mapa
@@ -434,14 +433,14 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
               <button 
                 onClick={() => setSidebarTab('INSIGHTS')}
                 className={cn(
-                  "flex-1 py-4 text-[13px] font-black tracking-[0.2em] uppercase transition-all flex items-center justify-center gap-2",
-                  sidebarTab === 'INSIGHTS' ? "text-foreground bg-foreground/5 shadow-[inset_0_-2px_0_var(--foreground)]" : "text-muted-foreground hover:text-foreground"
+                  "flex-1 py-4 text-[11px] font-black tracking-[0.2em] uppercase transition-all flex items-center justify-center gap-2",
+                  sidebarTab === 'INSIGHTS' ? "text-brand-red bg-foreground/5 shadow-[inset_0_-2px_0_var(--color-brand-red)]" : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Insights</span>
                 {blocks.filter(b => b.metadata?.isInsight && b.metadata?.insightStatus !== 'COMPLETED').length > 0 && (
-                  <span className="flex items-center justify-center bg-indigo-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black min-w-[20px] shadow-lg shadow-indigo-500/20">
+                  <span className="flex items-center justify-center bg-brand-gold text-white text-[10px] px-2 py-0.5 rounded-full font-black min-w-[20px] shadow-lg shadow-brand-gold/20">
                     {blocks.filter(b => b.metadata?.isInsight && b.metadata?.insightStatus !== 'COMPLETED').length}
                   </span>
                 )}
@@ -455,7 +454,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                     <div key={source.id} className="flex flex-col gap-3">
                        <div className="flex items-center gap-2">
                          <div className="h-px flex-1 bg-border/40" />
-                         <div className="text-[14px] font-black uppercase tracking-[0.2em] text-indigo-500">{source.reference || 'Texto'}</div>
+                         <div className="text-[14px] font-black uppercase tracking-[0.2em] text-brand-gold">{source.reference || 'Texto'}</div>
                          <div className="h-px flex-1 bg-border/40" />
                        </div>
                        <div className="flex flex-col gap-1.5">
@@ -470,7 +469,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                              )}
                            >
                              <span className={cn("text-[18px] font-mono font-medium mt-0.5", (String(v.v) === activeVerseId && source.id === activeSourceId) ? "opacity-100" : "opacity-20")}>{v.v}</span>
-                             <span className="text-[21px] leading-relaxed font-serif">{v.text}</span>
+                             <span className="text-[21px] leading-relaxed font-sans">{v.text}</span>
                            </div>
                          ))}
                        </div>
@@ -483,7 +482,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
               ) : sidebarTab === 'ESTRUTURA' ? (
                 <div className="p-5 flex flex-col gap-4 relative">
                   {/* Tactical Roadmap Track */}
-                  <div className="absolute left-[2.1rem] top-12 bottom-12 w-0.5 bg-gradient-to-b from-indigo-500/30 via-indigo-500/10 to-transparent rounded-full -z-0" />
+                  <div className="absolute left-[2.1rem] top-12 bottom-12 w-0.5 bg-gradient-to-b from-brand-gold/30 via-brand-gold/10 to-transparent rounded-full -z-0" />
 
                   
                   {groupedBlocks.map((group, gIdx) => {
@@ -509,8 +508,8 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                           <div className="relative z-10 flex flex-col items-center shrink-0">
                             <div className={cn(
                               "w-10 h-10 transition-all duration-500 flex items-center justify-center rounded-xl rotate-45 border-2",
-                              isActive ? "bg-indigo-600 border-indigo-400 shadow-[0_0_30px_rgba(79,70,229,0.8)] scale-125 z-20" : 
-                              isPast ? "bg-indigo-500/20 border-indigo-500/30 text-indigo-500" : "bg-surface border-border"
+                              isActive ? "bg-brand-red border-brand-gold shadow-[0_0_30px_rgba(114,47,39,0.6)] scale-125 z-20" : 
+                              isPast ? "bg-brand-gold/20 border-brand-gold/30 text-brand-gold" : "bg-surface border-border"
                             )}>
                                <div className="-rotate-45">
                                  {isPast ? (
@@ -525,20 +524,20 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                                  )}
                                </div>
                             </div>
-                            {isActive && <div className="absolute inset-0 bg-indigo-500/40 blur-2xl rounded-full scale-150 -z-10 animate-pulse" />}
+                            {isActive && <div className="absolute inset-0 bg-brand-gold/40 blur-2xl rounded-full scale-150 -z-10 animate-pulse" />}
                           </div>
 
           
                           {/* Info Block */}
                           <div className={cn(
                             "flex-1 flex flex-col gap-0.5 p-2.5 rounded-2xl transition-all duration-300 border ml-1",
-                            isActive ? "bg-indigo-500/10 border-indigo-500/30 shadow-2xl backdrop-blur-md ring-1 ring-white/10" : "bg-transparent border-transparent"
+                            isActive ? "bg-brand-gold/10 border-brand-gold/30 shadow-2xl backdrop-blur-md ring-1 ring-white/10" : "bg-transparent border-transparent"
                           )}>
                             <div className="flex items-center justify-between gap-4">
                                <div className="flex items-center gap-2">
                                  <span className={cn(
                                    "text-[9px] font-black uppercase tracking-[0.25em] px-2 py-0.5 rounded-md", 
-                                   isActive ? "bg-indigo-500 text-white" : "text-muted-foreground/30"
+                                   isActive ? "bg-brand-gold text-white" : "text-muted-foreground/30"
                                  )}>
                                    {rootBlock.metadata?.customLabel || (CATEGORY_MAP[rootBlock.type]?.label || rootBlock.type).split(' / ')[0].split(' (')[0]}
                                  </span>
@@ -546,7 +545,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                                {rootBlock.metadata?.reference && (
                                  <span className={cn(
                                    "text-[8.5px] font-mono font-black uppercase tracking-[0.1em] shrink-0",
-                                   isActive ? "opacity-60 text-indigo-400" : "opacity-20"
+                                   isActive ? "opacity-60 text-brand-gold" : "opacity-20"
                                  )}>
                                    {rootBlock.metadata.reference.split(' (')[0]}
                                  </span>
@@ -564,12 +563,12 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
 
                         {/* Insights List (Nested markers) */}
                         {insights.length > 0 && (
-                          <div className="flex flex-col gap-1.5 ml-3 border-l-2 border-indigo-500/10 pl-8 my-0.5">
+                          <div className="flex flex-col gap-1.5 ml-3 border-l-2 border-brand-gold/10 pl-8 my-0.5">
                              {insights.map((insight: any) => {
                                const iCat = (CATEGORY_MAP[insight.type] || CATEGORY_MAP.CUSTOMIZAR) as any;
                                return (
                                  <div key={insight.id} className="flex items-center gap-3 py-1 opacity-40 hover:opacity-100 transition-opacity group/sub">
-                                    <div className="w-4 h-4 rounded-md border border-border flex items-center justify-center bg-surface group-hover/sub:border-indigo-500/30 shrink-0">
+                                    <div className="w-4 h-4 rounded-md border border-border flex items-center justify-center bg-surface group-hover/sub:border-brand-gold/30 shrink-0">
                                        {React.cloneElement(iCat.icon as React.ReactElement<any>, { className: "w-2.5 h-2.5 stroke-[2.5px] opacity-40" })}
                                     </div>
                                     <div className="flex flex-col min-w-0 flex-1">
@@ -599,8 +598,8 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
               ) : (
                 <div className="p-6 flex flex-col gap-6">
                   <div className="flex flex-col gap-2">
-                    <h3 className="text-2xl font-serif font-black italic text-foreground/90">Novas Revelações</h3>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500 opacity-60">Capturadas durante o Altar</p>
+                    <h3 className="text-2xl font-sans font-black italic text-foreground/90">Novas Revelações</h3>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-brand-gold opacity-60">Capturadas durante o Altar</p>
                   </div>
                   
                   <div className="flex flex-col gap-4">
@@ -612,7 +611,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                         className="bg-surface border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-all group flex flex-col gap-4"
                       >
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-mono font-bold text-indigo-500 uppercase tracking-tighter bg-indigo-500/10 px-2 py-0.5 rounded">
+                          <span className="text-[10px] font-mono font-bold text-brand-gold uppercase tracking-tighter bg-brand-gold/10 px-2 py-0.5 rounded">
                             {block.metadata?.reference}
                           </span>
                           {block.metadata?.insightStatus === 'PENDING' ? (
@@ -636,7 +635,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                               placeholder="Digite aqui a revelação recebida..."
                               value={block.metadata.revelation || ''}
                               onChange={(e) => handleUpdateInsight(block.id, e.target.value)}
-                              className="w-full bg-foreground/[0.03] border border-border rounded-xl p-3 text-sm font-sans text-foreground outline-none focus:border-indigo-500/30 transition-all min-h-[80px] resize-none"
+                              className="w-full bg-foreground/[0.03] border border-border rounded-xl p-3 text-sm font-sans text-foreground outline-none focus:border-brand-gold/30 transition-all min-h-[80px] resize-none"
                             />
                             
                             <button 
@@ -646,7 +645,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                                 "w-full py-2.5 rounded-xl font-sans text-[10px] font-black uppercase tracking-widest transition-all select-none",
                                 block.metadata.insightStatus === 'COMPLETED'
                                   ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 pointer-events-none" 
-                                  : "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 hover:scale-[1.02] active:scale-[0.98]"
+                                  : "bg-brand-red text-white shadow-lg shadow-brand-gold/20 hover:scale-[1.02] active:scale-[0.98]"
                               )}
                             >
                               {block.metadata.insightStatus === 'COMPLETED' ? "Enviado ao Estudo" : "Concluir e Inserir no Estudo"}
@@ -680,14 +679,14 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className={cn(
                 "w-14 h-14 rounded-full flex items-center justify-center transition-all border shadow-2xl active:scale-95 z-[70]",
-                isSidebarOpen ? "bg-indigo-600 text-white border-indigo-500 shadow-indigo-500/20" : "glass border-white/5 text-foreground/40 hover:text-foreground hover:border-white/20"
+                isSidebarOpen ? "bg-brand-red text-white border-brand-gold shadow-brand-gold/20" : "glass border-white/5 text-foreground/40 hover:text-foreground hover:border-white/20"
               )}
             >
               <Layout className="w-6 h-6" />
             </button>
 
             <div className="flex flex-col gap-1.5 min-w-0">
-              <h2 className="text-xl font-serif font-black italic tracking-tight line-clamp-1 max-w-xl text-foreground/90">
+              <h2 className="text-xl font-sans font-black italic tracking-tight line-clamp-1 max-w-xl text-foreground/90">
                 {sermonMeta?.title || 'Mensagem'}
               </h2>
               <div className="flex items-center gap-4">
@@ -721,10 +720,14 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
 
               <button 
                 onClick={onExit}
-                className="w-16 h-16 rounded-full glass border-white/5 flex items-center justify-center text-muted-foreground/40 hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/20 transition-all active:scale-90 group"
+                className="group flex items-center gap-3 px-6 h-16 rounded-full glass border-white/5 hover:bg-red-500/10 hover:border-red-500/20 transition-all active:scale-90"
                 title="Encerrar Púlpito"
               >
-                <LogOut className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                <div className="flex flex-col items-end mr-1">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500 opacity-60 group-hover:opacity-100 transition-opacity">Encerrar</span>
+                  <span className="text-[8px] font-mono opacity-20 uppercase">Sessão</span>
+                </div>
+                <LogOut className="w-5 h-5 text-red-500/40 group-hover:text-red-500 transition-colors" />
               </button>
             </div>
           </div>
@@ -753,7 +756,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                     <div className="flex flex-col lg:flex-row gap-16 items-stretch relative">
                       
                       {/* NEURAL BRIDGE - Solid horizontal connection with glow */}
-                      <div className="absolute left-[400px] top-1/2 -translate-y-1/2 w-16 h-1.5 bg-gradient-to-r from-indigo-500/80 to-indigo-500/40 -z-10 hidden lg:block shadow-[0_0_20px_rgba(79,70,229,0.5)] rounded-full" />
+                      <div className="absolute left-[400px] top-1/2 -translate-y-1/2 w-16 h-1.5 bg-gradient-to-r from-brand-gold/80 to-brand-gold/40 -z-10 hidden lg:block shadow-[0_0_20px_rgba(176,141,87,0.4)] rounded-full" />
 
                       {/* COLUMN 1: THE ANCHOR (TEXTO BASE) */}
                       {activeGroupBlocks[0] && (() => {
@@ -765,12 +768,12 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                             animate={{ x: 0, opacity: 1 }}
                             className="w-full lg:w-[400px] shrink-0"
                           >
-                            <div className="h-full flex flex-col gap-6 p-10 rounded-[1.5rem] bg-surface text-foreground border border-border/20 shadow-2xl relative group/anchor transition-all duration-700 hover:shadow-indigo-500/5">
-                                 <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: b.metadata?.color || '#6366f1' }} />
+                            <div className="h-full flex flex-col gap-6 p-10 rounded-[1.5rem] bg-surface text-foreground border border-border/20 shadow-2xl relative group/anchor transition-all duration-700 hover:shadow-brand-gold/5 overflow-hidden">
+                                 <div className="absolute left-0 top-0 bottom-0 w-2 rounded-l-[1.5rem]" style={{ backgroundColor: b.metadata?.color || 'var(--color-brand-red)' }} />
                                  
                                  <div className="flex items-center justify-between relative z-10">
                                    <div className="flex items-center gap-4">
-                                     <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-500 shadow-sm transition-all group-hover/anchor:scale-110">
+                                     <div className="w-12 h-12 rounded-xl bg-brand-gold/10 border border-brand-gold/20 flex items-center justify-center text-brand-gold shadow-sm transition-all group-hover/anchor:scale-110">
                                        {React.cloneElement(bCat.icon as React.ReactElement<any>, { className: "w-6 h-6 stroke-[2.5px]" })}
                                      </div>
                                      <div className="flex flex-col text-left">
@@ -801,9 +804,9 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                         {activeGroupBlocks.length > 1 ? (
                           <>
                             {/* THE NEURAL STEM - Refined continuous backbone */}
-                            <div className="absolute left-0 top-12 bottom-12 w-1.5 bg-gradient-to-b from-transparent via-indigo-500/60 to-transparent rounded-full hidden lg:block shadow-[0_0_20px_rgba(79,70,229,0.3)]" />
+                            <div className="absolute left-0 top-12 bottom-12 w-1.5 bg-gradient-to-b from-transparent via-brand-gold/60 to-transparent rounded-full hidden lg:block shadow-[0_0_20px_rgba(176,141,87,0.3)]" />
                             
-                            <div className="columns-1 md:columns-2 gap-10 space-y-10 w-full">
+                            <div className="flex flex-col gap-6 w-full">
                               {activeGroupBlocks.slice(1).map((b: any, subIdx: number) => {
                                 const bCat = (CATEGORY_MAP[b.type] || CATEGORY_MAP.CUSTOMIZAR) as { label: string, color: string, icon: React.ReactNode };
                                 
@@ -816,15 +819,15 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                                     className="break-inside-avoid relative pl-10 pb-2"
                                   >
                                      {/* Synapse Connection - Solid link with node */}
-                                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-10 h-1 bg-indigo-500/40 hidden lg:block rounded-full">
-                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-indigo-500 rounded-full blur-[1px]" />
+                                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-10 h-1 bg-brand-gold/40 hidden lg:block rounded-full">
+                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-brand-gold rounded-full blur-[1px]" />
                                      </div>
 
                                      <div 
                                         style={{ backgroundColor: b.metadata?.color ? `${b.metadata.color}08` : 'var(--bg-surface)' }}
-                                        className="flex flex-col gap-5 p-8 rounded-[1.2rem] bg-surface border border-border/20 shadow-xl transition-all duration-700 relative group/subcard hover:-translate-y-1 hover:shadow-indigo-500/5"
+                                        className="flex flex-col gap-4 p-6 rounded-[1.2rem] bg-surface border border-border/20 shadow-xl transition-all duration-700 relative group/subcard hover:-translate-y-1 hover:shadow-brand-gold/5"
                                       >
-                                        <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: b.metadata?.color || '#e2e8f0' }} />
+                                        <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-[1.2rem]" style={{ backgroundColor: b.metadata?.color || '#e2e8f0' }} />
  
                                         <div className="flex items-center justify-between">
                                           <div className="flex items-center gap-3">
@@ -837,22 +840,26 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                                                  </span>
                                              </div>
                                           </div>
-                                          {b.metadata?.reference && (
-                                             <span className="text-[10px] font-mono font-black opacity-40 uppercase tracking-[0.1em] bg-foreground/5 px-3 py-1 rounded-full text-foreground/60">{b.metadata.reference.split(' (')[0].replace(/:\d+.*$/, '')}</span>
-                                        )}
                                         </div>
-                                        
                                         <div className="flex-1">
-                                           <p className="text-[20px] font-sans font-medium text-foreground tracking-tight leading-[1.4] text-left">
-                                             {b.content}
-                                           </p>
+                                           {b.type === 'SIGNIFICADO' ? (
+                                              <div className="flex flex-col gap-4">
+                                                <div className="p-6 rounded-3xl bg-brand-gold/5 border border-brand-gold/20">
+                                                  <span className="text-[11px] font-black uppercase tracking-[0.3em] text-brand-gold/40 block mb-2">Exegese da Palavra</span>
+                                                  <p className="text-[32px] font-sans font-black italic text-foreground tracking-tight">
+                                                     {b.content.split('\n')[0].replace('Palavra: ', '')}
+                                                  </p>
+                                                </div>
+                                                <p className="text-[22px] font-sans font-medium text-foreground tracking-tight leading-[1.4] text-left opacity-80 whitespace-pre-wrap">
+                                                   {b.content.split('\n').slice(1).join('\n').replace('Significado: ', '')}
+                                                </p>
+                                              </div>
+                                            ) : (
+                                              <p className="text-[20px] font-sans font-medium text-foreground tracking-tight leading-[1.4] text-left">
+                                                {b.content}
+                                              </p>
+                                            )}
                                          </div>
- 
-                                        {b.metadata?.isInsight && b.metadata?.verseText && (
-                                           <div className="mt-1 p-5 rounded-2xl bg-foreground/5 border border-border/10 text-[15px] font-sans text-foreground/40 leading-relaxed relative overflow-hidden">
-                                            <span className="relative z-10 block">"{b.metadata.verseText}"</span>
-                                          </div>
-                                        )}
                                       </div>
                                   </motion.div>
                                 );
@@ -861,10 +868,10 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                           </>
                         ) : (
                           <div className="h-full min-h-[400px] ml-4 rounded-[3.5rem] border-[3px] border-dashed border-border/40 flex flex-col items-center justify-center gap-6 opacity-30 group hover:opacity-60 transition-opacity">
-                             <div className="w-24 h-24 rounded-full bg-indigo-500/5 border-2 border-indigo-500/10 flex items-center justify-center shadow-inner transition-transform group-hover:scale-110">
-                                <Plus className="w-10 h-10 text-indigo-500" />
+                             <div className="w-24 h-24 rounded-full bg-brand-gold/5 border-2 border-brand-gold/10 flex items-center justify-center shadow-inner transition-transform group-hover:scale-110">
+                                <Plus className="w-10 h-10 text-brand-gold" />
                              </div>
-                             <p className="text-[14px] font-black uppercase tracking-[0.6em] text-center text-indigo-500/60 leading-loose">
+                             <p className="text-[14px] font-black uppercase tracking-[0.6em] text-center text-brand-gold/60 leading-loose">
                                 Mapeie o texto<br/>
                                 <span className="text-[10px] tracking-[0.3em] font-medium text-muted-foreground">Adicione desdobramentos no Studio</span>
                              </p>
@@ -898,14 +905,14 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                 >
                   <div className="flex items-center justify-between pb-4 shrink-0">
                     <div className="flex items-center gap-6">
-                      <div className="w-[4.5rem] h-[4.5rem] rounded-full bg-indigo-600 flex items-center justify-center shadow-[0_0_30px_rgba(79,70,229,0.3)]">
+                      <div className="w-[4.5rem] h-[4.5rem] rounded-full bg-brand-red flex items-center justify-center shadow-[0_0_30px_rgba(79,70,229,0.3)]">
                         <BookOpen className="w-8 h-8 text-white" />
                       </div>
                       <div className="flex flex-col">
                         <h3 className="text-[2.5rem] font-sans font-black italic leading-none tracking-tight text-foreground">
                           {finalSource?.reference?.split(' (')[0].replace(/:\d+.*$/, '')}
                         </h3>
-                        <p className="text-[10px] font-black tracking-[0.4em] uppercase opacity-30 mt-2 text-indigo-500">Capítulo Completo</p>
+                        <p className="text-[10px] font-black tracking-[0.4em] uppercase opacity-30 mt-2 text-brand-gold">Capítulo Completo</p>
                       </div>
                     </div>
                     <button 
@@ -919,7 +926,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                    <div className="flex-1 overflow-y-auto custom-scrollbar-premium pr-8 pb-32 scroll-pt-20" ref={contextScrollRef}>
                     {isLoadingContext ? (
                       <div className="h-full flex flex-col items-center justify-center gap-4 opacity-40">
-                        <div className="w-10 h-10 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+                        <div className="w-10 h-10 border-4 border-brand-gold/20 border-t-brand-gold rounded-full animate-spin" />
                         <p className="text-[10px] font-black uppercase tracking-widest">Alimentando Altar com Escritura...</p>
                       </div>
                     ) : (
@@ -936,12 +943,12 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                               className={cn(
                                 "relative transition-all duration-1000 inline rounded-[1.5rem] px-3 py-1.5 group/line cursor-pointer",
                                 isSaved ? "bg-emerald-500/10 text-emerald-500 shadow-[inset_0_0_15px_rgba(16,185,129,0.1)]" :
-                                isTarget ? "text-foreground opacity-100 bg-indigo-500/10 shadow-[inset_0_0_20px_rgba(99,102,241,0.1)]" : "text-foreground/30 hover:text-foreground/80 hover:bg-foreground/5"
+                                isTarget ? "text-foreground opacity-100 bg-brand-gold/10 shadow-[inset_0_0_20px_rgba(99,102,241,0.1)]" : "text-foreground/30 hover:text-foreground/80 hover:bg-foreground/5"
                               )}
                             >
                               <span className={cn(
                                 "text-[1.1rem] font-bold mr-3 select-none align-baseline opacity-90 transition-colors",
-                                isSaved ? "text-emerald-500" : "text-indigo-500"
+                                isSaved ? "text-emerald-500" : "text-brand-gold"
                               )}>{v.v}</span>
                               <span className="text-[1.6rem] leading-relaxed tracking-tight">{v.text} </span>
                               
@@ -951,7 +958,7 @@ export default function PulpitView({ sermonId, targetTime, onExit, onStudy }: Pu
                                   "absolute -top-12 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full border flex items-center justify-center transition-all shadow-xl z-20",
                                   isSaved 
                                     ? "bg-emerald-500 text-white border-emerald-400 opacity-100 pointer-events-none scale-0" 
-                                    : "bg-surface border-border opacity-0 group-hover/line:opacity-100 hover:bg-indigo-600 hover:text-white hover:scale-110 active:scale-90 text-foreground/60"
+                                    : "bg-surface border-border opacity-0 group-hover/line:opacity-100 hover:bg-brand-red hover:text-white hover:scale-110 active:scale-90 text-foreground/60"
                                 )}
                                 title={isSaved ? "Revelação Guardada" : "Salvar como Insight"}
                               >

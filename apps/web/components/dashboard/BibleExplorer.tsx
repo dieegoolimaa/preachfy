@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Book, X, ChevronLeft, ChevronRight, BookOpen, Check, Copy, Highlighter, List, Columns, ArrowLeft, Plus, Sparkles, MessageSquare, Palette, Trash2, Save } from 'lucide-react';
+import { Search, Book, X, ChevronLeft, ChevronRight, BookOpen, Check, Copy, Highlighter, List, Columns, ArrowLeft, Plus, Sparkles, MessageSquare, Palette, Trash2, Save, Languages, ExternalLink } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -110,6 +110,7 @@ const HI_COLORS = {
     { name: 'Rose', color: '#fda4af', label: 'Amor / Graça' },
     { name: 'Fuchsia', color: '#f5d0fe', label: 'Pecado / Perdão' },
     { name: 'Slate', color: '#cbd5e1', label: 'História' },
+    { name: 'Stone', color: '#a8a29e', label: 'Significado de Palavra' },
   ]
 };
 
@@ -155,7 +156,8 @@ export default function BibleExplorer({
     chapter: initialChapter || 1
   });
   const [indexSelectedBook, setIndexSelectedBook] = useState<{ name: string; abbrev: string; chapters: number } | null>(null);
-  const [highlights, setHighlights] = useState<Record<string, Array<{ id: string, color: string, comment?: string }>>>(() => {
+  const [selectedText, setSelectedText] = useState<{ text: string; x: number; y: number; verse: any } | null>(null);
+  const [highlights, setHighlights] = useState<Record<string, Array<{ id: string, color: string, comment?: string, isWordMeaning?: boolean, word?: string }>>>(() => {
     if (typeof window === 'undefined') return {};
     let data: any = {};
     if (initialHighlights) {
@@ -214,6 +216,16 @@ export default function BibleExplorer({
   const [showSidebar, setShowSidebar] = useState(false);
   const isInitialMount = useRef(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Sync with snapshot if prop changes (for Restoration Mode)
+  useEffect(() => {
+    if (initialHighlights) {
+      setHighlights(initialHighlights);
+    }
+    if (initialCustomLabels) {
+      setCustomLabels(initialCustomLabels);
+    }
+  }, [initialHighlights, initialCustomLabels]);
 
   // Auto-save session
   useEffect(() => {
@@ -329,8 +341,8 @@ export default function BibleExplorer({
     const el = document.getElementById(key);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      el.classList.add('ring-2', 'ring-indigo-500', 'ring-offset-4');
-      setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-500', 'ring-offset-4'), 2000);
+      el.classList.add('ring-2', 'ring-brand-red', 'ring-offset-4');
+      setTimeout(() => el.classList.remove('ring-2', 'ring-brand-red', 'ring-offset-4'), 2000);
     }
   };
 
@@ -340,6 +352,46 @@ export default function BibleExplorer({
     const chapter = v.chapter || currentInfo.chapter;
     const number = v.number;
     return `${abbrev}:${chapter}:${number}`;
+  };
+
+  const handleTextSelection = (verse: any) => {
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim().length > 0) {
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      setSelectedText({
+        text: selection.toString().trim(),
+        x: rect.left + rect.width / 2,
+        y: rect.top,
+        verse
+      });
+    } else {
+      setSelectedText(null);
+    }
+  };
+
+  const addWordMeaning = () => {
+    if (!selectedText) return;
+    const key = verseKey(selectedText.verse);
+    const meaningId = `word-${Date.now()}`;
+    const meaningHighlight = {
+       id: meaningId,
+       color: '#a8a29e', // Stone
+       comment: `Palavra: ${selectedText.text}\nSignificado: `,
+       isWordMeaning: true,
+       word: selectedText.text
+    };
+
+    setHighlights(prev => {
+      const current = prev[key] || [];
+      return { ...prev, [key]: [...current, meaningHighlight] };
+    });
+
+    setEditingVerseKey(key);
+    setEditingInsightId(meaningId);
+    setCommentInput(`Palavra: ${selectedText.text}\nSignificado: `);
+    setSelectedText(null);
+    window.getSelection()?.removeAllRanges();
   };
 
   const toggleHighlight = (verse: any, color?: string) => {
@@ -506,9 +558,11 @@ export default function BibleExplorer({
         return verseInsights.map(h => ({
           verseNumber: v.number,
           verseText: v.text,
-          category: customLabels[h.color] || 'Outros',
+          category: h.color === '#a8a29e' ? 'SIGNIFICADO' : (customLabels[h.color] || 'Outros'),
           comment: h.comment || '',
-          color: h.color
+          color: h.color,
+          isWordMeaning: h.isWordMeaning,
+          word: h.word
         }));
       })
     };
@@ -553,7 +607,7 @@ export default function BibleExplorer({
 
   // ── Render ────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background text-foreground flex">
+    <div className="h-[calc(100vh-5rem)] bg-background text-foreground flex overflow-hidden">
       {/* ── Sidebar (Book Index) ─────────────────────────────── */}
       <AnimatePresence>
         {showSidebar && (
@@ -562,7 +616,7 @@ export default function BibleExplorer({
             animate={{ width: 320, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="h-screen sticky top-0 border-r border-border bg-surface/50 overflow-hidden shrink-0"
+            className="h-full border-r border-border bg-surface/50 overflow-hidden shrink-0"
           >
             <div className="w-[320px] h-full overflow-y-auto p-6 custom-scrollbar">
               <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-6">Índice Bíblico</h3>
@@ -581,8 +635,8 @@ export default function BibleExplorer({
                         className={cn(
                           "py-2 rounded-lg text-xs font-bold transition-all border",
                           currentInfo.abbrev === indexSelectedBook.abbrev && currentInfo.chapter === ch
-                            ? "bg-indigo-500 text-white border-indigo-600"
-                            : "bg-foreground/5 border-border hover:bg-indigo-500/10 hover:border-indigo-500/30"
+                            ? "bg-brand-red text-white border-brand-red"
+                            : "bg-foreground/5 border-border hover:bg-brand-red/10 hover:border-brand-red/30"
                         )}
                       >{ch}</button>
                     ))}
@@ -595,7 +649,7 @@ export default function BibleExplorer({
                     { title: 'Novo Testamento', books: BIBLE_BOOKS.nt },
                   ].map(section => (
                     <div key={section.title}>
-                      <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-indigo-500 mb-3">{section.title}</h4>
+                      <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-brand-red mb-3">{section.title}</h4>
                       <div className="space-y-0.5">
                         {section.books.map(book => (
                           <button
@@ -604,7 +658,7 @@ export default function BibleExplorer({
                             className={cn(
                               "w-full text-left px-3 py-2 rounded-lg text-sm transition-all flex items-center justify-between",
                               currentInfo.abbrev === book.abbrev
-                                ? "bg-indigo-500/10 text-indigo-600 font-bold"
+                                ? "bg-brand-red/10 text-brand-red font-bold"
                                 : "hover:bg-foreground/5 text-foreground"
                             )}
                           >
@@ -623,9 +677,9 @@ export default function BibleExplorer({
       </AnimatePresence>
 
       {/* ── Main Content ─────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col h-screen">
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* ── Top Bar ──────────────────────────────────────── */}
-        <header className="h-16 sticky top-0 border-b border-border bg-surface/80 backdrop-blur-md flex items-center justify-between px-8 z-50 shrink-0">
+        <header className="h-16 sticky top-0 border-b border-border bg-surface shadow-sm flex items-center justify-between px-8 z-40 shrink-0">
           <div className="flex items-center gap-4">
             <button onClick={onBack} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="w-4 h-4" />
@@ -636,21 +690,21 @@ export default function BibleExplorer({
               onClick={() => { setShowSidebar(!showSidebar); setIndexSelectedBook(null); }}
               className={cn(
                 "w-9 h-9 rounded-lg flex items-center justify-center transition-all border",
-                showSidebar ? "bg-indigo-500 text-white border-indigo-600" : "bg-foreground/5 border-border hover:bg-foreground/10"
+                showSidebar ? "bg-brand-red text-white border-brand-red" : "bg-foreground/5 border-border hover:bg-foreground/10"
               )}
               title="Índice"
             >
               <List className="w-4 h-4" />
             </button>
             <h1 className="text-lg font-serif font-bold italic">
-              <Book className="w-4 h-4 inline mr-2 text-indigo-500" />
+              <Book className="w-4 h-4 inline mr-2 text-brand-red" />
               {isSnapshot && sermonTitle ? `Bíblia - ${sermonTitle}` : 'Bíblia'}
             </h1>
             <div className="flex flex-col gap-0.5 ml-2">
               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">
                 {viewMode === 'COMPARE' ? `Comparando` : `Lendo em ${VERSION_LABELS[version] || version.toUpperCase()}`}
               </span>
-              <span className="text-[9px] font-bold text-indigo-500/60 uppercase tracking-tighter">
+              <span className="text-[9px] font-bold text-brand-red/60 uppercase tracking-tighter">
                 {currentInfo.book} {currentInfo.chapter}
               </span>
             </div>
@@ -662,7 +716,7 @@ export default function BibleExplorer({
               onClick={() => viewMode === 'COMPARE' ? setViewMode('READ') : loadCompare()}
               className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border",
-                viewMode === 'COMPARE' ? "bg-indigo-500 text-white border-indigo-600" : "bg-foreground/5 border-border hover:bg-foreground/10"
+                viewMode === 'COMPARE' ? "bg-brand-red text-white border-brand-red" : "bg-foreground/5 border-border hover:bg-foreground/10"
               )}
             >
               <Columns className="w-3.5 h-3.5" />
@@ -682,7 +736,7 @@ export default function BibleExplorer({
                     }}
                     className={cn(
                       "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                      version === v.id ? "bg-indigo-500 text-white shadow-lg" : "text-muted-foreground hover:text-foreground"
+                      version === v.id ? "bg-brand-red text-white shadow-lg" : "text-muted-foreground hover:text-foreground"
                     )}
                   >{v.id}</button>
                 )) : ALL_VERSIONS.map(vid => (
@@ -691,7 +745,7 @@ export default function BibleExplorer({
                     onClick={() => setVersion(vid)}
                     className={cn(
                       "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                      version === vid ? "bg-indigo-500 text-white shadow-lg" : "text-muted-foreground hover:text-foreground"
+                      version === vid ? "bg-brand-red text-white shadow-lg" : "text-muted-foreground hover:text-foreground"
                     )}
                   >{vid}</button>
                 ))}
@@ -707,7 +761,7 @@ export default function BibleExplorer({
                     onClick={() => toggleCompareVersion(ver)}
                     className={cn(
                       "px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all",
-                      compareVersions.includes(ver) ? "bg-indigo-500 text-white shadow-md" : "text-muted-foreground hover:text-foreground"
+                      compareVersions.includes(ver) ? "bg-brand-red text-white shadow-md" : "text-muted-foreground hover:text-foreground"
                     )}
                   >{ver}</button>
                 ))}
@@ -726,11 +780,11 @@ export default function BibleExplorer({
                 placeholder="Lugar de leitura (ex: Gênesis 1) ou Busca temática (ex: Amor)..."
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                className="w-full bg-surface border border-border/80 rounded-xl py-3 pl-11 pr-10 text-base font-serif italic outline-none focus:border-indigo-500/30 transition-all placeholder:opacity-20"
+                className="w-full bg-surface border border-border/80 rounded-xl py-3 pl-11 pr-10 text-base font-serif italic outline-none focus:border-brand-red/30 transition-all placeholder:opacity-20"
               />
               {loading && (
                 <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                  <div className="w-4 h-4 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-brand-red/20 border-t-brand-red rounded-full animate-spin" />
                 </div>
               )}
             </div>
@@ -739,21 +793,21 @@ export default function BibleExplorer({
 
         {/* ── Highlighted Bar ─────────────────────────────── */}
         {viewMode === 'READ' && highlightedCount > 0 && (
-          <div className="px-8 py-2 border-b border-indigo-500/20 bg-indigo-500/5 shrink-0">
+          <div className="px-8 py-2 border-b border-brand-red/20 bg-brand-red/5 shrink-0">
             <div className="flex items-center justify-between max-w-3xl">
-              <span className="text-xs font-bold text-indigo-500">
+              <span className="text-xs font-bold text-brand-red">
                 <Highlighter className="w-3.5 h-3.5 inline mr-1.5" />
                 {Object.keys(highlights).length} versículo{Object.keys(highlights).length > 1 ? 's' : ''} destacado{Object.keys(highlights).length > 1 ? 's' : ''}
               </span>
               <div className="flex items-center gap-2">
                 {!isSnapshot && (
                   onCreateSermon && (
-                    <button onClick={createStudyFromInsights} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-indigo-50 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 transition-all active:scale-95 shadow-md">
+                    <button onClick={createStudyFromInsights} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-brand-red px-3 py-1.5 rounded-lg bg-brand-red hover:bg-brand-red transition-all active:scale-95 shadow-md">
                       <Sparkles className="w-3.5 h-3.5" /> Gerar Estudo Pronto
                     </button>
                   )
                 )}
-                <button onClick={copyHighlightedVerses} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-501/20 transition-all active:scale-95">
+                <button onClick={copyHighlightedVerses} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-brand-red hover:text-brand-red px-3 py-1.5 rounded-lg bg-brand-red/10 hover:bg-brand-red/20 transition-all active:scale-95">
                   {copiedId === 'range' ? <><Check className="w-3 h-3" /> Copiado!</> : <><Copy className="w-3 h-3" /> Copiar Seleção</>}
                 </button>
                 <button onClick={() => setHighlights({})} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg border border-border hover:bg-foreground/5 transition-all">
@@ -789,15 +843,15 @@ export default function BibleExplorer({
                 {/* Sticky Title */}
                 <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-xl py-3 mb-4">
                   <div className="text-center">
-                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-500 block">Comparando Versões · Capítulo {currentInfo.chapter}</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-brand-red block">Comparando Versões · Capítulo {currentInfo.chapter}</span>
                     <h3 className="text-2xl font-serif font-bold italic">{currentInfo.book}</h3>
-                    <div className="w-12 h-0.5 bg-indigo-500/20 mx-auto rounded-full mt-1.5" />
+                    <div className="w-12 h-0.5 bg-brand-red/20 mx-auto rounded-full mt-1.5" />
                   </div>
                 </div>
 
                 {loading ? (
                   <div className="flex items-center justify-center py-20">
-                    <div className="w-8 h-8 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+                    <div className="w-8 h-8 border-2 border-brand-red/20 border-t-brand-red rounded-full animate-spin" />
                   </div>
                 ) : (
                   <div className={cn("grid gap-6", compareVersions.length === 2 ? "grid-cols-2" : "grid-cols-3")}>
@@ -805,7 +859,7 @@ export default function BibleExplorer({
                       <div key={ver}>
                         {/* Column Header */}
                         <div className="sticky top-16 z-10 bg-background/90 backdrop-blur-xl py-2 mb-4 text-center border-b border-border/50">
-                          <span className="inline-block px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-500">
+                          <span className="inline-block px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-brand-red/10 text-brand-red">
                             {ver.toUpperCase()}
                           </span>
                           <p className="text-[9px] text-muted-foreground mt-1">{VERSION_LABELS[ver]}</p>
@@ -816,7 +870,7 @@ export default function BibleExplorer({
                           {(compareData[ver]?.verses || []).map((verse: any, idx: number) => (
                             <span
                               key={idx}
-                              className="hover:bg-indigo-500/5 transition-colors cursor-pointer inline rounded px-1"
+                              className="hover:bg-brand-red/5 transition-colors cursor-pointer inline rounded px-1"
                               onClick={() => {
                                 const bookName = compareData[ver]?.book?.name || currentInfo.book;
                                 navigator.clipboard.writeText(`${verse.text} (${bookName} ${currentInfo.chapter}:${verse.number} - ${ver.toUpperCase()})`);
@@ -825,7 +879,7 @@ export default function BibleExplorer({
                               }}
                               title="Clique para copiar"
                             >
-                              <span className="text-xs font-bold text-indigo-500 mr-1 select-none align-super">{verse.number}</span>
+                              <span className="text-xs font-bold text-brand-red mr-1 select-none align-super">{verse.number}</span>
                               <span className="text-lg">{verse.text} </span>
                               {copiedId === `c-${ver}-${verse.number}` && (
                                 <span className="text-[9px] font-bold text-green-600">✓</span>
@@ -842,9 +896,9 @@ export default function BibleExplorer({
               <div className="max-w-6xl mx-auto py-12 px-8">
                 <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-xl py-6 -mx-8 px-8 border-b border-border/10 mb-8">
                   <div className="text-center">
-                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-500 block">Capítulo {currentInfo.chapter} · {version.toUpperCase()}</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-brand-red block">Capítulo {currentInfo.chapter} · {version.toUpperCase()}</span>
                     <h3 className="text-2xl font-serif font-bold italic">{currentInfo.book}</h3>
-                <div className="w-12 h-0.5 bg-indigo-500/20 mx-auto rounded-full mt-1.5" />
+                <div className="w-12 h-0.5 bg-brand-red/20 mx-auto rounded-full mt-1.5" />
                   </div>
                 </div>
 
@@ -862,8 +916,8 @@ export default function BibleExplorer({
                           id={key}
                           className={cn(
                             "relative cursor-pointer transition-all inline p-1 rounded-md px-1.5 group/verse my-0.5",
-                            verseInsights.length > 0 ? "" : "hover:bg-indigo-500/5",
-                            isMultiSelected ? "ring-2 ring-indigo-500/50 bg-indigo-500/10" : ""
+                            verseInsights.length > 0 ? "" : "hover:bg-brand-red/5",
+                            isMultiSelected ? "ring-2 ring-brand-red/50 bg-brand-red/10" : ""
                           )}
                           style={verseInsights.length > 0 ? { 
                             background: verseInsights.length === 1 
@@ -873,8 +927,8 @@ export default function BibleExplorer({
                           onClick={(e) => handleVerseClick(e, verse)}
                           onDoubleClick={() => copyVerse(verse)}
                         >
-                          <span className="text-xs font-bold text-indigo-500 mr-1.5 select-none align-super">{verse.number}</span>
-                          <span className="text-xl">{verse.text} </span>
+                          <span className="text-xs font-bold text-brand-red mr-1.5 select-none align-super">{verse.number}</span>
+                          <span className="text-xl" onMouseUp={() => handleTextSelection(verse)}>{verse.text} </span>
                         </span>
                       );
                     })}
@@ -885,7 +939,7 @@ export default function BibleExplorer({
                     <div className="sticky top-24">
                       <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
                         <h5 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Anotações & Insights</h5>
-                        <span className="text-[9px] bg-indigo-500/10 text-indigo-500 px-2 py-0.5 rounded-full font-bold">
+                        <span className="text-[9px] bg-brand-red/10 text-brand-red px-2 py-0.5 rounded-full font-bold">
                           {results.reduce((acc, v) => acc + (highlights[verseKey(v)]?.length || 0), 0)}
                         </span>
                       </div>
@@ -902,7 +956,7 @@ export default function BibleExplorer({
                               initial={{ opacity: 0, scale: 0.95 }}
                               animate={{ opacity: 1, scale: 1 }}
                               exit={{ opacity: 0, scale: 0.95 }}
-                              className="p-5 min-h-[120px] rounded-[2rem] bg-surface border border-border/60 shadow-sm group cursor-pointer hover:border-indigo-500/40 hover:shadow-xl hover:shadow-indigo-500/5 transition-all overflow-hidden relative flex flex-col justify-between"
+                              className="p-5 min-h-[120px] rounded-[2rem] bg-surface border border-border/60 shadow-sm group cursor-pointer hover:border-brand-red/40 hover:shadow-xl hover:shadow-brand-red/5 transition-all overflow-hidden relative flex flex-col justify-between"
                               onClick={() => {
                                 setEditingVerseKey(h.key);
                                 setEditingInsightId(h.id);
@@ -913,7 +967,7 @@ export default function BibleExplorer({
                               <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: h.color }} />
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex flex-col">
-                                  <span className="text-[9px] font-black uppercase tracking-widest text-indigo-500">Versículo {h.verse.number}</span>
+                                  <span className="text-[9px] font-black uppercase tracking-widest text-brand-red">Versículo {h.verse.number}</span>
                                   <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter">
                                     {customLabels[h.color]}
                                   </span>
@@ -953,11 +1007,11 @@ export default function BibleExplorer({
                   return (
                     <div
                       key={idx}
-                      className="mb-6 pb-6 border-b border-border/30 last:border-0 group cursor-pointer hover:bg-indigo-500/[0.02] rounded-xl px-4 py-3 -mx-4 transition-all"
+                      className="mb-6 pb-6 border-b border-border/30 last:border-0 group cursor-pointer hover:bg-brand-red/[0.02] rounded-xl px-4 py-3 -mx-4 transition-all"
                       onClick={() => copyVerse(verse)}
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-red">
                           {verse.book.name} {verse.chapter}:{verse.number}
                         </span>
                         <span className={cn("text-[9px] font-bold uppercase transition-opacity", isCopied ? "text-green-600 opacity-100" : "text-muted-foreground opacity-0 group-hover:opacity-100")}>
@@ -1053,7 +1107,7 @@ export default function BibleExplorer({
                onClick={e => e.stopPropagation()}
              >
                 <div className="flex items-center justify-between">
-                   <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500 flex items-center gap-2">
+                   <span className="text-[10px] font-black uppercase tracking-widest text-brand-red flex items-center gap-2">
                       <Palette className="w-4 h-4" /> Personalizar Destaque
                    </span>
                    <button onClick={() => setEditingVerseKey(null)} className="w-10 h-10 rounded-full hover:bg-foreground/5 flex items-center justify-center">
@@ -1077,7 +1131,7 @@ export default function BibleExplorer({
                                onClick={() => addOrUpdateInsight(c.color)}
                                className={cn(
                                  "w-10 h-10 rounded-xl border-2 transition-all hover:scale-110 flex items-center justify-center",
-                                 isSelected ? "border-indigo-500 shadow-lg scale-110" : "border-transparent"
+                                 isSelected ? "border-brand-red shadow-lg scale-110" : "border-transparent"
                                )}
                                style={{ backgroundColor: c.color }}
                                title={customLabels[c.color]}
@@ -1088,7 +1142,7 @@ export default function BibleExplorer({
                                onClick={(e) => { e.stopPropagation(); setIsEditingLabel(c.color); }}
                                className="absolute -top-1 -right-1 w-4 h-4 bg-white border shadow-sm rounded-full opacity-0 group-hover/color:opacity-100 flex items-center justify-center transition-all hover:scale-110 z-10"
                              >
-                               <Palette className="w-2 h-2 text-indigo-500" />
+                               <Palette className="w-2 h-2 text-brand-red" />
                              </button>
                            </div>
                          );
@@ -1096,7 +1150,7 @@ export default function BibleExplorer({
                      </div>
                      <div className="mt-4 flex flex-col items-center">
                        {isEditingLabel ? (
-                         <div className="flex items-center gap-2 bg-indigo-500/5 p-2 rounded-xl border border-indigo-500/20">
+                         <div className="flex items-center gap-2 bg-brand-red/5 p-2 rounded-xl border border-brand-red/20">
                            <input 
                              autoFocus
                              className="bg-transparent text-[10px] font-bold outline-none text-center"
@@ -1105,10 +1159,10 @@ export default function BibleExplorer({
                              onBlur={() => setIsEditingLabel(null)}
                              onKeyDown={e => e.key === 'Enter' && setIsEditingLabel(null)}
                            />
-                           <Check className="w-3 h-3 text-indigo-500 cursor-pointer" onClick={() => setIsEditingLabel(null)} />
+                           <Check className="w-3 h-3 text-brand-red cursor-pointer" onClick={() => setIsEditingLabel(null)} />
                          </div>
                        ) : (
-                         <p className="text-[10px] font-bold text-indigo-500/60 uppercase tracking-widest italic flex items-center gap-2 transition-all opacity-40">
+                         <p className="text-[10px] font-bold text-brand-red/60 uppercase tracking-widest italic flex items-center gap-2 transition-all opacity-40">
                            Categorias Rápidas
                          </p>
                        )}
@@ -1122,7 +1176,7 @@ export default function BibleExplorer({
                        value={commentInput}
                        onChange={e => setCommentInput(e.target.value)}
                        placeholder="O que esta passagem ministrou ao seu coração?"
-                       className="w-full bg-foreground/5 border border-border rounded-2xl p-4 text-base font-serif italic outline-none focus:border-indigo-500/30 min-h-[120px] resize-none"
+                       className="w-full bg-foreground/5 border border-border rounded-2xl p-4 text-base font-serif italic outline-none focus:border-brand-red/30 min-h-[120px] resize-none"
                      />
                    </div>
                 </div>
@@ -1143,9 +1197,9 @@ export default function BibleExplorer({
                                   setEditingInsightId(h.id);
                                   setCommentInput(h.comment || '');
                                 }}
-                                className="p-1 hover:bg-indigo-500/10 rounded transition-all"
+                                className="p-1 hover:bg-brand-red/10 rounded transition-all"
                               >
-                                <Palette className="w-2.5 h-2.5 text-indigo-500" />
+                                <Palette className="w-2.5 h-2.5 text-brand-red" />
                               </button>
                               <button 
                                 onClick={() => removeInsight(editingVerseKey, h.id)}
@@ -1167,13 +1221,40 @@ export default function BibleExplorer({
                          setEditingInsightId(null);
                          setCommentInput('');
                       }}
-                      className="w-full bg-indigo-500/10 text-indigo-500 rounded-2xl py-3 font-black uppercase tracking-widest text-[10px] hover:bg-indigo-500 hover:text-white transition-all"
+                      className="w-full bg-brand-red/10 text-brand-red rounded-2xl py-3 font-black uppercase tracking-widest text-[10px] hover:bg-brand-red hover:text-white transition-all"
                     >Concluir Ajustes</button>
                 </div>
              </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+     {/* Floating Selection Menu */}
+     {selectedText && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="fixed z-[100] flex items-center gap-1.5 p-1.5 bg-background border border-border shadow-2xl rounded-full"
+            style={{ 
+               left: selectedText.x - 60, 
+               top: selectedText.y - 60 
+            }}
+          >
+            <button 
+              onClick={addWordMeaning}
+              className="flex items-center gap-2 px-4 py-2 hover:bg-brand-red/10 text-brand-red text-[10px] font-black uppercase tracking-widest transition-all rounded-full"
+            >
+              <Languages className="w-3.5 h-3.5" />
+              Significado
+            </button>
+            <div className="w-px h-4 bg-border/40 mx-1" />
+            <button 
+               onClick={() => setSelectedText(null)}
+               className="p-2 hover:bg-foreground/5 text-muted-foreground transition-all rounded-full"
+            >
+               <X className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        )}
     </div>
   );
 }

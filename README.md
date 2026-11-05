@@ -29,6 +29,8 @@ Para assinar de verdade em desenvolvimento, use a loja de testes na tela de plan
 npm run pro -- email@exemplo.com
 ```
 
+Para testar em um iPhone na mesma rede Wi-Fi, abra no app Expo Go o endereço `exp://` que o `npm run dev` mostra. Compras reais não funcionam no Expo Go; use `npm run pro` para liberar o Pro.
+
 ## Testes
 
 ```sh

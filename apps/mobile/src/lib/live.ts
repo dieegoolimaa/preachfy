@@ -1,10 +1,11 @@
 import { toLiveSteps, type Locale, type Study } from '@preachfy/core';
 
 import { API_URL, apiFetch } from './auth';
+import { onDevHost } from './host';
 import { getReader, updateReader } from './store';
 import { renderStudy } from './studyText';
 
-export const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? 'http://localhost:8081';
+export const WEB_URL = onDevHost(process.env.EXPO_PUBLIC_WEB_URL ?? 'http://localhost:8081');
 export const classLink = (code: string) => `${WEB_URL}/live/${code}`;
 export const screenLink = (code: string) => `${WEB_URL}/screen/${code}`;
 

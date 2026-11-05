@@ -3,7 +3,9 @@ import { createAuthClient } from 'better-auth/react';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001';
+import { onDevHost } from './host';
+
+export const API_URL = onDevHost(process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001');
 
 const native = Platform.OS !== 'web';
 

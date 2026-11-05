@@ -7,7 +7,10 @@ import { db, mongo } from '../database';
 import { deleteLiveData } from '../live/live.service';
 
 export const allowedOrigins = (): string[] =>
-  (process.env.ALLOWED_ORIGINS ?? '')
+  // DEV_ORIGINS is set by `npm run dev`, so phones on the same network can connect.
+  [process.env.ALLOWED_ORIGINS, process.env.DEV_ORIGINS]
+    .filter(Boolean)
+    .join(',')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
@@ -35,7 +38,7 @@ function createAuth() {
     secret: process.env.BETTER_AUTH_SECRET,
     baseURL: process.env.BETTER_AUTH_URL,
     database: mongodbAdapter(db(), { client: mongo() }),
-    trustedOrigins: ['preachfy://', ...allowedOrigins()],
+    trustedOrigins: ['preachfy://', ...(process.env.DEV_ORIGINS ? ['exp://'] : []), ...allowedOrigins()],
     emailAndPassword: { enabled: true, minPasswordLength: 8 },
     socialProviders: socialProviders(),
     plugins: [expo()],

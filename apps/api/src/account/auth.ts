@@ -1,0 +1,69 @@
+import { expo } from '@better-auth/expo';
+import { mongodbAdapter } from '@better-auth/mongo-adapter';
+import { betterAuth } from 'better-auth';
+import { MongoClient, type Db } from 'mongodb';
+import { deleteSubscriber } from './entitlements';
+
+let client: MongoClient | undefined;
+
+function mongo(): MongoClient {
+  client ??= new MongoClient(process.env.DATABASE_URL ?? '');
+  return client;
+}
+
+export const db = (): Db => mongo().db();
+
+export const allowedOrigins = (): string[] =>
+  (process.env.ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+function socialProviders() {
+  const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, APPLE_CLIENT_ID, APPLE_CLIENT_SECRET, APPLE_BUNDLE_ID } = process.env;
+  return {
+    ...(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET
+      ? { google: { clientId: GOOGLE_CLIENT_ID, clientSecret: GOOGLE_CLIENT_SECRET } }
+      : {}),
+    ...(APPLE_CLIENT_ID && APPLE_CLIENT_SECRET
+      ? {
+          apple: {
+            clientId: APPLE_CLIENT_ID,
+            clientSecret: APPLE_CLIENT_SECRET,
+            appBundleIdentifier: APPLE_BUNDLE_ID,
+          },
+        }
+      : {}),
+  };
+}
+
+function createAuth() {
+  return betterAuth({
+    secret: process.env.BETTER_AUTH_SECRET,
+    baseURL: process.env.BETTER_AUTH_URL,
+    database: mongodbAdapter(db(), { client: mongo() }),
+    trustedOrigins: ['preachfy://', ...allowedOrigins()],
+    emailAndPassword: { enabled: true, minPasswordLength: 8 },
+    socialProviders: socialProviders(),
+    plugins: [expo()],
+    user: {
+      deleteUser: {
+        enabled: true,
+        beforeDelete: async (user) => {
+          await db().collection('syncItems').deleteMany({ userId: user.id });
+          await db().collection('entitlements').deleteOne({ userId: user.id });
+        },
+        afterDelete: async (user) => {
+          await deleteSubscriber(user.id).catch(() => undefined);
+        },
+      },
+    },
+  });
+}
+
+let instance: ReturnType<typeof createAuth> | undefined;
+
+export function getAuth() {
+  instance ??= createAuth();
+  return instance;
+}

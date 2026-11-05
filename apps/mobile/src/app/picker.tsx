@@ -1,10 +1,10 @@
 import { BOOKS, type Book } from '@preachfy/core';
-import { router } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useT } from '@/lib/i18n';
+import { goBack } from '@/lib/navigation';
 import { updateReader, useReader } from '@/lib/store';
 import { paper, serifBold } from '@/lib/theme';
 
@@ -15,14 +15,14 @@ export default function Picker() {
 
   const open = (chapter: number) => {
     updateReader({ book: book!.id, chapter, verse: undefined });
-    router.back();
+    goBack();
   };
 
   return (
     <SafeAreaView style={styles.page}>
       <View style={styles.header}>
         <Text style={styles.title}>{book ? book.names[locale] : t('books')}</Text>
-        <Pressable testID="picker-close" style={styles.pill} onPress={() => (book ? setBook(null) : router.back())}>
+        <Pressable testID="picker-close" style={styles.pill} onPress={() => (book ? setBook(null) : goBack())}>
           <Text style={styles.pillText}>{t(book ? 'back' : 'close')}</Text>
         </Pressable>
       </View>

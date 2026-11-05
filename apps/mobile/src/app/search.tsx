@@ -1,11 +1,11 @@
 import { bookName, parseReference, type SearchHit } from '@preachfy/core';
-import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { searchBible } from '@/lib/bible';
 import { useT } from '@/lib/i18n';
+import { goBack } from '@/lib/navigation';
 import { updateReader, useReader } from '@/lib/store';
 import { paper, serif } from '@/lib/theme';
 
@@ -19,7 +19,7 @@ export default function Search() {
 
   const open = (book: string, chapter: number, verse?: number) => {
     updateReader({ book, chapter, verse });
-    router.back();
+    goBack();
   };
 
   const submit = async () => {
@@ -51,7 +51,7 @@ export default function Search() {
           autoCorrect={false}
           autoFocus
         />
-        <Pressable testID="search-close" style={styles.pill} onPress={() => router.back()}>
+        <Pressable testID="search-close" style={styles.pill} onPress={() => goBack()}>
           <Text style={styles.pillText}>{t('close')}</Text>
         </Pressable>
       </View>

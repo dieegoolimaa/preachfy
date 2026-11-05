@@ -3,12 +3,12 @@ import {
   spentInSection, startSession, timerState, type PulpitSession,
 } from '@preachfy/core';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useT } from '@/lib/i18n';
+import { goBack } from '@/lib/navigation';
 import { sampleStudy, studyText } from '@/lib/sample';
 import { paper, serif, serifBold, stage, type Theme } from '@/lib/theme';
 
@@ -77,7 +77,7 @@ export default function Pulpit() {
   return (
     <SafeAreaView style={s.page}>
       <View style={s.top}>
-        <Pressable testID="exit" style={s.tool} onPress={() => router.back()}><Text style={s.toolText}>{tr('exit')}</Text></Pressable>
+        <Pressable testID="exit" style={s.tool} onPress={() => goBack()}><Text style={s.toolText}>{tr('exit')}</Text></Pressable>
         <View style={s.timerBox}>
           <Text testID="timer" style={[s.timer, { color: timeColor }]}>{clock(remaining(session, now))}</Text>
           <Text testID="pace" style={s.pace}>

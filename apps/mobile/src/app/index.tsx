@@ -109,7 +109,7 @@ export default function Reader() {
 
   const mark = (categoryKey: string) => {
     if (!canUse('simpleMark', false)) return;
-    const created: Mark = { id: `${Date.now()}-${marks.length}`, scope: { kind: 'bible' }, spans, categoryKey, note: '' };
+    const created: Mark = { id: `${Date.now()}-${marks.length}`, scope: { kind: 'bible' }, spans, categoryKey, note: '', updatedAt: Date.now() };
     updateReader({ marks: [...marks, created] });
     setNotice(t('markSaved'));
     clear();
@@ -167,6 +167,9 @@ export default function Reader() {
           style={[styles.pill, clean && styles.pillOn]}
           onPress={() => setLayer(clean ? { kind: 'personal' } : { kind: 'clean' })}>
           <Text style={[styles.pillText, clean && styles.pillTextOn]}>{t('clean')}</Text>
+        </Pressable>
+        <Pressable testID="open-account" style={styles.pill} onPress={() => router.push('/account')}>
+          <Text style={styles.pillText}>{t('account')}</Text>
         </Pressable>
         <Pressable testID="open-about" style={styles.pill} onPress={() => router.push('/about')}>
           <Text style={styles.pillText}>{t('about')}</Text>

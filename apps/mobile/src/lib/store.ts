@@ -10,13 +10,16 @@ export type ReaderState = {
   chapter: number;
   verse?: number;
   marks: Mark[];
+  syncUser?: string;
+  syncCursor: number;
+  syncPushedAt: number;
 };
 
 const KEY = 'preachfy.reader.v1';
 
 export const defaultTranslation: Record<Locale, string> = { pt: 'blivre', en: 'kjv', es: 'rv1909' };
 
-let state: ReaderState = { ready: false, locale: 'pt', translation: 'blivre', book: 'PSA', chapter: 23, marks: [] };
+let state: ReaderState = { ready: false, locale: 'pt', translation: 'blivre', book: 'PSA', chapter: 23, marks: [], syncCursor: 0, syncPushedAt: 0 };
 const listeners = new Set<() => void>();
 
 function publish(next: ReaderState) {
@@ -40,6 +43,8 @@ export async function loadReader(device: Locale) {
     publish({ ...state, ...first, ready: true });
   }
 }
+
+export const getReader = () => state;
 
 export function useReader() {
   return useSyncExternalStore(

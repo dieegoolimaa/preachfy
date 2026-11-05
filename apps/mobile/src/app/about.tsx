@@ -1,8 +1,8 @@
-import { router } from 'expo-router';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { localeNames, locales, useT } from '@/lib/i18n';
+import { goBack } from '@/lib/navigation';
 import { defaultTranslation, updateReader, useReader } from '@/lib/store';
 import { paper, serifBold } from '@/lib/theme';
 import { translations } from '@/lib/translations';
@@ -21,7 +21,7 @@ export default function About() {
     <SafeAreaView style={styles.page}>
       <View style={styles.header}>
         <Text style={styles.title}>{t('aboutTitle')}</Text>
-        <Pressable testID="about-close" style={styles.pill} onPress={() => router.back()}>
+        <Pressable testID="about-close" style={styles.pill} onPress={() => goBack()}>
           <Text style={styles.pillText}>{t('close')}</Text>
         </Pressable>
       </View>

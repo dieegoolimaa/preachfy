@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  BOOKS, bookName, parseReference, searchBook,
+  BOOKS, bookName, marksToPush, mergeMarks, parseReference, searchBook,
   canUse, captureSnapshot, elapsed, goTo, isReadyForPulpit, pace, pause, remaining, resolveSpan, resume,
   selectionSpans, spentInSection, startSession, stepsMissingBaseText, timerState, visibleMarks, wordsOf,
 } from '../src/index.ts';
@@ -175,4 +175,25 @@ test('books and references work in the three languages', () => {
   assert.deepEqual(parseReference('1 Corinthians 13', 'en'), { book: '1CO', chapter: 13 });
   assert.deepEqual(parseReference('job 1', 'en'), { book: 'JOB', chapter: 1 });
   for (const b of BOOKS) for (const name of Object.values(b.names)) assert.ok(name.length > 0);
+});
+
+const dated = (id: string, updatedAt: number | undefined, note: string, deletedAt?: number): Mark => ({
+  id, scope: { kind: 'bible' }, spans: [], categoryKey: 'vida', note, updatedAt, deletedAt,
+});
+
+test('merging keeps the most recent edit of each mark', () => {
+  const merged = mergeMarks([dated('a', 200, 'local'), dated('b', 100, 'old')], [dated('a', 100, 'stale'), dated('b', 300, 'new'), dated('c', 50, 'other')]);
+  assert.deepEqual(merged.map((m) => m.note).sort(), ['local', 'new', 'other']);
+});
+
+test('a removal wins over an older edit and hides the mark', () => {
+  const merged = mergeMarks([dated('a', 100, 'x')], [dated('a', 200, 'x', 200)]);
+  assert.equal(merged.length, 1);
+  assert.deepEqual(visibleMarks({ kind: 'personal' }, merged), []);
+});
+
+test('only changes since the last upload are sent, and undated marks go once', () => {
+  const marks = [dated('a', 100, ''), dated('b', 300, ''), dated('c', undefined, '')];
+  assert.deepEqual(marksToPush(marks, 0).map((m) => m.id), ['a', 'b', 'c']);
+  assert.deepEqual(marksToPush(marks, 200).map((m) => m.id), ['b']);
 });

@@ -102,7 +102,7 @@ Alternativas descartadas como base: MultipeerConnectivity (limite de 8 aparelhos
 - Em destaque, só o texto base e as anotações daquele passo.
 - O texto de contexto fica a um toque, sem tirar o foco do passo atual.
 
-## Conta, cobrança e integração (proposta)
+## Conta, cobrança e integração
 
 | Peça | Papel |
 |---|---|
@@ -111,7 +111,23 @@ Alternativas descartadas como base: MultipeerConnectivity (limite de 8 aparelhos
 | Better Auth, dentro da API | Conta única. Adaptador oficial para MongoDB e plugin para Expo |
 | RevenueCat | Fonte única do estado Pro. Produto `pro`, para App Store e web |
 | App Store (compra no app) | Cobrança no iPhone e no iPad |
-| Stripe ou Paddle, via RevenueCat | Cobrança no web |
+| RevenueCat Billing com Stripe | Cobrança no web, só cartão |
+
+### Venda
+Como pessoa física, sem empresa, no web e na App Store. Só cartão. Pontos a resolver antes de publicar:
+- Imposto sobre as vendas e a renda fica por conta da pessoa física. Sem "merchant of record", isso inclui imposto de consumo de outros países. Exige contador.
+- Vender na União Europeia exige declarar status de "trader" na Apple, e endereço, telefone e e-mail ficam públicos na loja. Sem isso, o app sai da loja da UE.
+
+### Estado
+Pronto e testado no web: conta por e-mail, sessão, plano, sincronização de marcações, webhook do RevenueCat e exclusão de conta.
+
+Falta, antes de publicar:
+- Compra no app e paywall (`react-native-purchases`). Depende das chaves do RevenueCat.
+- Sign in with Apple e Google. O código liga sozinho com as credenciais, mas falta o botão e o teste real.
+- Revogar o token da Apple ao excluir a conta.
+- Recuperar senha e confirmar e-mail. Depende de um serviço de envio de e-mail.
+- Proteger as rotas antigas da API, que continuam abertas.
+- Implantar a API. A versão do Node precisa ser 22.12 ou maior, porque o `better-auth` é um pacote ESM.
 
 ### Regras
 - O `id` do usuário no Better Auth é o `appUserID` no RevenueCat. Sem isso, a assinatura feita em um lugar não aparece no outro.
@@ -137,7 +153,7 @@ Sermões, anotações e respostas de alunos podem revelar convicção religiosa,
 O plano gratuito do Render hiberna e não serve para login nem aula ao vivo. O web fica em hospedagem estática; a API, em plano pago.
 
 ## Strong (hebraico e grego)
-Viável, como recurso Pro, depois de Criar e Púlpito.
+Decidido: entra depois de Criar e Púlpito, como recurso Pro e pacote opcional.
 
 - **Dados:** STEPBible-Data (TAHOT, TAGNT, TBESH, TBESG). CC BY 4.0: exige crédito com link para STEPBible.org e publicar o registro das alterações.
 - **Como funciona:** painel "Original" por versículo: palavras em hebraico ou grego, Strong, morfologia e definição, em qualquer versão, porque a ligação é por referência.
@@ -153,7 +169,7 @@ Reaproveita `apps/api` e `apps/web`. Guarda só o que o professor publicou e exp
 Regra: leitura, marcação simples, copiar e compartilhar versículos são grátis. Criar conteúdo para o Púlpito é Pro. A lista oficial está em `packages/core/src/entitlements.ts`.
 
 - **Grátis:** ler, trocar de versão, buscar, Modo Limpo e destacar com as 8 categorias, inclusive por palavra, copiar e compartilhar versículos.
-- **Pro:** todo o resto, incluindo notas, categorias próprias, comparar versões, plano de leitura, sincronização, snapshot, criar, Púlpito, telão, gravação, aula ao vivo e PDF.
+- **Pro:** todo o resto, incluindo notas por versículo, categorias próprias, comparar versões, plano de leitura, sincronização, snapshot, criar, Púlpito, telão, gravação, aula ao vivo e PDF.
 - **Sempre disponível:** ver e exportar o que a pessoa já criou, mesmo sem assinatura.
 - **Aluno:** acessa a aula de graça; quem paga é o professor.
 
@@ -173,9 +189,8 @@ NVI, ACF e ARA ficam para quando houver licença. Antes de publicar, vale uma re
 Marcações e posição de leitura ficam em armazenamento chave-valor, igual no aparelho e no web. O SQLite no web exige cabeçalhos especiais no servidor e não tem busca textual. A troca por banco fica para quando houver sincronização.
 
 ## Decisões em aberto
-- Onde fica a empresa que vende (define Stripe ou Paddle, impostos e Pix).
+- País de residência fiscal de quem vende.
 - Preços mensal e anual.
-- Português único ou pt-BR e pt-PT separados.
 - Ícone (recomendado: B, a fita) e tema padrão.
 - Plano de leitura e folheto em PDF: v1 ou v1.x.
 

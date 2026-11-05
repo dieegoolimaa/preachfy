@@ -20,6 +20,16 @@ services:
         sync: false  # Set manually in Render dashboard
       - key: PORT
         value: 10000
+      - key: BETTER_AUTH_SECRET
+        sync: false
+      - key: BETTER_AUTH_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: REVENUECAT_SECRET_KEY
+        sync: false
+      - key: REVENUECAT_WEBHOOK_AUTH
+        sync: false
 
   # ─── FRONTEND (Next.js Web) ─────────────────────
   - type: web

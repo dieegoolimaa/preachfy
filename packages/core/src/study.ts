@@ -51,13 +51,38 @@ export function resolveSpan(span: VerseSpan, text: string, translationId: string
 }
 
 export type MarkScope = { kind: 'bible' } | { kind: 'study'; studyId: string };
-export type Mark = { id: string; scope: MarkScope; spans: VerseSpan[]; categoryKey: string; note: string };
+export type Mark = {
+  id: string;
+  scope: MarkScope;
+  spans: VerseSpan[];
+  categoryKey: string;
+  note: string;
+  updatedAt?: number;
+  /** Kept as a tombstone so a removal reaches the other devices. */
+  deletedAt?: number;
+};
 export type ReadingLayer = { kind: 'clean' } | { kind: 'personal' } | { kind: 'study'; studyId: string };
 
 export function visibleMarks(layer: ReadingLayer, marks: Mark[]): Mark[] {
   if (layer.kind === 'clean') return [];
-  if (layer.kind === 'personal') return marks.filter((m) => m.scope.kind === 'bible');
-  return marks.filter((m) => m.scope.kind === 'study' && m.scope.studyId === layer.studyId);
+  const live = marks.filter((m) => !m.deletedAt);
+  if (layer.kind === 'personal') return live.filter((m) => m.scope.kind === 'bible');
+  return live.filter((m) => m.scope.kind === 'study' && m.scope.studyId === layer.studyId);
+}
+
+const editedAt = (m: Mark) => m.updatedAt ?? 1;
+
+/** Marks changed since the last upload. Older saved marks have no date and count as changed once. */
+export const marksToPush = (marks: Mark[], pushedAt: number) => marks.filter((m) => editedAt(m) > pushedAt);
+
+/** Applies marks from the server; the most recent edit of each one wins. */
+export function mergeMarks(local: Mark[], incoming: Mark[]): Mark[] {
+  const byId = new Map(local.map((m) => [m.id, m]));
+  for (const mark of incoming) {
+    const current = byId.get(mark.id);
+    if (!current || editedAt(mark) >= editedAt(current)) byId.set(mark.id, mark);
+  }
+  return [...byId.values()];
 }
 
 export type Snapshot = { id: string; createdAt: number; marks: Mark[] };

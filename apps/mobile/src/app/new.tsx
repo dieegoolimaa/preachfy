@@ -98,6 +98,18 @@ export default function NewContent() {
       return next;
     });
 
+  const remove = (index: number) => setDraft((rows) => rows.filter((_, i) => i !== index));
+
+  /** Points are as many as the author wants: a new one continues the numbering. */
+  const add = () =>
+    setDraft((rows) => {
+      const point = templateFor(kind).sections.find((x) => x.range === 'part');
+      const word = point?.title[locale].replace(/\s*\d+$/, '');
+      const count = word ? rows.filter((row) => row.step.title.startsWith(word)).length : 0;
+      const title = word ? `${word} ${count + 1}` : t('newStep');
+      return [...rows, { step: { id: newId(), title, notes: '', plannedMs: 600_000 }, on: true }];
+    });
+
   const kept = draft.filter((row) => row.on);
   const minutes = Math.round(kept.reduce((sum, row) => sum + row.step.plannedMs, 0) / 60_000);
 
@@ -177,7 +189,6 @@ export default function NewContent() {
             </Pressable>
             <View style={s.sectionBody}>
               <TextInput testID={`draft-title-${index}`} style={s.sectionTitle} value={row.step.title} onChangeText={(text) => change(index, { title: text })} />
-              <Text style={s.guidance}>{row.step.guidance}</Text>
               <View style={s.chips}>
                 <Text style={s.chip}>{t('minutes', { n: Math.round(row.step.plannedMs / 60_000) })}</Text>
                 {range?.length ? <Text style={s.chip}>{`${bookName(range[0]!.ref.book, locale)} ${range[0]!.ref.chapter}:${range[0]!.ref.verse}${range.length > 1 ? `–${range[range.length - 1]!.ref.verse}` : ''}`}</Text> : null}
@@ -196,10 +207,12 @@ export default function NewContent() {
             <View>
               <IconButton testID={`draft-up-${index}`} icon="arrow-up" label={t('previous')} disabled={index === 0} onPress={() => move(index, -1)} />
               <IconButton testID={`draft-down-${index}`} icon="arrow-down" label={t('next')} disabled={index === draft.length - 1} onPress={() => move(index, 1)} />
+              <IconButton testID={`draft-remove-${index}`} icon="close" color={paper.muted} label={t('remove')} onPress={() => remove(index)} />
             </View>
           </View>
         );
       })}
+      <Pill testID="draft-add" plain label={t('addStep')} onPress={add} />
       <Pill testID="create-study" primary big disabled={!passage || kept.length === 0} label={t('createNow')} onPress={create} />
     </View>
   );
@@ -234,7 +247,6 @@ const s = StyleSheet.create({
   checkOn: { backgroundColor: paper.accent, borderColor: paper.accent },
   sectionBody: { flex: 1, minWidth: 0, gap: 4 },
   sectionTitle: { fontFamily: serifBold, fontSize: 20, color: paper.fg, paddingVertical: 2 },
-  guidance: { fontSize: 14, lineHeight: 20, color: paper.muted },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
   chip: { fontSize: 12, color: paper.fg, backgroundColor: paper.soft, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 10, overflow: 'hidden' },
   from: { fontSize: 12, color: paper.muted },

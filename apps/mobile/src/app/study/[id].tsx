@@ -130,7 +130,6 @@ function StepCard({ study, step, index, last, open, editable, onToggle, onChange
 
         {open ? (
           <View style={s.edit}>
-            {step.guidance ? <Hint>{step.guidance}</Hint> : null}
             <Field testID={`step-${index}-title`} label={t('titleLabel')} editable={editable} value={step.title} onChangeText={(title) => onChange({ title })} />
             <Field
               testID={`step-${index}-minutes`}
@@ -162,7 +161,7 @@ function StepCard({ study, step, index, last, open, editable, onToggle, onChange
 
             <Text style={ui.fieldLabel}>{t('stepLevels')}</Text>
             <Segmented value={level} onChange={setLevel} options={levels} />
-            {level === 'manuscript' ? <Field testID={`step-${index}-notes`} multiline editable={editable} value={step.notes} onChangeText={(notes) => onChange({ notes })} placeholder={t('notesHint')} /> : null}
+            {level === 'manuscript' ? <Field testID={`step-${index}-notes`} multiline editable={editable} value={step.notes} onChangeText={(notes) => onChange({ notes })} placeholder={step.guidance ?? t('notesHint')} /> : null}
             {level === 'outline' ? <Field testID={`step-${index}-outline`} multiline editable={editable} value={step.outline ?? ''} onChangeText={(outline) => onChange({ outline })} /> : null}
             {level === 'keywords' ? <Field testID={`step-${index}-keywords`} editable={editable} value={step.keywords ?? ''} onChangeText={(keywords) => onChange({ keywords })} /> : null}
 

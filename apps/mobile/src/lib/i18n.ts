@@ -4,6 +4,20 @@ import { getLocales } from 'expo-localization';
 import { useReader } from './store';
 
 const pt = {
+  continue: 'Continuar',
+  continueWith: 'Continuar com {label}',
+  createKind: 'Criar {kind} · {n} min',
+  wizPassage: 'Trecho',
+  wizType: 'Tipo',
+  wizSteps: 'Passos',
+  stepsReady: '{n} de {m} passos prontos',
+  missingTexts: 'Faltam {n} textos base.',
+  continuePrep: 'Continuar preparando',
+  firstMessage: 'Prepare a sua primeira mensagem',
+  firstMessageHint: 'Escolha um trecho e um tipo. O app monta os passos.',
+  startPreparing: 'Preparar uma mensagem',
+  prepareFromHere: 'Preparar uma mensagem daqui',
+  startLabel: 'Começar',
   changePassage: 'Trocar o trecho',
   expoGoNote: 'Compras reais não funcionam no Expo Go. Use o botão abaixo, só em desenvolvimento.',
   devUnlock: 'Liberar Pro (teste local)',
@@ -252,6 +266,20 @@ const pt = {
 type Key = keyof typeof pt;
 
 const en: Record<Key, string> = {
+  continue: 'Continue',
+  continueWith: 'Continue with {label}',
+  createKind: 'Create {kind} · {n} min',
+  wizPassage: 'Passage',
+  wizType: 'Type',
+  wizSteps: 'Steps',
+  stepsReady: '{n} of {m} steps ready',
+  missingTexts: '{n} base texts missing.',
+  continuePrep: 'Keep preparing',
+  firstMessage: 'Prepare your first message',
+  firstMessageHint: 'Pick a passage and a type. The app builds the steps.',
+  startPreparing: 'Prepare a message',
+  prepareFromHere: 'Prepare a message from here',
+  startLabel: 'Start',
   changePassage: 'Change passage',
   expoGoNote: 'Real purchases do not work in Expo Go. Use the button below, in development only.',
   devUnlock: 'Unlock Pro (local test)',
@@ -498,6 +526,20 @@ const en: Record<Key, string> = {
 };
 
 const es: Record<Key, string> = {
+  continue: 'Continuar',
+  continueWith: 'Continuar con {label}',
+  createKind: 'Crear {kind} · {n} min',
+  wizPassage: 'Pasaje',
+  wizType: 'Tipo',
+  wizSteps: 'Pasos',
+  stepsReady: '{n} de {m} pasos listos',
+  missingTexts: 'Faltan {n} textos base.',
+  continuePrep: 'Seguir preparando',
+  firstMessage: 'Prepara tu primer mensaje',
+  firstMessageHint: 'Elige un pasaje y un tipo. La app arma los pasos.',
+  startPreparing: 'Preparar un mensaje',
+  prepareFromHere: 'Preparar un mensaje desde aquí',
+  startLabel: 'Empezar',
   changePassage: 'Cambiar el pasaje',
   expoGoNote: 'Las compras reales no funcionan en Expo Go. Usa el botón de abajo, solo en desarrollo.',
   devUnlock: 'Liberar Pro (prueba local)',

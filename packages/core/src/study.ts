@@ -224,3 +224,14 @@ export const stepsMissingBaseText = (study: Study) => study.steps.filter((s) => 
 export const isReadyForPulpit = (study: Study) => study.steps.length > 0 && stepsMissingBaseText(study).length === 0;
 export const pulpitSections = (study: Study): PulpitSection[] =>
   study.steps.map(({ title, plannedMs }) => ({ title, plannedMs }));
+
+/**
+ * The content to show first: the soonest dated one that has not passed,
+ * otherwise the one edited most recently.
+ */
+export function nextStudy<T extends { deletedAt?: number; scheduledFor?: number; updatedAt?: number }>(items: T[], now: number): T | undefined {
+  const live = items.filter((item) => !item.deletedAt);
+  const dated = live.filter((item) => item.scheduledFor !== undefined && item.scheduledFor >= now - 3_600_000);
+  if (dated.length) return dated.sort((a, b) => a.scheduledFor! - b.scheduledFor!)[0];
+  return live.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))[0];
+}

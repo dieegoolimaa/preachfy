@@ -1,5 +1,5 @@
-import { Children, Fragment, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { Children, Fragment, useEffect, useRef, type ReactNode } from 'react';
+import { Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/Icon';
@@ -10,10 +10,10 @@ import { paper, serifBold } from '@/lib/theme';
 
 export type { IconName };
 
-type ScreenProps = { title: string; right?: ReactNode; close?: boolean; wide?: boolean; children: ReactNode; testID?: string };
+type ScreenProps = { title: string; right?: ReactNode; close?: boolean; wide?: boolean; footer?: ReactNode; children: ReactNode; testID?: string };
 
 /** Tab screens open with a large title; pushed screens get a bar with a back button. */
-export function Screen({ title, right, close, wide, children, testID }: ScreenProps) {
+export function Screen({ title, right, close, wide, footer, children, testID }: ScreenProps) {
   const { t } = useT();
   return (
     <SafeAreaView style={ui.page} edges={close ? ['top', 'bottom'] : ['top']} testID={testID}>
@@ -33,7 +33,29 @@ export function Screen({ title, right, close, wide, children, testID }: ScreenPr
         {close ? null : <Title>{title}</Title>}
         {children}
       </ScrollView>
+      {footer ? <View style={ui.footer}>{footer}</View> : null}
     </SafeAreaView>
+  );
+}
+
+/** Content that settles in, so a change of step shows where you went. */
+export function FadeIn({ children }: { children: ReactNode }) {
+  const value = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(value, { toValue: 1, duration: 260, useNativeDriver: true }).start();
+  }, [value]);
+  const lift = value.interpolate({ inputRange: [0, 1], outputRange: [10, 0] });
+  return <Animated.View style={{ opacity: value, transform: [{ translateY: lift }] }}>{children}</Animated.View>;
+}
+
+/** One bar per step. The filled ones are done. */
+export function Segments({ done, total, onYellow }: { done: number; total: number; onYellow?: boolean }) {
+  return (
+    <View style={ui.segments} testID="segments">
+      {Array.from({ length: total }, (_, i) => (
+        <View key={i} style={[ui.segment2, { backgroundColor: i < done ? paper.fg : onYellow ? 'rgba(22,24,29,0.18)' : paper.line }]} />
+      ))}
+    </View>
   );
 }
 
@@ -193,6 +215,9 @@ export const ui = StyleSheet.create({
   largeTitle: { fontFamily: serifBold, fontSize: 38, lineHeight: 46, letterSpacing: -0.6, color: paper.fg },
   body: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 32, gap: 20, maxWidth: 720, width: '100%', alignSelf: 'center' },
   bodyWide: { maxWidth: 1080 },
+  footer: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8, gap: 8, borderTopWidth: hairline, borderTopColor: paper.line, backgroundColor: paper.bg },
+  segments: { flexDirection: 'row', gap: 4 },
+  segment2: { flex: 1, height: 5, borderRadius: 3 },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 50, paddingVertical: 11 },
   rowPressed: { opacity: 0.55 },
   rowText: { flex: 1, gap: 2 },

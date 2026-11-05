@@ -9,7 +9,7 @@ import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-nativ
 import { Icon } from '@/components/Icon';
 import { LivePanel } from '@/components/LivePanel';
 import { RunAudio } from '@/components/RunAudio';
-import { Field, Group, Hint, IconButton, Pill, Screen, Segmented, ui } from '@/components/ui';
+import { Field, Group, Hint, IconButton, Pill, Screen, Segmented, Segments, ui } from '@/components/ui';
 import { dateTime, fromInput, toInput } from '@/lib/dates';
 import { shareHandout } from '@/lib/handout';
 import { useT } from '@/lib/i18n';
@@ -247,6 +247,7 @@ export default function StudyEditor() {
       {!pro ? <Hint testID="read-only">{t('readOnlyHint')}</Hint> : null}
 
       <View style={s.deliver}>
+        <Segments done={study.steps.filter(hasBaseText).length} total={Math.max(study.steps.length, 1)} />
         <Text style={[s.status, ready ? s.statusReady : s.statusMissing]} testID={ready ? 'ready' : 'missing-base'}>
           {ready ? t('ready') : t('missingBase', { list: missing.map((step) => step.title).join(', ') })}
         </Text>

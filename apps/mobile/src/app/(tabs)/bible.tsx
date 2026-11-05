@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { IconButton, type IconName } from '@/components/ui';
+import { IconButton, Pill, type IconName } from '@/components/ui';
 import { Verse } from '@/components/Verse';
 import { loadBook } from '@/lib/bible';
 import { useT } from '@/lib/i18n';
@@ -347,10 +347,10 @@ export default function Reader() {
               </Pressable>
             ))}
           </ScrollView>
+          <Pill testID="create-from-selection" primary big label={`${t('prepareFromHere')} →`} onPress={createFromSelection} />
           <View style={styles.actions}>
             <Action testID="copy" icon="copy" label={t('copy')} onPress={copy} />
             <Action testID="share" icon="share" label={t('share')} onPress={share} />
-            <Action testID="create-from-selection" icon="create" label={t('create')} onPress={createFromSelection} />
             <Action icon="close" label={t('cancel')} onPress={clear} />
           </View>
         </View>
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
   hint: { color: paper.muted, fontSize: 13 },
   message: { color: paper.muted, fontSize: 15, padding: 20 },
   toolbar: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingHorizontal: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: paper.line, backgroundColor: paper.bg },
-  sheet: { gap: 12, paddingTop: 12, paddingBottom: 8, borderTopLeftRadius: 18, borderTopRightRadius: 18, backgroundColor: paper.card, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 16, shadowOffset: { width: 0, height: -2 } },
+  sheet: { gap: 12, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopLeftRadius: 18, borderTopRightRadius: 18, backgroundColor: paper.card, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 16, shadowOffset: { width: 0, height: -2 } },
   lookRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16 },
   swatch: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: paper.line },
   swatchOn: { borderWidth: 2, borderColor: paper.fg },

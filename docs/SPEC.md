@@ -3,6 +3,15 @@
 Reconstruída a partir de quatro artefatos: Modo Púlpito, Modelos e Telas, Criar e Identidade.
 Quando há conflito, valem as decisões de 2026-11-05 registradas aqui.
 
+## Jornada
+O app é um caminho de quatro passos: **Ler, Marcar, Preparar e Pregar**. As abas são Hoje, Bíblia, Preparar, Comunidade e Ajustes.
+
+- **Hoje** abre no que fazer agora: um cartão com o próximo conteúdo (o de data mais próxima, ou o editado por último), o progresso por passo e um botão principal. Sem conteúdo, convida a preparar o primeiro.
+- **Marcar** na Bíblia termina em "Preparar uma mensagem daqui", que já leva o trecho.
+- **Preparar** tem três etapas: trecho, tipo e passos. O cabeçalho mostra onde se está. Vindo da Bíblia, começa no tipo. Os passos são livres: liga, desliga, renomeia, reordena, adiciona e remove.
+- **Pregar** abre em um checklist escuro e segue passo a passo.
+- Uma ação principal por tela, em botão grande. Aprovado em 2026-11-05 pelo protótipo de jornada.
+
 ## Escopo
 - iPhone, iPad e web, com visual idêntico. Mac nativo fora do escopo.
 - Interface em português, inglês e espanhol. O idioma da interface é separado da versão da Bíblia.

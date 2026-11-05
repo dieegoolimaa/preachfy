@@ -4,7 +4,7 @@ import {
   BOOKS, bookName, marksToPush, mergeMarks, parseReference, searchBook,
   canUse, captureSnapshot, elapsed, goTo, isReadyForPulpit, pace, pause, remaining, resolveSpan, resume,
   selectionSpans, spentInSection, startSession, stepsMissingBaseText, timerState, visibleMarks, wordsOf,
-  BOOKS as ALL_BOOKS, addChapter, planChapters, planDayOf, planProgress, PLAN_DAYS, TEMPLATES, buildStudy, mergeItems, parsePassage, splitRange, stepBody, stepSuggestions, toLiveSteps, upcoming,
+  BOOKS as ALL_BOOKS, addChapter, planChapters, planDayOf, planProgress, PLAN_DAYS, nextStudy, TEMPLATES, buildStudy, mergeItems, parsePassage, splitRange, stepBody, stepSuggestions, toLiveSteps, upcoming,
 } from '../src/index.ts';
 import type { Mark, Study, VerseSpan } from '../src/index.ts';
 
@@ -319,4 +319,15 @@ test('the plan follows the calendar and never leaves its range', () => {
   assert.equal(planDayOf(start, new Date(2026, 0, 2, 1).getTime()), 1);
   assert.equal(planDayOf(start, new Date(2030, 0, 1).getTime()), PLAN_DAYS - 1);
   assert.equal(planProgress([0, 1, 1, 2]), 3 / PLAN_DAYS);
+});
+
+test('the next content is the soonest dated one, else the latest edit', () => {
+  const items = [
+    { id: 'old', updatedAt: 1 }, { id: 'new', updatedAt: 9 }, { id: 'later', scheduledFor: 500, updatedAt: 2 },
+    { id: 'soon', scheduledFor: 200, updatedAt: 3 }, { id: 'past', scheduledFor: 10_000, updatedAt: 4 }, { id: 'gone', scheduledFor: 150, deletedAt: 1 },
+  ];
+  assert.equal(nextStudy(items, 100)?.id, 'soon');
+  assert.equal(nextStudy(items.filter((i) => !i.scheduledFor), 100)?.id, 'new');
+  assert.equal(nextStudy([], 100), undefined);
+  assert.equal(nextStudy([{ id: 'x', scheduledFor: 5, updatedAt: 1 }, { id: 'y', updatedAt: 7 }], 7_200_000)?.id, 'y');
 });

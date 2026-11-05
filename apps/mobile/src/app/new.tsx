@@ -3,27 +3,29 @@ import {
   type Mark, type Passage, type Step, type StudyKind,
 } from '@preachfy/core';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
-import { Field, Hint, IconButton, Pill, Screen, ui } from '@/components/ui';
+import { FadeIn, Field, Hint, IconButton, Pill, Screen, ui } from '@/components/ui';
 import { loadBook } from '@/lib/bible';
 import { useT } from '@/lib/i18n';
 import { newId } from '@/lib/ids';
-import { resolvePassage } from '@/lib/passage';
 import { saveStudy, useReader } from '@/lib/store';
 import { categoryColor, paper, serif, serifBold } from '@/lib/theme';
 
 type Draft = { step: Step; on: boolean };
+type Stage = 1 | 2 | 3;
 
 const verseOf = (mark: Mark) => mark.spans[0]?.ref.verse ?? 0;
 
-/** Passage, type and sections on one screen. Change the passage and the sections rebuild. */
+/** Passage, type and steps, one at a time. The header always shows where you are. */
 export default function NewContent() {
   const { t, locale } = useT();
   const params = useLocalSearchParams<{ passage?: string }>();
   const { book, chapter, translation, marks } = useReader();
+  // Coming from a selection in the Bible, the passage is already chosen.
+  const [stage, setStage] = useState<Stage>(params.passage ? 2 : 1);
   const [reference, setReference] = useState(params.passage ?? `${bookName(book, locale)} ${chapter}`);
   const [verses, setVerses] = useState<string[]>([]);
   const [range, setRange] = useState<{ a: number; b: number } | null>(null);
@@ -31,11 +33,6 @@ export default function NewContent() {
   const [kind, setKind] = useState<StudyKind>('outline');
   const [title, setTitle] = useState('');
   const [draft, setDraft] = useState<Draft[]>([]);
-  const { width } = useWindowDimensions();
-  const wide = width >= 900;
-  // On a phone the verses fold away once the passage is chosen, so the next steps stay in view.
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const showVerses = wide || pickerOpen;
 
   const parsed = useMemo(() => parsePassage(reference, locale), [reference, locale]);
   const chapterKey = parsed ? `${parsed.book}-${parsed.chapter}` : '';
@@ -67,6 +64,7 @@ export default function NewContent() {
     parsed && range ? { book: parsed.book, chapter: parsed.chapter, from: range.a, to: range.b, translationId: translation } : null;
   const own = passage ? marksInPassage(marks, passage) : [];
   const label = passage ? `${bookName(passage.book, locale)} ${passage.chapter}:${passage.from}–${passage.to}` : '';
+  const template = templateFor(kind);
 
   useEffect(() => {
     if (!passage) {
@@ -75,7 +73,7 @@ export default function NewContent() {
     }
     const base = buildStudy({ id: 'draft', kind, title: '', passage, marks: [], locale, now: 0, newId });
     setDraft(base.steps.map((step) => ({ step, on: true })));
-    // Sections follow the passage and the type, so edits start again when either changes.
+    // Steps follow the passage and the type, so edits start again when either changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapterKey, range?.a, range?.b, kind, locale]);
 
@@ -86,12 +84,13 @@ export default function NewContent() {
     } else {
       setRange({ a: Math.min(anchor, verse), b: Math.max(anchor, verse) });
       setAnchor(null);
-      setPickerOpen(false);
     }
   };
 
-  const change = (index: number, patch: Partial<Draft> & { title?: string }) =>
-    setDraft((rows) => rows.map((row, i) => (i === index ? { step: patch.title === undefined ? row.step : { ...row.step, title: patch.title }, on: patch.on ?? row.on } : row)));
+  const change = (index: number, patch: { on?: boolean; title?: string }) =>
+    setDraft((rows) =>
+      rows.map((row, i) => (i === index ? { step: patch.title === undefined ? row.step : { ...row.step, title: patch.title }, on: patch.on ?? row.on } : row)),
+    );
 
   const move = (index: number, delta: number) =>
     setDraft((rows) => {
@@ -110,8 +109,8 @@ export default function NewContent() {
       const point = templateFor(kind).sections.find((x) => x.range === 'part');
       const word = point?.title[locale].replace(/\s*\d+$/, '');
       const count = word ? rows.filter((row) => row.step.title.startsWith(word)).length : 0;
-      const title = word ? `${word} ${count + 1}` : t('newStep');
-      return [...rows, { step: { id: newId(), title, notes: '', plannedMs: 600_000 }, on: true }];
+      const name = word ? `${word} ${count + 1}` : t('newStep');
+      return [...rows, { step: { id: newId(), title: name, notes: '', plannedMs: 600_000 }, on: true }];
     });
 
   const kept = draft.filter((row) => row.on);
@@ -126,134 +125,187 @@ export default function NewContent() {
   };
 
   const dotsFor = (step: Step) => {
-    const range = step.baseText?.kind === 'scripture' ? step.baseText.spans.map((x) => x.ref.verse) : null;
-    return own.filter((m) => step.feeds?.includes(m.categoryKey) && (!range || range.includes(verseOf(m))));
+    const verseList = step.baseText?.kind === 'scripture' ? step.baseText.spans.map((x) => x.ref.verse) : null;
+    return own.filter((m) => step.feeds?.includes(m.categoryKey) && (!verseList || verseList.includes(verseOf(m))));
   };
 
-  const picker = (
-    <View style={s.column}>
-      <Text style={ui.fieldLabel}>{t('step1Passage')}</Text>
-      <Field testID="passage" value={reference} onChangeText={setReference} placeholder={t('passageHint')} autoCorrect={false} />
-      {passage ? (
-        <Hint testID="passage-ok">{label}{own.length ? ` · ${t('marksFound', { n: own.length })}` : ''}</Hint>
-      ) : (
-        <Text testID="passage-error" style={ui.error}>{t('passageInvalid')}</Text>
-      )}
-      {!wide && passage ? (
-        <Pressable testID="picker-toggle" accessibilityRole="button" style={s.summary} onPress={() => setPickerOpen(!pickerOpen)}>
-          <Text style={s.summaryText}>{pickerOpen ? t('pickVerseStart') : t('changePassage')}</Text>
-          <Icon name={pickerOpen ? 'chevron-up' : 'chevron-down'} size={18} color={paper.muted} />
-        </Pressable>
-      ) : null}
-      {showVerses ? <Hint>{anchor === null ? t('pickVerseStart') : t('pickVerseEnd')}</Hint> : null}
-      {showVerses && verses.length ? <Pill plain testID="whole-chapter" label={t('wholeChapter')} onPress={() => { setRange({ a: 1, b: verses.length }); setAnchor(null); setPickerOpen(false); }} /> : null}
-      <View style={s.verses}>
-        {(showVerses ? verses : []).map((text, index) => {
-          const number = index + 1;
-          const on = range ? number >= range.a && number <= range.b : false;
-          const dots = marks.filter((m) => !m.deletedAt && m.scope.kind === 'bible' && m.spans.some((x) => x.ref.book === parsed?.book && x.ref.chapter === parsed?.chapter && x.ref.verse === number));
-          return (
-            <Pressable key={number} testID={`pick-${number}`} accessibilityRole="button" accessibilityState={{ selected: on }} style={[s.verse, on && s.verseOn]} onPress={() => tap(number)}>
-              <Text style={s.number}>{number}</Text>
-              <Text style={s.verseText}>
-                {text}
-                {dots.map((m) => <Text key={m.id} style={{ color: categoryColor(m.categoryKey) }}>{' ●'}</Text>)}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-
-  const builder = (
-    <View style={s.column}>
-      <Text style={ui.fieldLabel}>{t('step2Type')}</Text>
-      <View style={s.kinds}>
-        {TEMPLATES.map((template) => {
-          const total = Math.round(template.sections.reduce((sum, x) => sum + x.minutes, 0));
-          return (
-            <Pressable key={template.kind} testID={`kind-${template.kind}`} accessibilityRole="button" accessibilityState={{ selected: kind === template.kind }} style={[s.kind, kind === template.kind && s.kindOn]} onPress={() => setKind(template.kind)}>
-              <Text style={[s.kindName, kind === template.kind && s.kindNameOn]}>{template.name[locale]}</Text>
-              <Text style={[s.kindMeta, kind === template.kind && s.kindMetaOn]}>{t('kindMeta', { role: template.role[locale], n: total })}</Text>
-            </Pressable>
-          );
-        })}
-        <Pressable testID="kind-card" accessibilityRole="button" disabled={!passage} style={[s.kind, !passage && ui.off]} onPress={() => router.replace({ pathname: '/card', params: { reference } })}>
-          <Text style={s.kindName}>{t('verseCard')}</Text>
-          <Text style={s.kindMeta}>{t('shareLabel')}</Text>
-        </Pressable>
-      </View>
-
-      <Text style={ui.fieldLabel}>{t('step3Title')}</Text>
-      <Field testID="title" value={title} onChangeText={setTitle} placeholder={label || t('titleLabel')} />
-      <Hint testID="sections-count">{t('sectionsOn', { n: kept.length, m: draft.length })} · {t('minutes', { n: minutes })}</Hint>
-
-      {draft.map((row, index) => {
-        const found = dotsFor(row.step);
-        const range = row.step.baseText?.kind === 'scripture' ? row.step.baseText.spans : null;
+  const header = (
+    <View style={s.wizard} testID="wizard">
+      {([['wizPassage', 1], ['wizType', 2], ['wizSteps', 3]] as const).map(([key, number], index) => {
+        const done = number < stage;
+        const now = number === stage;
+        const reachable = number <= stage && (number === 1 || Boolean(passage));
         return (
-          <View key={`${row.step.id}`} testID={`draft-${index}`} style={[s.section, !row.on && s.sectionOff]}>
-            <Pressable testID={`draft-toggle-${index}`} accessibilityRole="checkbox" accessibilityState={{ checked: row.on }} style={[s.check, row.on && s.checkOn]} onPress={() => change(index, { on: !row.on })}>
-              {row.on ? <Icon name="check" size={16} color={paper.accentFg} /> : null}
+          <View key={key} style={s.wizItem}>
+            {index ? <View style={s.wizLine} /> : null}
+            <Pressable testID={`wiz-${number}`} accessibilityRole="button" disabled={!reachable} style={s.wizStep} onPress={() => setStage(number)}>
+              <View style={[s.wizDot, done && s.wizDone, now && s.wizNow]}>
+                {done ? <Icon name="check" size={12} color={paper.accentFg} /> : <Text style={[s.wizNumber, now && s.wizNumberNow]}>{number}</Text>}
+              </View>
+              <Text style={[s.wizLabel, now && s.wizLabelNow]}>{t(key)}</Text>
             </Pressable>
-            <View style={s.sectionBody}>
-              <TextInput testID={`draft-title-${index}`} style={s.sectionTitle} value={row.step.title} onChangeText={(text) => change(index, { title: text })} />
-              <View style={s.meta}>
-              <View style={s.chips}>
-                <Text style={s.chip}>{t('minutes', { n: Math.round(row.step.plannedMs / 60_000) })}</Text>
-                {range?.length ? <Text style={s.chip}>{`${bookName(range[0]!.ref.book, locale)} ${range[0]!.ref.chapter}:${range[0]!.ref.verse}${range.length > 1 ? `–${range[range.length - 1]!.ref.verse}` : ''}`}</Text> : null}
-              </View>
-              <View style={s.controls}>
-                <IconButton testID={`draft-up-${index}`} icon="arrow-up" label={t('previous')} disabled={index === 0} onPress={() => move(index, -1)} />
-                <IconButton testID={`draft-down-${index}`} icon="arrow-down" label={t('next')} disabled={index === draft.length - 1} onPress={() => move(index, 1)} />
-                <IconButton testID={`draft-remove-${index}`} icon="close" color={paper.muted} label={t('remove')} onPress={() => remove(index)} />
-              </View>
-              </View>
-              {found.length ? (
-                <View style={s.chips}>
-                  <Text style={s.from}>{t('fromYourStudyShort')}</Text>
-                  {found.map((m) => (
-                    <Text key={m.id} style={s.from}>
-                      <Text style={{ color: categoryColor(m.categoryKey) }}>● </Text>{t(`cat${m.categoryKey}` as Parameters<typeof t>[0])} {t('verseAbbr')}{verseOf(m)}
-                    </Text>
-                  ))}
-                </View>
-              ) : null}
-            </View>
           </View>
         );
       })}
-      <Pill testID="draft-add" plain label={t('addStep')} onPress={add} />
-      <Pill testID="create-study" primary big disabled={!passage || kept.length === 0} label={t('createNow')} onPress={create} />
     </View>
   );
 
+  const summary = passage ? (
+    <Pressable testID="passage-summary" accessibilityRole="button" style={s.summary} onPress={() => setStage(1)}>
+      <Text style={s.summaryText}>{label}{own.length ? ` · ${t('marksFound', { n: own.length })}` : ''}</Text>
+      <Text style={s.summaryAction}>{t('changePassage')}</Text>
+    </Pressable>
+  ) : null;
+
+  let footer: ReactNode = null;
+  if (stage === 1) {
+    footer = <Pill testID="wiz-continue" primary big disabled={!passage} label={passage ? t('continueWith', { label }) : t('continue')} onPress={() => setStage(2)} />;
+  } else if (stage === 3) {
+    footer = (
+      <Pill testID="create-study" primary big disabled={!passage || kept.length === 0} label={t('createKind', { kind: template.name[locale].toLowerCase(), n: minutes })} onPress={create} />
+    );
+  }
+
   return (
-    <Screen title={t('newContent')} close wide testID="new">
-      {wide ? <View style={s.two}><View style={s.left}>{picker}</View><View style={s.right}>{builder}</View></View> : <>{picker}{builder}</>}
+    <Screen title={t('newContent')} close footer={footer} testID="new">
+      {header}
+      <FadeIn key={stage}>
+        {stage === 1 ? (
+          <View style={s.column}>
+            <Field testID="passage" value={reference} onChangeText={setReference} placeholder={t('passageHint')} autoCorrect={false} />
+            {passage ? (
+              <Hint testID="passage-ok">{label}{own.length ? ` · ${t('marksFound', { n: own.length })}` : ''}</Hint>
+            ) : (
+              <Text testID="passage-error" style={ui.error}>{t('passageInvalid')}</Text>
+            )}
+            <Hint>{anchor === null ? t('pickVerseStart') : t('pickVerseEnd')}</Hint>
+            {verses.length ? <Pill plain testID="whole-chapter" label={t('wholeChapter')} onPress={() => { setRange({ a: 1, b: verses.length }); setAnchor(null); }} /> : null}
+            <View style={s.verses}>
+              {verses.map((text, index) => {
+                const number = index + 1;
+                const on = range ? number >= range.a && number <= range.b : false;
+                const dots = marks.filter((m) => !m.deletedAt && m.scope.kind === 'bible' && m.spans.some((x) => x.ref.book === parsed?.book && x.ref.chapter === parsed?.chapter && x.ref.verse === number));
+                return (
+                  <Pressable key={number} testID={`pick-${number}`} accessibilityRole="button" accessibilityState={{ selected: on }} style={[s.verse, on && s.verseOn]} onPress={() => tap(number)}>
+                    <Text style={s.number}>{number}</Text>
+                    <Text style={s.verseText}>
+                      {text}
+                      {dots.map((m) => <Text key={m.id} style={{ color: categoryColor(m.categoryKey) }}>{' ●'}</Text>)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+
+        {stage === 2 ? (
+          <View style={s.column}>
+            {summary}
+            <Text style={s.question}>{t('step2Type')}</Text>
+            <View style={s.kinds}>
+              {TEMPLATES.map((item) => {
+                const total = Math.round(item.sections.reduce((sum, x) => sum + x.minutes, 0));
+                return (
+                  <Pressable
+                    key={item.kind}
+                    testID={`kind-${item.kind}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: kind === item.kind }}
+                    style={[s.kind, kind === item.kind && s.kindOn]}
+                    onPress={() => {
+                      setKind(item.kind);
+                      setStage(3);
+                    }}>
+                    <Text style={[s.kindName, kind === item.kind && s.kindNameOn]}>{item.name[locale]}</Text>
+                    <Text style={[s.kindMeta, kind === item.kind && s.kindMetaOn]}>{t('kindMeta', { role: item.role[locale], n: total })}</Text>
+                  </Pressable>
+                );
+              })}
+              <Pressable testID="kind-card" accessibilityRole="button" disabled={!passage} style={[s.kind, !passage && ui.off]} onPress={() => router.replace({ pathname: '/card', params: { reference } })}>
+                <Text style={s.kindName}>{t('verseCard')}</Text>
+                <Text style={s.kindMeta}>{t('shareLabel')}</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
+        {stage === 3 ? (
+          <View style={s.column}>
+            {summary}
+            <Field testID="title" value={title} onChangeText={setTitle} placeholder={label || t('titleLabel')} />
+            <Hint testID="sections-count">{t('sectionsOn', { n: kept.length, m: draft.length })} · {t('minutes', { n: minutes })}</Hint>
+            {draft.map((row, index) => {
+              const found = dotsFor(row.step);
+              const spans = row.step.baseText?.kind === 'scripture' ? row.step.baseText.spans : null;
+              return (
+                <View key={row.step.id} testID={`draft-${index}`} style={[s.section, !row.on && s.sectionOff]}>
+                  <Pressable testID={`draft-toggle-${index}`} accessibilityRole="checkbox" accessibilityState={{ checked: row.on }} style={[s.check, row.on && s.checkOn]} onPress={() => change(index, { on: !row.on })}>
+                    {row.on ? <Icon name="check" size={16} color={paper.accentFg} /> : null}
+                  </Pressable>
+                  <View style={s.sectionBody}>
+                    <TextInput testID={`draft-title-${index}`} style={s.sectionTitle} value={row.step.title} onChangeText={(text) => change(index, { title: text })} />
+                    <View style={s.meta}>
+                      <View style={s.chips}>
+                        <Text style={s.chip}>{t('minutes', { n: Math.round(row.step.plannedMs / 60_000) })}</Text>
+                        {spans?.length ? <Text style={s.chip}>{`${bookName(spans[0]!.ref.book, locale)} ${spans[0]!.ref.chapter}:${spans[0]!.ref.verse}${spans.length > 1 ? `–${spans[spans.length - 1]!.ref.verse}` : ''}`}</Text> : null}
+                      </View>
+                      <View style={s.controls}>
+                        <IconButton testID={`draft-up-${index}`} icon="arrow-up" label={t('previous')} disabled={index === 0} onPress={() => move(index, -1)} />
+                        <IconButton testID={`draft-down-${index}`} icon="arrow-down" label={t('next')} disabled={index === draft.length - 1} onPress={() => move(index, 1)} />
+                        <IconButton testID={`draft-remove-${index}`} icon="close" color={paper.muted} label={t('remove')} onPress={() => remove(index)} />
+                      </View>
+                    </View>
+                    {found.length ? (
+                      <View style={s.chips}>
+                        <Text style={s.from}>{t('fromYourStudyShort')}</Text>
+                        {found.map((m) => (
+                          <Text key={m.id} style={s.from}>
+                            <Text style={{ color: categoryColor(m.categoryKey) }}>● </Text>{t(`cat${m.categoryKey}` as Parameters<typeof t>[0])} {t('verseAbbr')}{verseOf(m)}
+                          </Text>
+                        ))}
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+              );
+            })}
+            <Pill testID="draft-add" plain label={t('addStep')} onPress={add} />
+          </View>
+        ) : null}
+      </FadeIn>
     </Screen>
   );
 }
 
 const s = StyleSheet.create({
-  two: { flexDirection: 'row', gap: 40, alignItems: 'flex-start' },
-  left: { flex: 1, minWidth: 0 },
-  right: { flex: 1.3, minWidth: 0 },
+  wizard: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  wizItem: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  wizLine: { flex: 1, height: 1.5, marginHorizontal: 8, backgroundColor: paper.line },
+  wizStep: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36 },
+  wizDot: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: paper.line, alignItems: 'center', justifyContent: 'center' },
+  wizDone: { backgroundColor: paper.accent, borderColor: paper.accent },
+  wizNow: { borderColor: paper.fg },
+  wizNumber: { fontSize: 11, fontWeight: '700', color: paper.muted },
+  wizNumberNow: { color: paper.fg },
+  wizLabel: { fontSize: 13, color: paper.muted },
+  wizLabelNow: { color: paper.fg, fontWeight: '700' },
+  summary: { gap: 2, paddingVertical: 4 },
+  summaryText: { fontFamily: serifBold, fontSize: 22, color: paper.fg },
+  summaryAction: { fontSize: 14, color: paper.muted, textDecorationLine: 'underline' },
+  question: { fontFamily: serifBold, fontSize: 28, lineHeight: 32, letterSpacing: -0.3, color: paper.fg },
   column: { gap: 12 },
-  summary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 44, paddingHorizontal: 14, borderRadius: 12, backgroundColor: paper.soft },
-  summaryText: { flex: 1, fontSize: 15, color: paper.fg },
   verses: { gap: 2 },
   verse: { flexDirection: 'row', gap: 10, paddingVertical: 9, paddingHorizontal: 10, borderLeftWidth: 4, borderLeftColor: 'transparent', borderRadius: 4 },
   verseOn: { backgroundColor: paper.soft, borderLeftColor: paper.mark },
   number: { width: 22, fontSize: 12, fontWeight: '600', color: paper.muted, paddingTop: 5 },
   verseText: { flex: 1, fontFamily: serif, fontSize: 18, lineHeight: 26, color: paper.fg },
-  kinds: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  kind: { flexGrow: 1, flexBasis: 150, gap: 2, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: paper.line },
+  kinds: { gap: 10 },
+  kind: { gap: 2, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: paper.line },
   kindOn: { backgroundColor: paper.accent, borderColor: paper.accent },
-  kindName: { fontFamily: serifBold, fontSize: 18, color: paper.fg },
+  kindName: { fontFamily: serifBold, fontSize: 22, color: paper.fg },
   kindNameOn: { color: paper.accentFg },
-  kindMeta: { fontSize: 13, color: paper.muted },
+  kindMeta: { fontSize: 14, color: paper.muted },
   kindMetaOn: { color: '#FFFFFFB3' },
   section: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', paddingVertical: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: paper.line },
   sectionOff: { opacity: 0.45 },

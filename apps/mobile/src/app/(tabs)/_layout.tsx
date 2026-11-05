@@ -37,7 +37,7 @@ export default function Shell() {
         onPress={() => router.navigate(tab.href as Href)}>
         <View style={s.label}>
           {on && !wide ? <View style={s.mark} /> : null}
-          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={wide ? [s.railText, on && s.railTextOn] : [s.barText, { color }, on && s.barTextOn]}>{t(tab.key)}</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={wide ? [s.railText, on && s.railTextOn] : [s.barText, { color }, on && s.barTextOn]}>{t(tab.key === 'create' ? 'prepare' : tab.key)}</Text>
         </View>
       </Pressable>
     );

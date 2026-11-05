@@ -60,7 +60,7 @@ function Round({ icon, label, onPress, onLongPress, t, testID, big, disabled, ac
 /** The 20-second checklist before speaking. Everything it confirms is true at this moment. */
 function Prepare({ study, texts, resumable, onStart, onResume }: { study: Study; texts: Texts | null; resumable: boolean; onStart: () => void; onResume: () => void }) {
   const { t: tr } = useT();
-  const t = paper;
+  const t = stage;
   const s = themed(t, false);
   const checks = [
     { id: 'text', on: Boolean(texts), label: tr('checkText') },
@@ -69,13 +69,22 @@ function Prepare({ study, texts, resumable, onStart, onResume }: { study: Study;
   ];
   return (
     <SafeAreaView style={s.page}>
-      <ScrollView contentContainerStyle={s.prepare} testID="prepare">
+      <ScrollView contentContainerStyle={s.prepareBody} testID="prepare">
         <Text style={s.label}>{tr('prepare')}</Text>
-        <Text style={s.title}>{study.title}</Text>
-        {checks.map((check) => (
-          <Text key={check.id} testID={`check-${check.id}`} style={s.notes}>{check.on ? '✓' : '…'} {check.label}</Text>
-        ))}
-        <Text style={s.pace}>{tr('dndReminder')}</Text>
+        <Text style={s.prepareTitle}>{study.title}</Text>
+        <View style={s.checks}>
+          {checks.map((check) => (
+            <View key={check.id} style={s.checkRow}>
+              <View style={[s.checkDot, check.on && s.checkDotOn]} testID={`check-${check.id}`}>
+                {check.on ? <Icon name="check" size={14} color={t.accentFg} /> : null}
+              </View>
+              <Text style={s.checkText}>{check.label}</Text>
+            </View>
+          ))}
+        </View>
+        <Text style={s.prepareHint}>{tr('dndReminder')}</Text>
+      </ScrollView>
+      <View style={s.prepareActions}>
         {resumable ? (
           <Pressable testID="resume-session" style={[s.nav, s.navMain]} onPress={onResume}>
             <Text style={[s.navText, s.navTextMain]}>{tr('resumeSession')}</Text>
@@ -84,8 +93,8 @@ function Prepare({ study, texts, resumable, onStart, onResume }: { study: Study;
         <Pressable testID="start" disabled={!texts} style={[s.nav, !resumable && s.navMain, !texts && s.off]} onPress={onStart}>
           <Text style={[s.navText, !resumable && s.navTextMain]}>{tr(resumable ? 'startOver' : 'startNow')}</Text>
         </Pressable>
-        <Pressable testID="prepare-exit" style={s.tool} onPress={() => goBack()}><Text style={s.toolText}>{tr('exit')}</Text></Pressable>
-      </ScrollView>
+        <Pressable testID="prepare-exit" style={s.exitLink} onPress={() => goBack()}><Text style={s.toolText}>{tr('exit')}</Text></Pressable>
+      </View>
     </SafeAreaView>
   );
 }
@@ -548,6 +557,16 @@ const themed = (t: Theme, wide: boolean) =>
     navTextMain: { color: t.accentFg },
     off: { opacity: 0.4 },
     sheetBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+    prepareBody: { flexGrow: 1, justifyContent: 'center', padding: 28, gap: 22, maxWidth: 640, width: '100%', alignSelf: 'center' },
+    prepareTitle: { fontFamily: serifBold, fontSize: 38, lineHeight: 42, letterSpacing: -0.5, color: t.fg },
+    checks: { gap: 16, marginTop: 8 },
+    checkRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+    checkDot: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: t.line, alignItems: 'center', justifyContent: 'center' },
+    checkDotOn: { backgroundColor: t.accent, borderColor: t.accent },
+    checkText: { flex: 1, fontSize: 18, color: t.fg },
+    prepareHint: { fontSize: 14, lineHeight: 20, color: t.muted },
+    prepareActions: { gap: 10, paddingHorizontal: 20, paddingBottom: 16, maxWidth: 640, width: '100%', alignSelf: 'center' },
+    exitLink: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
     roundSpace: { width: 44, height: 44 },
     toolsRow: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 12, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.line },
     tools: { flexDirection: 'row', alignItems: 'center', gap: 8 },

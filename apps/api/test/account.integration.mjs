@@ -192,7 +192,7 @@ test('invalid sync input is rejected', async () => {
   assert.equal((await sync(user, 0, [{ kind: 'user', id: 'x', updatedAt: now, data: {} }])).status, 400);
   assert.equal((await sync(user, 0, [{ kind: 'mark', id: '', updatedAt: now, data: {} }])).status, 400);
   assert.equal((await sync(user, 0, [{ kind: 'mark', id: 'x', updatedAt: 'soon', data: {} }])).status, 400);
-  assert.equal((await sync(user, 0, [mark('x', now, 'y'.repeat(40_000))])).status, 400);
+  assert.equal((await sync(user, 0, [mark('x', now, 'y'.repeat(300_000))])).status, 400);
   assert.equal((await sync(user, 0, Array.from({ length: 501 }, (_, i) => mark(`m${i}`, now, '')))).status, 400);
   assert.equal((await sync(user, 0, 'nope')).status, 400);
 });
@@ -232,8 +232,9 @@ test('only allowed origins get credentialed CORS', async () => {
   assert.equal(other.headers.get('access-control-allow-origin'), null);
 });
 
-test('existing routes stay public and still parse JSON', async () => {
-  assert.equal((await fetch(`${API}/`)).status, 200);
-  const res = await fetch(`${API}/sermons`);
-  assert.notEqual(res.status, 401);
+test('only health is public, and the old routes are gone', async () => {
+  assert.deepEqual(await (await fetch(`${API}/health`)).json(), { ok: true });
+  for (const route of ['/sermons', '/bible', '/community', '/events', '/insights']) {
+    assert.equal((await fetch(API + route)).status, 404, route);
+  }
 });

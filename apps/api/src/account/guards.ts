@@ -2,7 +2,7 @@ import { CanActivate, ExecutionContext, ForbiddenException, Injectable, Unauthor
 import { fromNodeHeaders } from 'better-auth/node';
 import type { Request } from 'express';
 import { getAuth } from './auth';
-import { readEntitlement } from './entitlements';
+import { readEntitlement } from '../billing/entitlements';
 
 export type SessionUser = { id: string; email: string; name: string };
 export type AuthedRequest = Request & { user: SessionUser };

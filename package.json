@@ -2,11 +2,12 @@
   "name": "preachfy",
   "private": true,
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "dev": "node scripts/dev.mjs",
+    "db": "node scripts/dev-db.mjs",
+    "pro": "node scripts/dev-pro.mjs",
+    "test": "turbo run test",
+    "check-types": "turbo run check-types",
+    "build": "turbo run build"
   },
   "devDependencies": {
     "prettier": "^3.7.4",
@@ -20,8 +21,5 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ],
-  "dependencies": {
-    "mongodb": "^7.1.0"
-  }
+  ]
 }

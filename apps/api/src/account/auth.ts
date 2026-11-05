@@ -1,17 +1,8 @@
 import { expo } from '@better-auth/expo';
 import { mongodbAdapter } from '@better-auth/mongo-adapter';
 import { betterAuth } from 'better-auth';
-import { MongoClient, type Db } from 'mongodb';
-import { deleteSubscriber } from './entitlements';
-
-let client: MongoClient | undefined;
-
-function mongo(): MongoClient {
-  client ??= new MongoClient(process.env.DATABASE_URL ?? '');
-  return client;
-}
-
-export const db = (): Db => mongo().db();
+import { deleteSubscriber } from '../billing/entitlements';
+import { db, mongo } from '../database';
 
 export const allowedOrigins = (): string[] =>
   (process.env.ALLOWED_ORIGINS ?? '')

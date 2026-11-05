@@ -1,21 +1,11 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { SermonGateway } from './sermon/sermon.gateway';
-import { PrismaService } from './prisma.service';
-import { SermonService } from './sermon/sermon.service';
-import { SermonController } from './sermon/sermon.controller';
-
-import { BibleService } from './bible/bible.service';
-import { BibleController } from './bible/bible.controller';
-import { InsightModule } from './insight/insight.module';
-import { CommunityModule } from './community/community.module';
-import { EventModule } from './event/event.module';
 import { AccountModule } from './account/account.module';
+import { BillingModule } from './billing/billing.module';
+import { HealthController } from './health.controller';
+import { SyncModule } from './sync/sync.module';
 
 @Module({
-  imports: [InsightModule, CommunityModule, EventModule, AccountModule],
-  controllers: [AppController, SermonController, BibleController],
-  providers: [AppService, SermonGateway, PrismaService, SermonService, BibleService],
+  imports: [AccountModule, BillingModule, SyncModule],
+  controllers: [HealthController],
 })
-export class AppModule { }
+export class AppModule {}

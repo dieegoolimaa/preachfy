@@ -33,6 +33,9 @@ export default function NewContent() {
   const [draft, setDraft] = useState<Draft[]>([]);
   const { width } = useWindowDimensions();
   const wide = width >= 900;
+  // On a phone the verses fold away once the passage is chosen, so the next steps stay in view.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const showVerses = wide || pickerOpen;
 
   const parsed = useMemo(() => parsePassage(reference, locale), [reference, locale]);
   const chapterKey = parsed ? `${parsed.book}-${parsed.chapter}` : '';
@@ -83,6 +86,7 @@ export default function NewContent() {
     } else {
       setRange({ a: Math.min(anchor, verse), b: Math.max(anchor, verse) });
       setAnchor(null);
+      setPickerOpen(false);
     }
   };
 
@@ -135,10 +139,16 @@ export default function NewContent() {
       ) : (
         <Text testID="passage-error" style={ui.error}>{t('passageInvalid')}</Text>
       )}
-      <Hint>{anchor === null ? t('pickVerseStart') : t('pickVerseEnd')}</Hint>
-      {verses.length ? <Pill plain testID="whole-chapter" label={t('wholeChapter')} onPress={() => { setRange({ a: 1, b: verses.length }); setAnchor(null); }} /> : null}
+      {!wide && passage ? (
+        <Pressable testID="picker-toggle" accessibilityRole="button" style={s.summary} onPress={() => setPickerOpen(!pickerOpen)}>
+          <Text style={s.summaryText}>{pickerOpen ? t('pickVerseStart') : t('changePassage')}</Text>
+          <Icon name={pickerOpen ? 'chevron-up' : 'chevron-down'} size={18} color={paper.muted} />
+        </Pressable>
+      ) : null}
+      {showVerses ? <Hint>{anchor === null ? t('pickVerseStart') : t('pickVerseEnd')}</Hint> : null}
+      {showVerses && verses.length ? <Pill plain testID="whole-chapter" label={t('wholeChapter')} onPress={() => { setRange({ a: 1, b: verses.length }); setAnchor(null); setPickerOpen(false); }} /> : null}
       <View style={s.verses}>
-        {verses.map((text, index) => {
+        {(showVerses ? verses : []).map((text, index) => {
           const number = index + 1;
           const on = range ? number >= range.a && number <= range.b : false;
           const dots = marks.filter((m) => !m.deletedAt && m.scope.kind === 'bible' && m.spans.some((x) => x.ref.book === parsed?.book && x.ref.chapter === parsed?.chapter && x.ref.verse === number));
@@ -189,9 +199,16 @@ export default function NewContent() {
             </Pressable>
             <View style={s.sectionBody}>
               <TextInput testID={`draft-title-${index}`} style={s.sectionTitle} value={row.step.title} onChangeText={(text) => change(index, { title: text })} />
+              <View style={s.meta}>
               <View style={s.chips}>
                 <Text style={s.chip}>{t('minutes', { n: Math.round(row.step.plannedMs / 60_000) })}</Text>
                 {range?.length ? <Text style={s.chip}>{`${bookName(range[0]!.ref.book, locale)} ${range[0]!.ref.chapter}:${range[0]!.ref.verse}${range.length > 1 ? `–${range[range.length - 1]!.ref.verse}` : ''}`}</Text> : null}
+              </View>
+              <View style={s.controls}>
+                <IconButton testID={`draft-up-${index}`} icon="arrow-up" label={t('previous')} disabled={index === 0} onPress={() => move(index, -1)} />
+                <IconButton testID={`draft-down-${index}`} icon="arrow-down" label={t('next')} disabled={index === draft.length - 1} onPress={() => move(index, 1)} />
+                <IconButton testID={`draft-remove-${index}`} icon="close" color={paper.muted} label={t('remove')} onPress={() => remove(index)} />
+              </View>
               </View>
               {found.length ? (
                 <View style={s.chips}>
@@ -203,11 +220,6 @@ export default function NewContent() {
                   ))}
                 </View>
               ) : null}
-            </View>
-            <View>
-              <IconButton testID={`draft-up-${index}`} icon="arrow-up" label={t('previous')} disabled={index === 0} onPress={() => move(index, -1)} />
-              <IconButton testID={`draft-down-${index}`} icon="arrow-down" label={t('next')} disabled={index === draft.length - 1} onPress={() => move(index, 1)} />
-              <IconButton testID={`draft-remove-${index}`} icon="close" color={paper.muted} label={t('remove')} onPress={() => remove(index)} />
             </View>
           </View>
         );
@@ -229,6 +241,8 @@ const s = StyleSheet.create({
   left: { flex: 1, minWidth: 0 },
   right: { flex: 1.3, minWidth: 0 },
   column: { gap: 12 },
+  summary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 44, paddingHorizontal: 14, borderRadius: 12, backgroundColor: paper.soft },
+  summaryText: { flex: 1, fontSize: 15, color: paper.fg },
   verses: { gap: 2 },
   verse: { flexDirection: 'row', gap: 10, paddingVertical: 9, paddingHorizontal: 10, borderLeftWidth: 4, borderLeftColor: 'transparent', borderRadius: 4 },
   verseOn: { backgroundColor: paper.soft, borderLeftColor: paper.mark },
@@ -247,6 +261,8 @@ const s = StyleSheet.create({
   checkOn: { backgroundColor: paper.accent, borderColor: paper.accent },
   sectionBody: { flex: 1, minWidth: 0, gap: 4 },
   sectionTitle: { fontFamily: serifBold, fontSize: 20, color: paper.fg, paddingVertical: 2 },
+  meta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 4 },
+  controls: { flexDirection: 'row', marginRight: -8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
   chip: { fontSize: 12, color: paper.fg, backgroundColor: paper.soft, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 10, overflow: 'hidden' },
   from: { fontSize: 12, color: paper.muted },

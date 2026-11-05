@@ -56,6 +56,12 @@ try {
   await T(`draft-remove-${before}`).click();
   await page.waitForTimeout(300);
   ok('points can be removed', (await page.getByTestId(/^draft-\d+$/).count()) === before);
+  await T('picker-toggle').click();
+  await T('pick-2').click();
+  await T('pick-4').click();
+  await page.waitForTimeout(300);
+  ok('choosing the passage folds the verses away', (await page.getByTestId('pick-2').count()) === 0);
+  ok('the new passage rebuilds the sections', /2–4/.test(await T('passage-ok').innerText()));
   await T('kind-class').click();
   await T('create-study').click();
   await T('study').waitFor();

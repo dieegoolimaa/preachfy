@@ -4,6 +4,7 @@ import { getLocales } from 'expo-localization';
 import { useReader } from './store';
 
 const pt = {
+  changePassage: 'Trocar o trecho',
   expoGoNote: 'Compras reais não funcionam no Expo Go. Use o botão abaixo, só em desenvolvimento.',
   devUnlock: 'Liberar Pro (teste local)',
   stepLevels: 'Detalhe no Púlpito',
@@ -251,6 +252,7 @@ const pt = {
 type Key = keyof typeof pt;
 
 const en: Record<Key, string> = {
+  changePassage: 'Change passage',
   expoGoNote: 'Real purchases do not work in Expo Go. Use the button below, in development only.',
   devUnlock: 'Unlock Pro (local test)',
   stepLevels: 'Detail in the Pulpit',
@@ -496,6 +498,7 @@ const en: Record<Key, string> = {
 };
 
 const es: Record<Key, string> = {
+  changePassage: 'Cambiar el pasaje',
   expoGoNote: 'Las compras reales no funcionan en Expo Go. Usa el botón de abajo, solo en desarrollo.',
   devUnlock: 'Liberar Pro (prueba local)',
   stepLevels: 'Detalle en el Púlpito',

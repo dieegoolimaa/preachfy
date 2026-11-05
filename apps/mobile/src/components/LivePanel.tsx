@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Qr } from '@/components/Qr';
-import { Card, Field, Heading, Hint, Pill, ui } from '@/components/ui';
+import { Card, Field, Hint, Pill, ui } from '@/components/ui';
 import { useT } from '@/lib/i18n';
 import { classLink, endLive, openLive, readLive, screenLink } from '@/lib/live';
 import { requirePro } from '@/lib/pro';
 import { useReader } from '@/lib/store';
-import { paper, sansBold } from '@/lib/theme';
+import { paper } from '@/lib/theme';
 
 /** Opens the class link for students and the screen link for the media computer. */
 export function LivePanel({ study }: { study: Study }) {
@@ -48,7 +48,7 @@ export function LivePanel({ study }: { study: Study }) {
   if (!code) {
     return (
       <>
-        <Pill testID="open-live" disabled={busy} label={t('shareClass')} onPress={open} />
+        <Pill testID="open-live" big icon="qr-code" disabled={busy} label={t('shareClass')} onPress={open} />
         <Hint>{t('shareClassHint')}</Hint>
         {failed ? <Text testID="live-error" style={ui.error}>{t('offline')}</Text> : null}
       </>
@@ -57,20 +57,20 @@ export function LivePanel({ study }: { study: Study }) {
 
   return (
     <Card testID="live-panel">
-      <Heading>{t('liveNow')}</Heading>
+      <Text style={ui.label}>{t('liveNow')}</Text>
       <Text testID="live-code" style={s.code}>{code}</Text>
       <Qr testID="live-qr" value={classLink(code)} />
       <Hint>{classLink(code)}</Hint>
       <View style={ui.row}>
-        <Pill testID="copy-class" label={t('copyClassLink')} onPress={() => copy(classLink(code))} />
-        <Pill testID="copy-screen" label={t('copyScreenLink')} onPress={() => copy(screenLink(code))} />
+        <Pill plain icon="link" testID="copy-class" label={t('copyClassLink')} onPress={() => copy(classLink(code))} />
+        <Pill plain icon="tv-outline" testID="copy-screen" label={t('copyScreenLink')} onPress={() => copy(screenLink(code))} />
       </View>
       {copied ? <Hint>{t('copied')}</Hint> : null}
       <Hint>{t('screenHint')}</Hint>
       <Field testID="live-closing" label={t('closingLabel')} multiline value={closing} onChangeText={setClosing} />
-      <Pill testID="end-live" label={t('endClass')} onPress={() => endLive(study.id, code, closing)} />
+      <Pill plain danger testID="end-live" label={t('endClass')} onPress={() => endLive(study.id, code, closing)} />
     </Card>
   );
 }
 
-const s = StyleSheet.create({ code: { fontSize: 32, fontFamily: sansBold, letterSpacing: 4, textAlign: 'center', color: paper.accent } });
+const s = StyleSheet.create({ code: { fontSize: 34, fontWeight: '700', letterSpacing: 4, textAlign: 'center', color: paper.fg } });

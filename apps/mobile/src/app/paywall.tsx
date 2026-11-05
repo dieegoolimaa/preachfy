@@ -3,13 +3,13 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { PurchasesPackage } from 'react-native-purchases';
 
-import { Hint, Pill, Screen, ui } from '@/components/ui';
+import { Group, Hint, Pill, Row, Screen, Title, ui } from '@/components/ui';
 import { apiFetch, authClient } from '@/lib/auth';
 import { useT } from '@/lib/i18n';
 import { goBack } from '@/lib/navigation';
 import { buy, isCancelled, loadPackages, restore } from '@/lib/purchases';
 import { updateReader } from '@/lib/store';
-import { paper, sans, sansSemi } from '@/lib/theme';
+import { paper } from '@/lib/theme';
 
 export default function Paywall() {
   const { t } = useT();
@@ -51,17 +51,18 @@ export default function Paywall() {
   const item = packages[chosen];
 
   return (
-    <Screen title="Preachfy Pro" close testID="paywall">
+    <Screen title="" close testID="paywall">
+      <Title>Preachfy Pro</Title>
       {feature ? <Hint testID="paywall-reason">{t('proNeeded')}</Hint> : null}
-      <View style={s.list}>
-        {(['proCreate', 'proPulpit', 'proClass', 'proCommunity', 'proSync'] as const).map((key) => (
-          <Text key={key} style={s.benefit}>{t(key)}</Text>
+      <Group>
+        {([['proCreate', 'create'], ['proPulpit', 'mic'], ['proClass', 'school'], ['proCommunity', 'people'], ['proSync', 'sync']] as const).map(([key, icon]) => (
+          <Row key={key} icon={icon} label={t(key)} />
         ))}
-      </View>
+      </Group>
       {isPending ? null : !userId ? (
         <>
           <Hint>{t('signInToSubscribe')}</Hint>
-          <Pill testID="paywall-signin" primary label={t('signIn')} onPress={() => router.push('/account')} />
+          <Pill testID="paywall-signin" primary big label={t('signIn')} onPress={() => router.push('/account')} />
         </>
       ) : (
         <>
@@ -78,27 +79,25 @@ export default function Paywall() {
               </Pressable>
             ))}
           </View>
-          <Pill testID="subscribe" primary disabled={!item || busy} label={t('subscribe')} onPress={() => run(() => buy(userId, item!))} />
-          <Pill testID="restore" disabled={busy} label={t('restore')} onPress={() => run(() => restore(userId))} />
+          <Pill testID="subscribe" primary big disabled={!item || busy} label={t('subscribe')} onPress={() => run(() => buy(userId, item!))} />
+          <Pill testID="restore" plain disabled={busy} label={t('restore')} onPress={() => run(() => restore(userId))} />
         </>
       )}
       {failure ? <Text testID="paywall-message" style={ui.error}>{t(failure)}</Text> : null}
       <Hint>{t('renewalTerms')}</Hint>
       <View style={ui.row}>
-        <Pill label={t('terms')} onPress={() => router.push('/legal?doc=terms')} />
-        <Pill label={t('privacy')} onPress={() => router.push('/legal?doc=privacy')} />
+        <Pill plain label={t('terms')} onPress={() => router.push('/legal?doc=terms')} />
+        <Pill plain label={t('privacy')} onPress={() => router.push('/legal?doc=privacy')} />
       </View>
     </Screen>
   );
 }
 
 const s = StyleSheet.create({
-  list: { gap: 6 },
-  benefit: { fontFamily: sans, fontSize: 16, lineHeight: 23, color: paper.fg },
   plans: { flexDirection: 'row', gap: 10 },
-  plan: { flex: 1, gap: 2, padding: 12, borderRadius: 14, borderWidth: 1.5, borderColor: paper.line, backgroundColor: paper.bg },
+  plan: { flex: 1, gap: 2, padding: 14, borderRadius: 14, borderWidth: 1.5, borderColor: paper.line },
   planOn: { borderColor: paper.accent },
-  tag: { fontSize: 11, fontFamily: sansSemi, letterSpacing: 1, textTransform: 'uppercase', color: paper.accent },
-  planName: { fontSize: 16, fontFamily: sansSemi, color: paper.fg },
-  price: { fontFamily: sans, fontSize: 14, color: paper.muted },
+  tag: { fontSize: 12, fontWeight: '600', color: paper.muted },
+  planName: { fontSize: 17, fontWeight: '600', color: paper.fg },
+  price: { fontSize: 15, color: paper.muted },
 });

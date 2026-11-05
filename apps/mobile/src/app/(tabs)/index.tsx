@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 
-import { Card, Heading, Hint, Pill, Screen, ui } from '@/components/ui';
+import { Card, Group, Hint, Row, Screen, ui } from '@/components/ui';
 import { loadBook } from '@/lib/bible';
 import { dateTime } from '@/lib/dates';
 import { useT } from '@/lib/i18n';
@@ -51,29 +51,24 @@ export default function Today() {
         <Hint>{bookName(dailyBook, locale)} {dailyChapter}:{dailyVerse} · {translationById(translation).short}</Hint>
       </Card>
 
-      <Card testID="continue" onPress={() => router.navigate('/bible')}>
-        <Text style={ui.label}>{t('continueReading')}</Text>
-        <Text style={ui.cardTitle}>{bookName(book, locale)} {chapter}</Text>
-      </Card>
+      <Group>
+        {next ? (
+          <Row testID="next-content" icon="calendar" label={next.title} detail={`${t('nextUp')} · ${dateTime(next.scheduledFor!, locale)}`} onPress={() => router.push(`/study/${next.id}`)} />
+        ) : null}
+        <Row testID="continue" icon="book" label={`${bookName(book, locale)} ${chapter}`} detail={t('continueReading')} onPress={() => router.navigate('/bible')} />
+      </Group>
 
-      {next ? (
-        <Card testID="next-content" onPress={() => router.push(`/study/${next.id}`)}>
-          <Text style={ui.label}>{t('nextUp')}</Text>
-          <Text style={ui.cardTitle}>{next.title}</Text>
-          <Hint>{dateTime(next.scheduledFor!, locale)}</Hint>
-        </Card>
+      {recent.length ? (
+        <Group title={t('recent')}>
+          {recent.map((study) => (
+            <Row key={study.id} label={study.title} onPress={() => router.push(`/study/${study.id}`)} />
+          ))}
+        </Group>
       ) : null}
 
-      {recent.length ? <Heading>{t('recent')}</Heading> : null}
-      {recent.map((study) => (
-        <Card key={study.id} onPress={() => router.push(`/study/${study.id}`)}>
-          <Text style={ui.cardTitle}>{study.title}</Text>
-        </Card>
-      ))}
-
-      <Heading>{t('tryPulpit')}</Heading>
-      <Hint>{t('tryPulpitHint')}</Hint>
-      <Pill testID="open-demo" label={t('openDemo')} onPress={() => router.push('/pulpit?id=demo')} />
+      <Group title={t('tryPulpit')} footer={t('tryPulpitHint')}>
+        <Row testID="open-demo" icon="mic" label={t('openDemo')} onPress={() => router.push('/pulpit?id=demo')} />
+      </Group>
     </Screen>
   );
 }

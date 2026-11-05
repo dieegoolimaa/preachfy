@@ -1,4 +1,5 @@
 import { BOOKS, type Book } from '@preachfy/core';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useT } from '@/lib/i18n';
 import { goBack } from '@/lib/navigation';
 import { updateReader, useReader } from '@/lib/store';
-import { paper, sans, sansBold, sansSemi } from '@/lib/theme';
+import { paper, serifBold } from '@/lib/theme';
 
 export default function Picker() {
   const reader = useReader();
@@ -21,10 +22,12 @@ export default function Picker() {
   return (
     <SafeAreaView style={styles.page}>
       <View style={styles.header}>
-        <Text style={styles.title}>{book ? book.names[locale] : t('books')}</Text>
-        <Pressable testID="picker-close" style={styles.pill} onPress={() => (book ? setBook(null) : goBack())}>
-          <Text style={styles.pillText}>{t(book ? 'back' : 'close')}</Text>
+        <Pressable testID="picker-close" style={styles.back} onPress={() => (book ? setBook(null) : goBack())}>
+          <Ionicons name="chevron-back" size={24} color={paper.accent} />
+          <Text style={styles.backText}>{t('back')}</Text>
         </Pressable>
+        <Text style={styles.title}>{book ? book.names[locale] : t('books')}</Text>
+        <View style={styles.back} />
       </View>
       {book ? (
         <View style={styles.grid} testID="chapters">
@@ -54,16 +57,16 @@ export default function Picker() {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: paper.bg },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: paper.line },
-  title: { fontFamily: sansBold, fontSize: 26, color: paper.fg },
-  pill: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 16, borderRadius: 999, borderWidth: 1, borderColor: paper.line, backgroundColor: paper.soft },
-  pillText: { fontFamily: sans, fontSize: 15, color: paper.fg },
-  list: { paddingHorizontal: 16, maxWidth: 720, width: '100%', alignSelf: 'center' },
-  book: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: paper.line },
-  bookText: { fontFamily: sans, fontSize: 17, color: paper.fg },
-  current: { color: paper.accent, fontFamily: sansSemi },
-  count: { fontFamily: sans, fontSize: 14, color: paper.muted },
+  header: { flexDirection: 'row', alignItems: 'center', minHeight: 44, paddingHorizontal: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: paper.line },
+  back: { flex: 1, flexDirection: 'row', alignItems: 'center', minHeight: 44 },
+  backText: { fontSize: 17, color: paper.accent },
+  title: { flex: 2, textAlign: 'center', fontFamily: serifBold, fontSize: 19, color: paper.fg },
+  list: { maxWidth: 720, width: '100%', alignSelf: 'center' },
+  book: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: paper.line },
+  bookText: { fontSize: 17, color: paper.fg },
+  current: { color: paper.accent, fontWeight: '600' },
+  count: { fontSize: 15, color: paper.muted },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 16, maxWidth: 720, width: '100%', alignSelf: 'center' },
-  cell: { width: 52, height: 52, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: paper.soft },
-  cellText: { fontFamily: sans, fontSize: 16, color: paper.fg },
+  cell: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: paper.soft },
+  cellText: { fontSize: 17, color: paper.fg },
 });

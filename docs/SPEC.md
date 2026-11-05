@@ -14,12 +14,12 @@ Quando há conflito, valem as decisões de 2026-11-05 registradas aqui.
 - **Expo com Expo Router:** as mesmas telas geram iPhone, iPad e web. É o que garante o visual idêntico.
 - **`packages/core`:** regras em TypeScript, compartilhadas e testadas.
 - **`apps/api`:** conta, sincronização, aula ao vivo e telão por link.
-- **Identidade:** Índigo, decidido em 2026-11-05. Substitui o vinho e creme dos artefatos. Interface e títulos em Figtree; serifa só no texto bíblico, em Newsreader. As fontes vão embutidas, para o visual ser idêntico no web. Cores em `apps/mobile/src/lib/theme.ts`.
+- **Identidade:** composição dos artefatos (títulos em serifa, fios finos, rótulos discretos, traço de marca-texto) com mecânica Apple (abas com ícones, voltar com seta, controles segmentados). Tinta sobre branco neutro, e o amarelo marca-texto como único acento. Interface na fonte do sistema; títulos e Escritura em Newsreader, embutida. Cores em `apps/mobile/src/lib/theme.ts`.
 - **Build e testes:** EAS na nuvem e aparelho real. Decisão: não usar Xcode local.
 - **Módulos nativos em Swift só onde preciso:** tela externa e Apple Watch.
 
 Riscos a validar primeiro:
-- **Seleção por palavra:** cada palavra é um elemento tocável. Validado no web; falta validar em aparelho e em capítulos longos, como o Salmo 119.
+- **Seleção por palavra:** cada palavra é medida na tela. Validado no web; falta validar o arrasto com o dedo em aparelho e o desempenho em capítulos longos, como o Salmo 119.
 - **Tela externa:** a biblioteca conhecida está sem atualização há anos; pode exigir módulo próprio.
 - **Gravação em segundo plano:** testar em aparelho real.
 - **Assinatura:** Compra pela App Store no iOS e outro meio no web, com um único estado de Pro.
@@ -93,7 +93,7 @@ Alternativas descartadas como base: MultipeerConnectivity (limite de 8 aparelhos
 ## Marcação, snapshot e criação
 
 ### Marcação granular
-- Seleção livre: palavra, expressão, trecho ou versículo inteiro, inclusive atravessando versículos.
+- Seleção livre: palavra, expressão, trecho ou versículo inteiro, inclusive atravessando versículos. Dois toques selecionam a palavra; segurar e arrastar, ou arrastar na horizontal, estende a seleção. Tocar no texto cancela.
 - Cada marcação guarda referência, versão, posição e o texto selecionado.
 - Ao trocar de versão, o app procura as palavras. Se não achar, marca o versículo inteiro e avisa. A marcação nunca se perde.
 
@@ -229,7 +229,6 @@ Decididos em 2026-11-05, com teste grátis de 14 dias. Valores definidos em cada
 | Brasil | R$ 24,90 | R$ 199,90 |
 
 ## Decisões em aberto
-- Ícone.
 - Plano de leitura e folheto em PDF: v1 ou v1.x.
 
 ## Referência

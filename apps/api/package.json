@@ -7,7 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
-    "dev": "nest start --watch",
+    "dev": "node ../../scripts/dev.mjs --api",
     "start": "node dist/main",
     "test": "nest build && node --test --test-concurrency=1 test/*.integration.mjs",
     "check-types": "tsc --noEmit -p tsconfig.build.json"

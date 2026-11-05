@@ -1,7 +1,7 @@
 import { resolveSpan, wordsOf, type Mark, type VerseText } from '@preachfy/core';
-import { Text, StyleSheet } from 'react-native';
+import { StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
 
-import { categoryColor, paper, sansSemi, serif } from '@/lib/theme';
+import { categoryColor, paper, selection, serif } from '@/lib/theme';
 
 type Props = {
   verse: VerseText;
@@ -9,11 +9,12 @@ type Props = {
   focused?: boolean;
   marks: Mark[];
   isSelected: (wordIndex: number) => boolean;
-  onWordPress: (wordIndex: number) => void;
+  onVerseLayout: (layout: LayoutRectangle) => void;
+  onWordLayout: (wordIndex: number, layout: LayoutRectangle) => void;
 };
 
-/** Each word is its own nested Text, so selection behaves the same on native and web. */
-export function Verse({ verse, translationId, focused, marks, isSelected, onWordPress }: Props) {
+/** Each word is measured on its own, so a finger can be matched to a word on every platform. */
+export function Verse({ verse, translationId, focused, marks, isSelected, onVerseLayout, onWordLayout }: Props) {
   const { text, ref } = verse;
   const ranges = marks.flatMap((mark) =>
     mark.spans
@@ -27,44 +28,37 @@ export function Verse({ verse, translationId, focused, marks, isSelected, onWord
   const colorAt = (start: number, end: number) => ranges.find((r) => start < r.end && end > r.start)?.color;
 
   const words = wordsOf(text);
-  const parts: React.ReactNode[] = [];
-  let cursor = 0;
-  words.forEach((word, i) => {
-    if (word.start > cursor) {
-      const color = colorAt(cursor, word.start);
-      const inside = color && ranges.some((r) => r.start <= cursor && r.end >= word.start);
-      parts.push(
-        <Text key={`g${i}`} style={inside ? { backgroundColor: color } : undefined}>
-          {text.slice(cursor, word.start)}
-        </Text>,
-      );
-    }
-    const selected = isSelected(i);
-    const color = colorAt(word.start, word.end);
-    parts.push(
-      <Text
-        key={i}
-        testID={`word-${ref.verse}-${i}`}
-        onPress={() => onWordPress(i)}
-        style={[color ? { backgroundColor: color } : null, selected ? styles.selected : null]}>
-        {word.text}
-      </Text>,
-    );
-    cursor = word.end;
-  });
-  if (cursor < text.length) parts.push(<Text key="end">{text.slice(cursor)}</Text>);
+  const paint = (i: number) => (isSelected(i) ? selection : colorAt(words[i]!.start, words[i]!.end));
 
   return (
-    <Text style={[styles.verse, focused && styles.focused]}>
-      <Text style={styles.number}>{ref.verse} </Text>
-      {parts}
-    </Text>
+    <View style={[styles.verse, focused && styles.focused]} onLayout={(e) => onVerseLayout(e.nativeEvent.layout)}>
+      <Text style={styles.number}>{ref.verse}</Text>
+      {words.map((word, i) => {
+        const next = words[i + 1];
+        const after = text.slice(word.end, next ? next.start : text.length).trimEnd();
+        const before = i === 0 ? text.slice(0, word.start) : '';
+        const color = paint(i);
+        // The space takes the color only when the next word has the same one.
+        const joined = color && next && paint(i + 1) === color;
+        return (
+          <Text
+            key={i}
+            testID={`word-${ref.verse}-${i}`}
+            style={[styles.word, joined ? { backgroundColor: color } : null]}
+            onLayout={(e) => onWordLayout(i, e.nativeEvent.layout)}>
+            {before}
+            <Text style={color ? { backgroundColor: color } : null}>{word.text}</Text>
+            {after}
+          </Text>
+        );
+      })}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  verse: { fontFamily: serif, fontSize: 21, lineHeight: 33, color: paper.fg, marginBottom: 12 },
-  number: { fontSize: 13, fontFamily: sansSemi, color: paper.muted },
+  verse: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: 10 },
   focused: { backgroundColor: paper.soft },
-  selected: { backgroundColor: paper.accent, color: paper.accentFg },
+  number: { fontSize: 11, lineHeight: 30, fontWeight: '600', color: paper.muted, paddingRight: 5 },
+  word: { fontFamily: serif, fontSize: 20, lineHeight: 30, color: paper.fg, paddingRight: 5 },
 });

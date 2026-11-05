@@ -1,10 +1,10 @@
 import { useLocalSearchParams } from 'expo-router';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { Heading, Screen } from '@/components/ui';
+import { Screen } from '@/components/ui';
 import { useT } from '@/lib/i18n';
 import { legal } from '@/lib/legal';
-import { paper, sans } from '@/lib/theme';
+import { paper } from '@/lib/theme';
 
 export default function Legal() {
   const { doc } = useLocalSearchParams<{ doc?: string }>();
@@ -13,14 +13,17 @@ export default function Legal() {
   return (
     <Screen title={t(key)} close testID={`legal-${key}`}>
       {legal[key][locale].map(([title, body]) => (
-        <Text key={title}>
-          <Heading>{title}</Heading>
-          {'\n'}
+        <View key={title} style={s.block}>
+          <Text style={s.title}>{title}</Text>
           <Text style={s.body}>{body}</Text>
-        </Text>
+        </View>
       ))}
     </Screen>
   );
 }
 
-const s = StyleSheet.create({ body: { fontFamily: sans, fontSize: 16, lineHeight: 24, color: paper.fg } });
+const s = StyleSheet.create({
+  block: { gap: 4 },
+  title: { fontSize: 17, fontWeight: '600', color: paper.fg },
+  body: { fontSize: 17, lineHeight: 24, color: paper.fg },
+});

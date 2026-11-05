@@ -1,9 +1,8 @@
 import { foldText, TEMPLATES, templateFor, type StudyKind } from '@preachfy/core';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
 
-import { Card, Field, Hint, Pill, Screen, ui } from '@/components/ui';
+import { Chip, Chips, Field, Group, Hint, IconButton, Row, Screen } from '@/components/ui';
 import { dateTime } from '@/lib/dates';
 import { useT } from '@/lib/i18n';
 import { requirePro } from '@/lib/pro';
@@ -23,36 +22,41 @@ export default function Create() {
     <Screen
       title={t('create')}
       testID="create"
-      right={<Pill testID="new-study" primary label={t('newContent')} onPress={() => requirePro('create') && router.push('/new')} />}>
+      right={<IconButton testID="new-study" icon="add-circle" label={t('newContent')} onPress={() => requirePro('create') && router.push('/new')} />}>
       <Field testID="library-search" value={query} onChangeText={setQuery} placeholder={t('searchLibrary')} />
-      <View style={ui.row}>
+      <Chips>
         {TEMPLATES.map((template) => (
-          <Pill
+          <Chip
             key={template.kind}
             testID={`filter-${template.kind}`}
-            primary={kind === template.kind}
+            on={kind === template.kind}
             label={template.name[locale]}
             onPress={() => setKind(kind === template.kind ? null : template.kind)}
           />
         ))}
-      </View>
+      </Chips>
       {shown.length === 0 ? <Hint testID="library-empty">{studies.some((s) => !s.deletedAt) ? t('nothing') : t('libraryEmpty')}</Hint> : null}
-      {shown.map((study) => {
-        const delivered = runs.filter((r) => r.studyId === study.id && !r.deletedAt).length;
-        return (
-          <Card key={study.id} testID="study-row" onPress={() => router.push(`/study/${study.id}`)}>
-            <Text style={ui.cardTitle}>{study.title}</Text>
-            <Hint>
-              {[
-                study.kind ? templateFor(study.kind).name[locale] : null,
-                t('stepsCount', { n: study.steps.length }),
-                delivered ? t('deliveredCount', { n: delivered }) : null,
-                study.scheduledFor ? dateTime(study.scheduledFor, locale) : null,
-              ].filter(Boolean).join(' · ')}
-            </Hint>
-          </Card>
-        );
-      })}
+      {shown.length ? (
+        <Group>
+          {shown.map((study) => {
+            const delivered = runs.filter((r) => r.studyId === study.id && !r.deletedAt).length;
+            return (
+              <Row
+                key={study.id}
+                testID="study-row"
+                label={study.title}
+                detail={[
+                  study.kind ? templateFor(study.kind).name[locale] : null,
+                  t('stepsCount', { n: study.steps.length }),
+                  delivered ? t('deliveredCount', { n: delivered }) : null,
+                  study.scheduledFor ? dateTime(study.scheduledFor, locale) : null,
+                ].filter(Boolean).join(' · ')}
+                onPress={() => router.push(`/study/${study.id}`)}
+              />
+            );
+          })}
+        </Group>
+      ) : null}
     </Screen>
   );
 }

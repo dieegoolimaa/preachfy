@@ -2,7 +2,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Text } from 'react-native';
 
-import { Card, Field, Heading, Hint, Pill, Screen, ui } from '@/components/ui';
+import { Field, Group, Hint, Pill, Row, Screen, ui } from '@/components/ui';
 import { authClient } from '@/lib/auth';
 import { call, type Community } from '@/lib/community';
 import { useT } from '@/lib/i18n';
@@ -41,29 +41,36 @@ export default function Communities() {
     return (
       <Screen title={t('community')} testID="community">
         <Hint>{t('communityIntro')}</Hint>
-        <Pill testID="community-signin" primary label={t('signIn')} onPress={() => router.push('/account')} />
+        <Pill testID="community-signin" primary big label={t('signIn')} onPress={() => router.push('/account')} />
       </Screen>
     );
   }
 
   return (
     <Screen title={t('community')} testID="community">
-      {list?.map((item) => (
-        <Card key={item.id} testID="community-row" onPress={() => router.push(`/community/${item.id}`)}>
-          <Text style={ui.cardTitle}>{item.name}</Text>
-          <Hint>{t('membersCount', { n: item.memberCount })} · {t(item.role === 'leader' ? 'leader' : 'member')}</Hint>
-        </Card>
-      ))}
+      {list?.length ? (
+        <Group>
+          {list.map((item) => (
+            <Row
+              key={item.id}
+              testID="community-row"
+              icon="people"
+              label={item.name}
+              detail={`${t('membersCount', { n: item.memberCount })} · ${t(item.role === 'leader' ? 'leader' : 'member')}`}
+              onPress={() => router.push(`/community/${item.id}`)}
+            />
+          ))}
+        </Group>
+      ) : null}
       {list?.length === 0 ? <Hint testID="community-empty">{t('communityIntro')}</Hint> : null}
 
-      <Heading>{t('joinCommunity')}</Heading>
+      <Group title={t('joinCommunity')} />
       <Field testID="join-code" value={code} onChangeText={setCode} placeholder={t('inviteCode')} autoCapitalize="characters" autoCorrect={false} />
-      <Pill testID="join" disabled={!code.trim()} label={t('join')} onPress={join} />
+      <Pill testID="join" big disabled={!code.trim()} label={t('join')} onPress={join} />
 
-      <Heading>{t('createCommunity')}</Heading>
-      <Hint>{t('createCommunityHint')}</Hint>
+      <Group title={t('createCommunity')} footer={t('createCommunityHint')} />
       <Field testID="community-name" value={name} onChangeText={setName} placeholder={t('communityName')} />
-      <Pill testID="create-community" primary disabled={!name.trim()} label={t('createCommunity')} onPress={create} />
+      <Pill testID="create-community" primary big disabled={!name.trim()} label={t('createCommunity')} onPress={create} />
       {failure ? <Text testID="community-error" style={ui.error}>{failure}</Text> : null}
     </Screen>
   );

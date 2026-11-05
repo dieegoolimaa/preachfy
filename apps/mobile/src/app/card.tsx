@@ -4,14 +4,14 @@ import { useEffect, useRef, useState, type Component, type ComponentRef, type Re
 import { Platform, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
-import { Field, Hint, Pill, Screen, ui } from '@/components/ui';
+import { Field, Hint, Pill, Screen, Segmented, ui } from '@/components/ui';
 import { useT } from '@/lib/i18n';
 import { resolvePassage } from '@/lib/passage';
 import { useReader } from '@/lib/store';
 import { renderText, type Rendered } from '@/lib/studyText';
-import { paper, sans, serif } from '@/lib/theme';
+import { paper, serif } from '@/lib/theme';
 
-const backgrounds = { dawn: '#8A4A32', night: '#232247', field: '#37573F', indigo: '#3A3FD9' } as const;
+const backgrounds = { dawn: '#8A4A32', night: '#232247', field: '#37573F', ink: '#1C1C1E' } as const;
 const shapes = { square: 1, story: 9 / 16, wide: 16 / 9 } as const;
 const MAX_VERSES = 3;
 
@@ -21,7 +21,7 @@ export default function VerseCard() {
   const { translation, book, chapter } = useReader();
   const [reference, setReference] = useState(params.reference ?? `${bookName(book, locale)} ${chapter}:1`);
   const [text, setText] = useState<Rendered | null>(null);
-  const [background, setBackground] = useState<keyof typeof backgrounds>('indigo');
+  const [background, setBackground] = useState<keyof typeof backgrounds>('ink');
   const [shape, setShape] = useState<keyof typeof shapes>('square');
   const [signature, setSignature] = useState('');
   const [failed, setFailed] = useState(false);
@@ -66,11 +66,15 @@ export default function VerseCard() {
   return (
     <Screen title={t('verseCard')} close testID="card">
       <Field testID="card-reference" value={reference} onChangeText={setReference} placeholder={t('passageHint')} autoCorrect={false} />
-      <View style={ui.row}>
-        {(Object.keys(shapes) as (keyof typeof shapes)[]).map((key) => (
-          <Pill key={key} testID={`shape-${key}`} primary={shape === key} label={t(key === 'square' ? 'shapeSquare' : key === 'story' ? 'shapeStory' : 'shapeWide')} onPress={() => setShape(key)} />
-        ))}
-      </View>
+      <Segmented
+        value={shape}
+        onChange={setShape}
+        options={(Object.keys(shapes) as (keyof typeof shapes)[]).map((key) => ({
+          key,
+          testID: `shape-${key}`,
+          label: t(key === 'square' ? 'shapeSquare' : key === 'story' ? 'shapeStory' : 'shapeWide'),
+        }))}
+      />
       <View style={ui.row}>
         {(Object.keys(backgrounds) as (keyof typeof backgrounds)[]).map((key) => (
           <Pressable
@@ -89,7 +93,7 @@ export default function VerseCard() {
         <Text style={s.text}>{text?.body}</Text>
         <Text style={s.brand}>{signature ? `${signature} · ` : ''}Preachfy</Text>
       </View>
-      <Pill testID="card-share" primary disabled={!text} label={t('share')} onPress={share} />
+      <Pill testID="card-share" primary big icon="share-outline" disabled={!text} label={t('share')} onPress={share} />
       {failed ? <Hint testID="card-failed">{t('imageFailed')}</Hint> : null}
     </Screen>
   );
@@ -100,7 +104,7 @@ const s = StyleSheet.create({
   swatchOn: { borderWidth: 3, borderColor: paper.mark },
   card: { width: '100%', maxWidth: 420, alignSelf: 'center', justifyContent: 'center', gap: 14, padding: 28, borderRadius: 16 },
   story: { maxWidth: 280 },
-  reference: { fontFamily: sans, fontSize: 12, letterSpacing: 1.5, textTransform: 'uppercase', color: '#FFFFFF' },
+  reference: { fontSize: 12, letterSpacing: 1.5, textTransform: 'uppercase', color: '#FFFFFF' },
   text: { fontFamily: serif, fontSize: 22, lineHeight: 30, color: '#FFFFFF' },
-  brand: { fontFamily: sans, fontSize: 12, color: '#FFFFFF', opacity: 0.85 },
+  brand: { fontSize: 12, color: '#FFFFFF', opacity: 0.85 },
 });

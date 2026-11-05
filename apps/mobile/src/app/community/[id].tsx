@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Linking, Text, View } from 'react-native';
 
-import { Card, Field, Heading, Hint, Pill, Screen, ui } from '@/components/ui';
+import { Card, Field, Group, Hint, Pill, Screen, Segmented, ui } from '@/components/ui';
 import { authClient } from '@/lib/auth';
 import { call, type CommunityEvent, type Detail, type Post } from '@/lib/community';
 import { dateTime, fromInput } from '@/lib/dates';
@@ -118,11 +118,11 @@ export default function CommunityDetail() {
 
   return (
     <Screen title={detail.name} close testID="community-detail">
-      <View style={ui.row}>
-        {(['feed', 'agenda', 'members'] as const).map((key) => (
-          <Pill key={key} testID={`ctab-${key}`} primary={tab === key} label={t(key)} onPress={() => setTab(key)} />
-        ))}
-      </View>
+      <Segmented
+        value={tab}
+        onChange={setTab}
+        options={(['feed', 'agenda', 'members'] as const).map((key) => ({ key, label: t(key), testID: `ctab-${key}` }))}
+      />
       {feedback ? <Text testID="community-feedback" style={ui.error}>{feedback}</Text> : null}
 
       {tab === 'feed' ? (
@@ -139,12 +139,12 @@ export default function CommunityDetail() {
               ))
             : null}
 
-          {leader && reports.length ? <Heading>{t('reports')}</Heading> : null}
+          {leader && reports.length ? <Group title={t('reports')} /> : null}
           {reports.map((report) => (
             <Card key={report.postId} testID="report-row">
               <Text style={ui.pillText}>{report.text}</Text>
               {report.reason ? <Hint>{report.reason}</Hint> : null}
-              <Pill testID="report-remove" label={t('removePost')} onPress={() => act(`${base}/posts/${report.postId}`, 'DELETE')} />
+              <Pill plain testID="report-remove" label={t('removePost')} onPress={() => act(`${base}/posts/${report.postId}`, 'DELETE')} />
             </Card>
           ))}
 
@@ -154,15 +154,15 @@ export default function CommunityDetail() {
               {post.text ? <Text style={ui.pillText}>{post.text}</Text> : null}
               {post.attachment ? <Text style={ui.cardTitle}>{post.attachment.title}</Text> : null}
               <View style={ui.row}>
-                {post.attachment ? <Pill testID="copy-attachment" label={t('copyToMine')} onPress={() => copyStudy(post)} /> : null}
+                {post.attachment ? <Pill plain testID="copy-attachment" label={t('copyToMine')} onPress={() => copyStudy(post)} /> : null}
                 {post.kind === 'notice' ? (
-                  <Pill testID="seen" disabled={post.seenByMe} label={t('seenCount', { n: post.seenCount })} onPress={() => act(`${base}/posts/${post.id}/seen`)} />
+                  <Pill plain testID="seen" disabled={post.seenByMe} label={t('seenCount', { n: post.seenCount })} onPress={() => act(`${base}/posts/${post.id}/seen`)} />
                 ) : null}
-                {post.mine || leader ? <Pill testID="delete-post" label={t('remove')} onPress={() => act(`${base}/posts/${post.id}`, 'DELETE')} /> : null}
+                {post.mine || leader ? <Pill plain testID="delete-post" label={t('remove')} onPress={() => act(`${base}/posts/${post.id}`, 'DELETE')} /> : null}
                 {post.mine ? null : (
                   <>
-                    <Pill testID="report-post" label={t('report')} onPress={async () => { await act(`${base}/posts/${post.id}/report`, 'POST', { reason: '' }); setFeedback(t('reported')); }} />
-                    <Pill testID="block-user" label={t('block')} onPress={() => act('/blocks', 'POST', { userId: post.authorId })} />
+                    <Pill plain testID="report-post" label={t('report')} onPress={async () => { await act(`${base}/posts/${post.id}/report`, 'POST', { reason: '' }); setFeedback(t('reported')); }} />
+                    <Pill plain testID="block-user" label={t('block')} onPress={() => act('/blocks', 'POST', { userId: post.authorId })} />
                   </>
                 )}
               </View>
@@ -189,13 +189,14 @@ export default function CommunityDetail() {
               <Hint>{dateTime(event.startsAt, locale)}{event.place ? ` · ${event.place}` : ''}</Hint>
               <View style={ui.row}>
                 <Pill
+                  plain
                   testID="rsvp"
                   primary={event.goingByMe}
                   label={t('goingCount', { n: event.goingCount })}
                   onPress={() => act(`${base}/events/${event.id}/rsvp`, 'POST', { going: !event.goingByMe })}
                 />
-                {event.meetLink ? <Pill label={t('openLink')} onPress={() => Linking.openURL(event.meetLink!)} /> : null}
-                {leader ? <Pill testID="event-delete" label={t('remove')} onPress={() => act(`${base}/events/${event.id}`, 'DELETE')} /> : null}
+                {event.meetLink ? <Pill plain label={t('openLink')} onPress={() => Linking.openURL(event.meetLink!)} /> : null}
+                {leader ? <Pill plain testID="event-delete" label={t('remove')} onPress={() => act(`${base}/events/${event.id}`, 'DELETE')} /> : null}
               </View>
             </Card>
           ))}
@@ -210,8 +211,8 @@ export default function CommunityDetail() {
               <Hint>{t('inviteCode')}</Hint>
               <Text testID="invite-code" style={ui.cardTitle}>{detail.inviteCode}</Text>
               <View style={ui.row}>
-                <Pill testID="copy-invite" label={t('copyInvite')} onPress={invite} />
-                <Pill testID="rotate-invite" label={t('newInvite')} onPress={() => act(`${base}/invite`)} />
+                <Pill plain testID="copy-invite" label={t('copyInvite')} onPress={invite} />
+                <Pill plain testID="rotate-invite" label={t('newInvite')} onPress={() => act(`${base}/invite`)} />
               </View>
             </Card>
           ) : null}
@@ -223,12 +224,13 @@ export default function CommunityDetail() {
                 <View style={ui.row}>
                   {detail.isOwner ? (
                     <Pill
+                      plain
                       testID="toggle-leader"
                       label={t(member.role === 'leader' ? 'makeMember' : 'makeLeader')}
                       onPress={() => act(`${base}/members/${member.userId}`, 'PATCH', { role: member.role === 'leader' ? 'member' : 'leader' })}
                     />
                   ) : null}
-                  {leader ? <Pill testID="remove-member" label={t('remove')} onPress={() => act(`${base}/members/${member.userId}`, 'DELETE')} /> : null}
+                  {leader ? <Pill plain testID="remove-member" label={t('remove')} onPress={() => act(`${base}/members/${member.userId}`, 'DELETE')} /> : null}
                 </View>
               ) : null}
             </Card>
@@ -247,10 +249,10 @@ export default function CommunityDetail() {
                   else setFeedback(t('offline'));
                 }}
               />
-              <Pill label={t('cancel')} onPress={() => setLeaving(false)} />
+              <Pill plain label={t('cancel')} onPress={() => setLeaving(false)} />
             </View>
           ) : (
-            <Pill testID="leave" label={t(detail.isOwner ? 'deleteCommunity' : 'leaveCommunity')} onPress={() => setLeaving(true)} />
+            <Pill plain danger testID="leave" label={t(detail.isOwner ? 'deleteCommunity' : 'leaveCommunity')} onPress={() => setLeaving(true)} />
           )}
         </>
       ) : null}

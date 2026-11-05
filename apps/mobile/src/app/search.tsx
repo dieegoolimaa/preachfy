@@ -1,4 +1,5 @@
 import { bookName, parseReference, type SearchHit } from '@preachfy/core';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,7 +8,7 @@ import { searchBible } from '@/lib/bible';
 import { useT } from '@/lib/i18n';
 import { goBack } from '@/lib/navigation';
 import { updateReader, useReader } from '@/lib/store';
-import { paper, sans, sansSemi, serif } from '@/lib/theme';
+import { paper, serif } from '@/lib/theme';
 
 export default function Search() {
   const { translation } = useReader();
@@ -38,6 +39,8 @@ export default function Search() {
   return (
     <SafeAreaView style={styles.page}>
       <View style={styles.header}>
+        <View style={styles.field}>
+        <Ionicons name="search" size={17} color={paper.muted} />
         <TextInput
           testID="search-input"
           style={styles.input}
@@ -51,8 +54,9 @@ export default function Search() {
           autoCorrect={false}
           autoFocus
         />
-        <Pressable testID="search-close" style={styles.pill} onPress={() => goBack()}>
-          <Text style={styles.pillText}>{t('close')}</Text>
+        </View>
+        <Pressable testID="search-close" hitSlop={8} onPress={() => goBack()}>
+          <Text style={styles.cancel}>{t('cancel')}</Text>
         </Pressable>
       </View>
       {busy ? <Text style={styles.message}>{t('searching')}</Text> : null}
@@ -78,13 +82,13 @@ export default function Search() {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: paper.bg },
-  header: { flexDirection: 'row', gap: 8, alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: paper.line },
-  input: { flex: 1, minWidth: 0, minHeight: 44, paddingHorizontal: 14, fontFamily: sans, fontSize: 16, color: paper.fg, borderRadius: 10, borderWidth: 1, borderColor: paper.line, backgroundColor: paper.soft },
-  pill: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 16, borderRadius: 999, borderWidth: 1, borderColor: paper.line, backgroundColor: paper.soft },
-  pillText: { fontFamily: sans, fontSize: 15, color: paper.fg },
-  message: { padding: 16, fontFamily: sans, fontSize: 14, color: paper.muted },
+  header: { flexDirection: 'row', gap: 12, alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8 },
+  field: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36, paddingHorizontal: 8, borderRadius: 10, backgroundColor: paper.soft },
+  input: { flex: 1, minWidth: 0, minHeight: 36, fontSize: 17, color: paper.fg },
+  cancel: { fontSize: 17, color: paper.accent },
+  message: { paddingHorizontal: 16, paddingVertical: 8, fontSize: 13, color: paper.muted },
   list: { paddingHorizontal: 16, maxWidth: 720, width: '100%', alignSelf: 'center' },
-  hit: { paddingVertical: 12, gap: 4, borderBottomWidth: 1, borderBottomColor: paper.line },
-  ref: { fontSize: 13, fontFamily: sansSemi, color: paper.accent },
-  text: { fontFamily: serif, fontSize: 18, lineHeight: 26, color: paper.fg },
+  hit: { paddingVertical: 12, gap: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: paper.line },
+  ref: { fontSize: 13, fontWeight: '600', color: paper.muted },
+  text: { fontFamily: serif, fontSize: 18, lineHeight: 25, color: paper.fg },
 });

@@ -1,21 +1,22 @@
+// Ink on neutral paper. The only color of the brand is the highlighter, what people do in the app.
 export const paper = {
-  bg: '#F7F8FC', fg: '#14162B', muted: '#5C6178', line: '#E1E4F0', soft: '#EEF0FA',
-  accent: '#3A3FD9', accentFg: '#FFFFFF', mark: '#F2C14E', warn: '#8A5A00', over: '#C2272D',
+  bg: '#FCFCFB', card: '#FFFFFF', fg: '#16181D', muted: '#6B6F76', line: '#E2E2DF', soft: '#F2F2EF',
+  accent: '#16181D', accentFg: '#FFFFFF', mark: '#FFD43B', warn: '#9A6700', over: '#C4321F',
 };
 
 export const stage: typeof paper = {
-  bg: '#0A0B18', fg: '#F4F5FF', muted: '#9A9EC0', line: '#262948', soft: '#14162C',
-  accent: '#9498FF', accentFg: '#0A0B18', mark: '#9498FF', warn: '#FFD166', over: '#FF8A80',
+  bg: '#000000', card: '#141414', fg: '#FFFFFF', muted: '#A6A6AB', line: '#2A2A2A', soft: '#141414',
+  accent: '#FFD43B', accentFg: '#000000', mark: '#FFD43B', warn: '#FFD43B', over: '#FF7A66',
 };
 
 export type Theme = typeof paper;
 
-// Bundled so everything looks the same on iPhone, iPad and web.
-export const sans = 'Figtree_400Regular';
-export const sansSemi = 'Figtree_600SemiBold';
-export const sansBold = 'Figtree_700Bold';
-/** Only for scripture, where a serif helps long reading. */
+/** Words being selected, before they get a category. */
+export const selection = '#FFE98A';
+
+/** Titles and scripture. The interface uses the system font. */
 export const serif = 'Newsreader_400Regular';
+export const serifBold = 'Newsreader_600SemiBold';
 
 export const categories = [
   { key: 'promessa', color: '#F2C14E' },

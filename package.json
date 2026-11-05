@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "api": "node scripts/dev.mjs --api",
     "db": "node scripts/dev-db.mjs",
     "pro": "node scripts/dev-pro.mjs",
     "test": "turbo run test",

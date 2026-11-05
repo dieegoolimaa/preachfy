@@ -1,9 +1,9 @@
 import { bookName, buildStudy, marksInPassage, TEMPLATES, type Passage, type StudyKind } from '@preachfy/core';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Text } from 'react-native';
 
-import { Card, Field, Heading, Hint, Pill, Screen, ui } from '@/components/ui';
+import { Chip, Chips, Field, Group, Hint, Pill, Row, Screen, ui } from '@/components/ui';
 import { useT } from '@/lib/i18n';
 import { newId } from '@/lib/ids';
 import { resolvePassage } from '@/lib/passage';
@@ -38,30 +38,28 @@ export default function NewContent() {
 
   return (
     <Screen title={t('newContent')} close testID="new">
-      <Heading>{t('step1Passage')}</Heading>
-      <Field testID="passage" value={reference} onChangeText={setReference} placeholder={t('passageHint')} autoCorrect={false} />
+      <Field testID="passage" label={t('step1Passage')} value={reference} onChangeText={setReference} placeholder={t('passageHint')} autoCorrect={false} />
       {passage ? (
         <Hint testID="passage-ok">{label}{fed ? ` · ${t('marksFound', { n: fed })}` : ''}</Hint>
       ) : (
         <Text testID="passage-error" style={ui.error}>{t('passageInvalid')}</Text>
       )}
 
-      <Heading>{t('step2Type')}</Heading>
-      <View style={ui.row}>
+      <Text style={ui.fieldLabel}>{t('step2Type')}</Text>
+      <Chips>
         {TEMPLATES.map((template) => (
-          <Pill key={template.kind} testID={`kind-${template.kind}`} primary={kind === template.kind} label={template.name[locale]} onPress={() => setKind(template.kind)} />
+          <Chip key={template.kind} testID={`kind-${template.kind}`} on={kind === template.kind} label={template.name[locale]} onPress={() => setKind(template.kind)} />
         ))}
-        <Pill testID="kind-card" label={t('verseCard')} disabled={!passage} onPress={() => router.replace({ pathname: '/card', params: { reference } })} />
-      </View>
+        <Chip testID="kind-card" label={t('verseCard')} disabled={!passage} onPress={() => router.replace({ pathname: '/card', params: { reference } })} />
+      </Chips>
 
-      <Heading>{t('step3Title')}</Heading>
-      <Field testID="title" value={title} onChangeText={setTitle} placeholder={label || t('titleLabel')} />
-      <Card>
+      <Field testID="title" label={t('step3Title')} value={title} onChangeText={setTitle} placeholder={label || t('titleLabel')} />
+      <Group>
         {TEMPLATES.find((x) => x.kind === kind)!.sections.map((section) => (
-          <Hint key={section.title.en}>{section.title[locale]} · {t('minutes', { n: section.minutes })}</Hint>
+          <Row key={section.title.en} label={section.title[locale]} value={t('minutes', { n: section.minutes })} />
         ))}
-      </Card>
-      <Pill testID="create-study" primary disabled={!passage} label={t('createNow')} onPress={create} />
+      </Group>
+      <Pill testID="create-study" primary big disabled={!passage} label={t('createNow')} onPress={create} />
     </Screen>
   );
 }

@@ -38,7 +38,8 @@ function createAuth() {
     secret: process.env.BETTER_AUTH_SECRET,
     baseURL: process.env.BETTER_AUTH_URL,
     database: mongodbAdapter(db(), { client: mongo() }),
-    trustedOrigins: ['preachfy://', ...(process.env.DEV_ORIGINS ? ['exp://'] : []), ...allowedOrigins()],
+    // Expo Go identifies itself with exp://, which only exists in development.
+    trustedOrigins: ['preachfy://', ...(process.env.NODE_ENV === 'production' ? [] : ['exp://']), ...allowedOrigins()],
     emailAndPassword: { enabled: true, minPasswordLength: 8 },
     socialProviders: socialProviders(),
     plugins: [expo()],

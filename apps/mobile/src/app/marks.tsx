@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Card, Field, Hint, Pill, Screen, ui } from '@/components/ui';
+import { Card, Chip, Chips, Field, Hint, Pill, Screen, ui } from '@/components/ui';
 import { useT } from '@/lib/i18n';
 import { requirePro, usePro } from '@/lib/pro';
 import { getReader, updateReader, useReader } from '@/lib/store';
@@ -31,11 +31,11 @@ export default function Marks() {
 
   return (
     <Screen title={t('myMarks')} close testID="marks">
-      <View style={ui.row}>
+      <Chips>
         {categories.map((c) => (
-          <Pill key={c.key} testID={`mark-filter-${c.key}`} primary={category === c.key} label={t(`cat${c.key}`)} onPress={() => setCategory(category === c.key ? null : c.key)} />
+          <Chip key={c.key} testID={`mark-filter-${c.key}`} on={category === c.key} label={t(`cat${c.key}`)} onPress={() => setCategory(category === c.key ? null : c.key)} />
         ))}
-      </View>
+      </Chips>
       {shown.length === 0 ? <Hint testID="marks-empty">{t('marksEmpty')}</Hint> : null}
       {shown.map((mark) => {
         const ref = mark.spans[0]?.ref;
@@ -51,11 +51,12 @@ export default function Marks() {
             ) : null}
             <View style={ui.row}>
               <Pill
+                plain
                 testID="edit-note"
                 label={t(editing === mark.id ? 'done' : 'noteLabel')}
                 onPress={() => (canUse('notes', pro) || requirePro('notes')) && setEditing(editing === mark.id ? null : mark.id)}
               />
-              <Pill testID="delete-mark" label={t('remove')} onPress={() => change(mark.id, { deletedAt: Date.now() })} />
+              <Pill plain danger testID="delete-mark" label={t('remove')} onPress={() => change(mark.id, { deletedAt: Date.now() })} />
             </View>
           </Card>
         );

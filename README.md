@@ -21,7 +21,7 @@ cp apps/mobile/.env.example apps/mobile/.env   # chave da loja de testes do Reve
 npm run dev
 ```
 
-Isso sobe o MongoDB local, a API em http://localhost:3001 e o web em http://localhost:8081. Os dados ficam em `apps/api/.data`.
+Isso sobe o MongoDB local, a API em http://localhost:3001 e o web em http://localhost:8081, e aproveita o que já estiver rodando. Para subir só o banco e a API, use `npm run api` na raiz ou `npm run dev` em `apps/api`. Os dados ficam em `apps/api/.data`.
 
 Para assinar de verdade em desenvolvimento, use a loja de testes na tela de planos. A chave de teste do RevenueCat também pode ir em `REVENUECAT_SECRET_KEY`, até existir a chave `sk_`. Para liberar o Pro sem passar pela loja:
 

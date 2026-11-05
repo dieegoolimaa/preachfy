@@ -41,6 +41,7 @@ export function demoStudy(locale: Locale): Study {
     id: 'demo',
     title: titles[locale],
     kind: 'outline',
+    passage: { book: 'PSA', chapter: 23, from: 1, to: 6, translationId },
     context: scripture(1, 6),
     steps: steps[locale].map(([title, notes, key], i) => {
       const range = ranges[i];

@@ -3,7 +3,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Card, Field, Heading, Hint, Pill, Screen, ui } from '@/components/ui';
+import { Card, Field, Hint, Pill, Screen, ui } from '@/components/ui';
 import { API_URL } from '@/lib/auth';
 import { useT } from '@/lib/i18n';
 import { newId } from '@/lib/ids';
@@ -117,14 +117,14 @@ export default function LiveClass() {
           {answered ? <Hint testID="live-answered">{t('answerSent')}: {answered}</Hint> : null}
           <Field testID="live-nickname" value={mine.nickname} onChangeText={(nickname) => setMine({ ...mine, nickname })} placeholder={t('nicknameHint')} />
           <Field testID="live-answer" multiline value={draft} onChangeText={setDraft} placeholder={t('yourAnswer')} />
-          <Pill testID="live-send" primary disabled={!draft.trim()} label={t('send')} onPress={send} />
+          <Pill testID="live-send" primary big disabled={!draft.trim()} label={t('send')} onPress={send} />
           {failed ? <Text style={ui.error}>{t('offline')}</Text> : null}
         </Card>
       ) : null}
 
       {view.ended ? (
         <>
-          <Heading>{t('classSummary')}</Heading>
+          <Text style={ui.cardTitle}>{t('classSummary')}</Text>
           {view.closing ? <Text testID="live-closing-text" style={s.text}>{view.closing}</Text> : null}
           {view.steps.map((item) => (
             <Card key={item.id} testID="live-summary-step">

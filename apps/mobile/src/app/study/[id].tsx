@@ -2,12 +2,13 @@ import {
   bookName, hasBaseText, isReadyForPulpit, passageText, stepsMissingBaseText, stepSuggestions, templateFor,
   type Step, type Study, type StudyText,
 } from '@preachfy/core';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
 import { LivePanel } from '@/components/LivePanel';
-import { Card, Field, Heading, Hint, Pill, Screen, ui } from '@/components/ui';
+import { Card, Field, Group, Hint, IconButton, Pill, Screen, Segmented, ui } from '@/components/ui';
 import { fromInput, dateTime, toInput } from '@/lib/dates';
 import { useT } from '@/lib/i18n';
 import { newId } from '@/lib/ids';
@@ -16,7 +17,7 @@ import { resolvePassage } from '@/lib/passage';
 import { requirePro, usePro } from '@/lib/pro';
 import { saveStudy, useReader } from '@/lib/store';
 import { renderStudy, useRendered } from '@/lib/studyText';
-import { categoryColor, paper, sansSemi, serif } from '@/lib/theme';
+import { categoryColor, paper, serif, serifBold } from '@/lib/theme';
 
 type BaseProps = { value: StudyText | undefined; onChange: (text: StudyText | undefined) => void; translationId: string; editable: boolean; testID: string };
 
@@ -44,11 +45,14 @@ function TextEditor({ value, onChange, translationId, editable, testID }: BasePr
       {value?.kind === 'scripture' ? <Text testID={`${testID}-preview`} style={s.scripture}>{rendered?.body}</Text> : null}
       {editable ? (
         <>
-          <View style={ui.row}>
-            <Pill testID={`${testID}-bible`} primary={!authored} label={t('bibleText')} onPress={() => setAuthored(false)} />
-            <Pill testID={`${testID}-authored`} primary={authored} label={t('ownText')} onPress={() => setAuthored(true)} />
-            {value ? <Pill testID={`${testID}-clear`} label={t('remove')} onPress={() => onChange(undefined)} /> : null}
-          </View>
+          <Segmented
+            value={authored ? 'own' : 'bible'}
+            onChange={(key) => setAuthored(key === 'own')}
+            options={[
+              { key: 'bible', label: t('bibleText'), testID: `${testID}-bible` },
+              { key: 'own', label: t('ownText'), testID: `${testID}-authored` },
+            ]}
+          />
           {authored ? (
             <Field
               testID={`${testID}-own`}
@@ -69,6 +73,7 @@ function TextEditor({ value, onChange, translationId, editable, testID }: BasePr
             />
           )}
           {invalid ? <Text style={ui.error}>{t('passageInvalid')}</Text> : null}
+          {value ? <Pill plain danger testID={`${testID}-clear`} label={t('remove')} onPress={() => onChange(undefined)} /> : null}
         </>
       ) : value?.kind === 'authored' ? (
         <Text style={s.scripture}>{value.text}</Text>
@@ -91,11 +96,14 @@ function StepEditor({ study, step, index, open, editable, onToggle, onChange, on
   return (
     <Card testID={`step-${index}`}>
       <Pressable testID={`step-${index}-toggle`} style={s.stepHead} onPress={onToggle}>
-        <Text style={s.number}>{index + 1}</Text>
-        <View style={s.stepTitle}>
-          <Text style={ui.cardTitle}>{step.title}</Text>
-          <Hint>{t('minutes', { n: Math.round(step.plannedMs / 60_000) })}{missing ? ` · ${t('noBaseText')}` : ''}</Hint>
+        <View style={[s.number, missing && s.numberMissing]}>
+          <Text style={[s.numberText, missing && s.numberTextMissing]}>{index + 1}</Text>
         </View>
+        <View style={s.stepTitle}>
+          <Text style={s.stepName}>{step.title}</Text>
+          <Text style={s.stepMeta}>{t('minutes', { n: Math.round(step.plannedMs / 60_000) })}{missing ? ` · ${t('noBaseText')}` : ''}</Text>
+        </View>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={17} color="#C4C4C7" />
       </Pressable>
       {open ? (
         <View style={s.stepBody}>
@@ -109,11 +117,11 @@ function StepEditor({ study, step, index, open, editable, onToggle, onChange, on
             value={String(Math.round(step.plannedMs / 60_000))}
             onChangeText={(value) => onChange({ plannedMs: (Number(value.replace(/\D/g, '')) || 0) * 60_000 })}
           />
-          <Heading>{t('baseText')}</Heading>
+          <Text style={ui.fieldLabel}>{t('baseText')}</Text>
           <TextEditor testID={`step-${index}-base`} value={step.baseText} onChange={(baseText) => onChange({ baseText })} translationId={translationId} editable={editable} />
           {suggestions.length ? (
             <>
-              <Heading>{t('fromYourStudy')}</Heading>
+              <Text style={ui.fieldLabel}>{t('fromYourStudy')}</Text>
               {suggestions.map((mark) => (
                 <Pressable
                   key={mark.id}
@@ -134,9 +142,9 @@ function StepEditor({ study, step, index, open, editable, onToggle, onChange, on
           <Field testID={`step-${index}-expected`} label={t('expectedAnswer')} editable={editable} value={step.expectedAnswer ?? ''} onChangeText={(expectedAnswer) => onChange({ expectedAnswer })} />
           {editable ? (
             <View style={ui.row}>
-              <Pill testID={`step-${index}-up`} label="↑" onPress={() => onMove(-1)} />
-              <Pill testID={`step-${index}-down`} label="↓" onPress={() => onMove(1)} />
-              <Pill testID={`step-${index}-remove`} label={t('remove')} onPress={onRemove} />
+              <IconButton testID={`step-${index}-up`} icon="arrow-up" label={t('previous')} onPress={() => onMove(-1)} />
+              <IconButton testID={`step-${index}-down`} icon="arrow-down" label={t('next')} onPress={() => onMove(1)} />
+              <Pill plain danger testID={`step-${index}-remove`} label={t('remove')} onPress={onRemove} />
             </View>
           ) : null}
         </View>
@@ -199,7 +207,11 @@ export default function StudyEditor() {
   };
 
   return (
-    <Screen title={study.title} close testID="study">
+    <Screen
+      title={study.title}
+      close
+      testID="study"
+      right={<IconButton testID="share-study" icon="share-outline" label={t('share')} onPress={shareText} />}>
       {!pro ? <Hint testID="read-only">{t('readOnlyHint')}</Hint> : null}
       <Field testID="study-title" label={t('titleLabel')} editable={pro} value={study.title} onChangeText={(title) => change({ title })} />
       {template?.goal ? (
@@ -218,11 +230,10 @@ export default function StudyEditor() {
         }}
       />
 
-      <Heading>{t('contextText')}</Heading>
-      <Hint>{t('contextHint')}</Hint>
+      <Group title={t('contextText')} footer={t('contextHint')} />
       <TextEditor testID="context" value={study.context} onChange={(context) => change({ context })} translationId={study.passage?.translationId ?? 'blivre'} editable={pro} />
 
-      <Heading>{t('stepsTitle', { n: study.steps.length, m: totalMinutes })}</Heading>
+      <Group title={t('stepsTitle', { n: study.steps.length, m: totalMinutes })} />
       {study.steps.map((step, index) => (
         <StepEditor
           key={step.id}
@@ -237,25 +248,24 @@ export default function StudyEditor() {
           onRemove={() => change({ steps: study.steps.filter((item) => item.id !== step.id) })}
         />
       ))}
-      {pro ? <Pill testID="add-step" label={t('addStep')} onPress={addStep} /> : null}
+      {pro ? <Pill testID="add-step" plain icon="add-circle" label={t('addStep')} onPress={addStep} /> : null}
 
-      <Heading>{t('deliver')}</Heading>
+      <Group title={t('deliver')} />
       {ready ? null : (
         <Hint testID="missing-base">{t('missingBase', { list: missing.map((step) => step.title).join(', ') })}</Hint>
       )}
-      <View style={ui.row}>
-        <Pill
-          testID="open-pulpit"
-          primary
-          disabled={!ready}
-          label={template?.role[locale] ?? t('pulpit')}
-          onPress={() => requirePro('pulpit') && router.push(`/pulpit?id=${study.id}`)}
-        />
-        <Pill testID="share-study" label={t('share')} onPress={shareText} />
-      </View>
+      <Pill
+        testID="open-pulpit"
+        primary
+        big
+        icon="mic"
+        disabled={!ready}
+        label={template?.role[locale] ?? t('pulpit')}
+        onPress={() => requirePro('pulpit') && router.push(`/pulpit?id=${study.id}`)}
+      />
       <LivePanel study={study} />
 
-      {delivered.length ? <Heading>{t('history')}</Heading> : null}
+      {delivered.length ? <Group title={t('history')} /> : null}
       {delivered.map((run) => (
         <Card key={run.id} testID="run-row">
           <Text style={s.runTitle}>{dateTime(run.startedAt, locale)}{run.place ? ` · ${run.place}` : ''}</Text>
@@ -276,10 +286,10 @@ export default function StudyEditor() {
               goBack();
             }}
           />
-          <Pill label={t('cancel')} onPress={() => setConfirming(false)} />
+          <Pill plain label={t('cancel')} onPress={() => setConfirming(false)} />
         </View>
       ) : (
-        <Pill testID="delete-study" label={t('deleteStudy')} onPress={() => setConfirming(true)} />
+        <Pill plain danger testID="delete-study" label={t('deleteStudy')} onPress={() => setConfirming(true)} />
       )}
     </Screen>
   );
@@ -289,10 +299,15 @@ const s = StyleSheet.create({
   text: { gap: 8 },
   scripture: { fontFamily: serif, fontSize: 18, lineHeight: 26, color: paper.fg },
   stepHead: { flexDirection: 'row', gap: 12, alignItems: 'center', minHeight: 44 },
-  number: { width: 28, fontSize: 15, fontFamily: sansSemi, color: paper.accent },
-  stepTitle: { flex: 1 },
+  number: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: paper.accent },
+  numberMissing: { backgroundColor: paper.soft },
+  numberText: { fontSize: 14, fontWeight: '600', color: paper.accentFg },
+  numberTextMissing: { color: paper.muted },
+  stepTitle: { flex: 1, gap: 1 },
+  stepName: { fontFamily: serifBold, fontSize: 19, color: paper.fg },
+  stepMeta: { fontSize: 13, color: paper.muted },
   stepBody: { gap: 12, marginTop: 8 },
-  suggestion: { gap: 4, padding: 10, borderLeftWidth: 4, borderRadius: 6, backgroundColor: paper.soft },
+  suggestion: { gap: 4, padding: 12, borderLeftWidth: 4, backgroundColor: paper.soft },
   suggestionText: { fontFamily: serif, fontSize: 16, color: paper.fg },
-  runTitle: { fontSize: 15, fontFamily: sansSemi, color: paper.fg },
+  runTitle: { fontSize: 15, fontWeight: '600', color: paper.fg },
 });

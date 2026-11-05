@@ -70,20 +70,23 @@ export function visibleMarks(layer: ReadingLayer, marks: Mark[]): Mark[] {
   return live.filter((m) => m.scope.kind === 'study' && m.scope.studyId === layer.studyId);
 }
 
-const editedAt = (m: Mark) => m.updatedAt ?? 1;
+type Synced = { id: string; updatedAt?: number };
+const editedAt = (item: Synced) => item.updatedAt ?? 1;
 
-/** Marks changed since the last upload. Older saved marks have no date and count as changed once. */
-export const marksToPush = (marks: Mark[], pushedAt: number) => marks.filter((m) => editedAt(m) > pushedAt);
+/** Items changed since the last upload. Older saved items have no date and count as changed once. */
+export const itemsToPush = <T extends Synced>(items: T[], pushedAt: number) => items.filter((i) => editedAt(i) > pushedAt);
+export const marksToPush = (marks: Mark[], pushedAt: number) => itemsToPush(marks, pushedAt);
 
-/** Applies marks from the server; the most recent edit of each one wins. */
-export function mergeMarks(local: Mark[], incoming: Mark[]): Mark[] {
-  const byId = new Map(local.map((m) => [m.id, m]));
-  for (const mark of incoming) {
-    const current = byId.get(mark.id);
-    if (!current || editedAt(mark) >= editedAt(current)) byId.set(mark.id, mark);
+/** Applies items from the server; the most recent edit of each one wins. */
+export function mergeItems<T extends Synced>(local: T[], incoming: T[]): T[] {
+  const byId = new Map(local.map((item) => [item.id, item]));
+  for (const item of incoming) {
+    const current = byId.get(item.id);
+    if (!current || editedAt(item) >= editedAt(current)) byId.set(item.id, item);
   }
   return [...byId.values()];
 }
+export const mergeMarks = (local: Mark[], incoming: Mark[]) => mergeItems(local, incoming);
 
 export type Snapshot = { id: string; createdAt: number; marks: Mark[] };
 
@@ -98,8 +101,105 @@ export function captureSnapshot(id: string, source: Mark[], createdAt: number, n
 }
 
 export type StudyText = { kind: 'scripture'; spans: VerseSpan[] } | { kind: 'authored'; text: string };
-export type Step = { id: string; title: string; baseText?: StudyText; notes: string; plannedMs: number };
-export type Study = { id: string; title: string; context?: StudyText; snapshot?: Snapshot; steps: Step[] };
+export type Step = {
+  id: string;
+  title: string;
+  baseText?: StudyText;
+  /** The full manuscript. `outline` and `keywords` are shorter versions for the Pulpit. */
+  notes: string;
+  outline?: string;
+  keywords?: string;
+  plannedMs: number;
+  /** Advice from the template, shown while writing. */
+  guidance?: string;
+  /** Categories of the author's marks suggested for this step. */
+  feeds?: string[];
+  /** Sent to students in a live class. */
+  question?: string;
+  /** Private to the teacher. */
+  expectedAnswer?: string;
+};
+export type StudyKind = 'outline' | 'study' | 'devotional' | 'class' | 'talk';
+export type Passage = { book: string; chapter: number; from: number; to: number; translationId: string };
+export type Study = {
+  id: string;
+  title: string;
+  kind?: StudyKind;
+  passage?: Passage;
+  /** Central idea or class goal, depending on the template. */
+  goal?: string;
+  context?: StudyText;
+  snapshot?: Snapshot;
+  steps: Step[];
+  scheduledFor?: number;
+  createdAt?: number;
+  updatedAt?: number;
+  /** Kept as a tombstone so a removal reaches the other devices. */
+  deletedAt?: number;
+};
+
+/** One time the content was delivered. The same study can be preached many times. */
+export type PulpitRun = {
+  id: string;
+  studyId: string;
+  title: string;
+  startedAt: number;
+  endedAt: number;
+  plannedMs: number;
+  spentMs: number[];
+  place?: string;
+  note?: string;
+  updatedAt?: number;
+  deletedAt?: number;
+};
+
+export const passageSpans = ({ book, chapter, from, to, translationId }: Passage, first = from, last = to): VerseSpan[] =>
+  Array.from({ length: last - first + 1 }, (_, i) => ({ ref: { book, chapter, verse: first + i }, translationId }));
+
+export const passageText = (passage: Passage, first = passage.from, last = passage.to): StudyText => ({
+  kind: 'scripture',
+  spans: passageSpans(passage, first, last),
+});
+
+/** The author's personal marks that touch the passage, which feed a new study. */
+export function marksInPassage(marks: Mark[], { book, chapter, from, to }: Passage): Mark[] {
+  return visibleMarks({ kind: 'personal' }, marks).filter((m) =>
+    m.spans.some((s) => s.ref.book === book && s.ref.chapter === chapter && s.ref.verse >= from && s.ref.verse <= to),
+  );
+}
+
+/** Snapshot marks whose category feeds this step. */
+export const stepSuggestions = (study: Study, step: Step): Mark[] =>
+  (study.snapshot?.marks ?? []).filter((m) => !m.deletedAt && step.feeds?.includes(m.categoryKey));
+
+export type StepDetail = 'manuscript' | 'outline' | 'keywords';
+
+/** The Pulpit falls back to the longer text when a shorter one was not written. */
+export function stepBody(step: Step, detail: StepDetail): string {
+  const outline = step.outline?.trim();
+  const keywords = step.keywords?.trim();
+  if (detail === 'keywords') return keywords || outline || step.notes;
+  if (detail === 'outline') return outline || step.notes;
+  return step.notes;
+}
+
+export type LiveStep = { id: string; title: string; label: string; body: string; question?: string };
+
+/** What leaves the teacher's device: never notes, outlines or expected answers. */
+export function toLiveSteps(study: Study, render: (text: StudyText | undefined, index: number) => { label: string; body: string } | null): LiveStep[] {
+  return study.steps.map((step, index) => {
+    const text = render(step.baseText, index);
+    const question = step.question?.trim();
+    return { id: step.id, title: step.title, label: text?.label ?? '', body: text?.body ?? '', ...(question ? { question } : {}) };
+  });
+}
+
+/** Content with a date still ahead, soonest first. */
+export function upcoming<T extends { deletedAt?: number; scheduledFor?: number }>(items: T[], now: number): T[] {
+  return items
+    .filter((item) => !item.deletedAt && item.scheduledFor !== undefined && item.scheduledFor >= now)
+    .sort((a, b) => a.scheduledFor! - b.scheduledFor!);
+}
 
 export function hasBaseText({ baseText }: Step): boolean {
   if (!baseText) return false;

@@ -45,6 +45,16 @@ export function parseReference(input: string, locale: Locale = 'pt'): ParsedRefe
   return m[3] ? { book: book.id, chapter, verse: Number(m[3]) } : { book: book.id, chapter };
 }
 
+/** Accepts "sl 23", "sl 23:4" and "sl 23:1-6". Without verses, the caller uses the whole chapter. */
+export function parsePassage(input: string, locale: Locale = 'pt'): (ParsedReference & { to?: number }) | null {
+  const range = input.trim().match(/^(.*?)\s*[-–]\s*(\d+)$/);
+  const found = parseReference(range ? range[1]! : input, locale);
+  if (!found) return null;
+  if (!range) return found;
+  const to = Number(range[2]);
+  return found.verse !== undefined && to >= found.verse ? { ...found, to } : null;
+}
+
 export type SearchHit = { book: string; chapter: number; verse: number; text: string };
 
 /** Finds a word or phrase, ignoring case and accents. `chapters` is verses by chapter. */

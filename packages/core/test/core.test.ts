@@ -4,6 +4,7 @@ import {
   BOOKS, bookName, marksToPush, mergeMarks, parseReference, searchBook,
   canUse, captureSnapshot, elapsed, goTo, isReadyForPulpit, pace, pause, remaining, resolveSpan, resume,
   selectionSpans, spentInSection, startSession, stepsMissingBaseText, timerState, visibleMarks, wordsOf,
+  TEMPLATES, buildStudy, mergeItems, parsePassage, splitRange, stepBody, stepSuggestions, toLiveSteps, upcoming,
 } from '../src/index.ts';
 import type { Mark, Study, VerseSpan } from '../src/index.ts';
 
@@ -196,4 +197,100 @@ test('only changes since the last upload are sent, and undated marks go once', (
   const marks = [dated('a', 100, ''), dated('b', 300, ''), dated('c', undefined, '')];
   assert.deepEqual(marksToPush(marks, 0).map((m) => m.id), ['a', 'b', 'c']);
   assert.deepEqual(marksToPush(marks, 200).map((m) => m.id), ['b']);
+});
+
+const passage = { book: 'PSA', chapter: 23, from: 1, to: 6, translationId: 'kjv' };
+let counter = 0;
+const newId = () => `id-${counter++}`;
+const ownMark = (id: string, verse: number, categoryKey: string): Mark => ({
+  id, scope: { kind: 'bible' }, categoryKey, note: 'minha nota', updatedAt: 5,
+  spans: [{ ref: { book: 'PSA', chapter: 23, verse }, translationId: 'kjv' }],
+});
+const outline = (marks: Mark[] = []) =>
+  buildStudy({ id: 's1', kind: 'outline', title: 'Salmo 23', passage, marks, locale: 'pt', now: 100, newId });
+
+test('every template has its sections in the three languages', () => {
+  assert.equal(TEMPLATES.length, 5);
+  for (const template of TEMPLATES) {
+    assert.ok(template.sections.length >= 5, template.kind);
+    for (const section of template.sections) {
+      for (const locale of ['pt', 'en', 'es'] as const) {
+        assert.ok(section.title[locale] && section.guidance[locale], `${template.kind} ${locale}`);
+      }
+    }
+  }
+});
+
+test('an outline splits the passage among its points', () => {
+  const study = outline();
+  const verses = study.steps.map((s) => (s.baseText?.kind === 'scripture' ? s.baseText.spans.map((x) => x.ref.verse) : null));
+  assert.deepEqual(verses, [null, [1, 2], [3, 4], [5, 6], null]);
+  assert.equal(study.steps.reduce((sum, s) => sum + s.plannedMs, 0), 40 * 60_000);
+});
+
+test('splitting never makes an empty part', () => {
+  assert.deepEqual(splitRange(4, 4, 3), [[4, 4]]);
+  assert.deepEqual(splitRange(1, 7, 3), [[1, 3], [4, 5], [6, 7]]);
+});
+
+test('a passage shorter than the points leaves the remaining points for the author', () => {
+  const study = buildStudy({ id: 's2', kind: 'outline', title: 'x', passage: { ...passage, to: 2 }, marks: [], locale: 'en', now: 1, newId });
+  assert.equal(stepsMissingBaseText(study).length, 3);
+  assert.equal(isReadyForPulpit(study), false);
+});
+
+test('a new study copies only the marks of its passage, and stays separate from them', () => {
+  const inside = ownMark('a', 2, 'significado');
+  const outside = { ...ownMark('b', 1, 'promessa'), spans: [{ ref: { book: 'JOH', chapter: 3, verse: 16 }, translationId: 'kjv' }] };
+  const removed = { ...ownMark('c', 3, 'aplicacao'), deletedAt: 9 };
+  const study = outline([inside, outside, removed]);
+  assert.equal(study.snapshot?.marks.length, 1);
+  const copy = study.snapshot!.marks[0]!;
+  assert.notEqual(copy.id, 'a');
+  assert.deepEqual(copy.scope, { kind: 'study', studyId: 's1' });
+  copy.note = 'mudou no estudo';
+  assert.equal(inside.note, 'minha nota');
+});
+
+test('marks feed the sections that use their category', () => {
+  const study = outline([ownMark('a', 2, 'significado'), ownMark('b', 4, 'contexto')]);
+  assert.deepEqual(stepSuggestions(study, study.steps[0]!).map((m) => m.categoryKey), ['contexto']);
+  assert.deepEqual(stepSuggestions(study, study.steps[1]!).map((m) => m.categoryKey), ['significado']);
+  assert.equal(stepSuggestions(study, study.steps[4]!).length, 0);
+});
+
+test('shorter detail levels fall back to what was written', () => {
+  const step = { id: '1', title: 't', notes: 'manuscrito', plannedMs: 1 };
+  assert.equal(stepBody(step, 'keywords'), 'manuscrito');
+  assert.equal(stepBody({ ...step, outline: 'tópicos' }, 'keywords'), 'tópicos');
+  assert.equal(stepBody({ ...step, outline: 'tópicos', keywords: 'chave' }, 'keywords'), 'chave');
+  assert.equal(stepBody({ ...step, outline: '  ' }, 'outline'), 'manuscrito');
+});
+
+test('private teacher content never reaches a live class', () => {
+  const study = outline();
+  study.steps[1] = {
+    ...study.steps[1]!, notes: 'NOTA-SECRETA', outline: 'TOPICO-SECRETO', keywords: 'CHAVE-SECRETA',
+    guidance: 'ORIENTACAO-SECRETA', question: 'O que muda?', expectedAnswer: 'RESPOSTA-SECRETA',
+  };
+  const sent = JSON.stringify(toLiveSteps(study, () => ({ label: 'Salmos 23', body: 'texto' })));
+  assert.match(sent, /O que muda\?/);
+  assert.doesNotMatch(sent, /SECRET/);
+});
+
+test('upcoming content skips the past and removed items', () => {
+  const items = [{ id: 'a', scheduledFor: 30 }, { id: 'b', scheduledFor: 20 }, { id: 'c', scheduledFor: 5 }, { id: 'd', scheduledFor: 40, deletedAt: 1 }, { id: 'e' }];
+  assert.deepEqual(upcoming(items, 10).map((i) => i.id), ['b', 'a']);
+});
+
+test('studies merge like marks: the latest edit wins', () => {
+  const merged = mergeItems([{ id: 'x', updatedAt: 5, title: 'novo' }], [{ id: 'x', updatedAt: 4, title: 'velho' }, { id: 'y', updatedAt: 1, title: 'outro' }]);
+  assert.deepEqual(merged.map((s) => s.title), ['novo', 'outro']);
+});
+
+test('passages accept a verse range', () => {
+  assert.deepEqual(parsePassage('sl 23:1-6'), { book: 'PSA', chapter: 23, verse: 1, to: 6 });
+  assert.deepEqual(parsePassage('sl 23'), { book: 'PSA', chapter: 23 });
+  assert.equal(parsePassage('sl 23:6-1'), null);
+  assert.equal(parsePassage('nada aqui 1'), null);
 });

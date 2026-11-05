@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  BOOKS, parseReference, searchBook,
   canUse, captureSnapshot, elapsed, goTo, isReadyForPulpit, pace, pause, remaining, resolveSpan, resume,
   selectionSpans, spentInSection, startSession, stepsMissingBaseText, timerState, visibleMarks, wordsOf,
 } from '../src/index.ts';
@@ -137,4 +138,28 @@ test('selecting inside a verse gives one exact span, in either tap order', () =>
 test('selecting across verses gives one span per verse', () => {
   const spans = selectionSpans(psalm, 'kjv', { verseIndex: 0, wordIndex: 7 }, { verseIndex: 1, wordIndex: 1 });
   assert.deepEqual(spans.map((s) => s.quote), ['not want', 'He maketh']);
+});
+
+test('there are 66 books with 1189 chapters', () => {
+  assert.equal(BOOKS.length, 66);
+  assert.equal(BOOKS.reduce((sum, b) => sum + b.chapters, 0), 1189);
+});
+
+test('references are read the way people type them', () => {
+  assert.deepEqual(parseReference('jo 3 16'), { book: 'JOH', chapter: 3, verse: 16 });
+  assert.deepEqual(parseReference('João 3:16'), { book: 'JOH', chapter: 3, verse: 16 });
+  assert.deepEqual(parseReference('jó 1'), { book: 'JOB', chapter: 1 });
+  assert.deepEqual(parseReference('1 co 13'), { book: '1CO', chapter: 13 });
+  assert.deepEqual(parseReference('1Jo 4.8'), { book: '1JO', chapter: 4, verse: 8 });
+  assert.deepEqual(parseReference('sl 23'), { book: 'PSA', chapter: 23 });
+  assert.deepEqual(parseReference('apocalipse'), { book: 'REV', chapter: 1 });
+  assert.equal(parseReference('sl 151'), null);
+  assert.equal(parseReference('graça de Deus'), null);
+});
+
+test('search ignores case and accents and respects the limit', () => {
+  const chapters = [['No princípio era o Verbo', 'E a GRAÇA abundou'], ['graca sobre graça']];
+  assert.deepEqual(searchBook('JOH', chapters, 'graça', 10).map((h) => [h.chapter, h.verse]), [[1, 2], [2, 1]]);
+  assert.equal(searchBook('JOH', chapters, 'graca', 1).length, 1);
+  assert.deepEqual(searchBook('JOH', chapters, '  ', 10), []);
 });

@@ -113,7 +113,18 @@ Regra: leitura, marcação simples, copiar e compartilhar versículos são grát
 - **Aluno:** acessa a aula de graça; quem paga é o professor.
 
 ## Traduções da v1
-Almeida 1911, Bíblia Livre e KJV. Confirmar a licença de cada uma na fonte antes de publicar. NVI, ACF e ARA ficam para quando houver licença.
+Geradas por `tools/bible/build.mjs`, que falha se surgir divergência de estrutura. Padrão do app: Bíblia Livre.
+
+| Versão | Origem | Licença | Observação |
+|---|---|---|---|
+| Bíblia Livre | eBible.org (porbr2018) | CC BY; 3.0 Brasil no repositório oficial, 4.0 no eBible | Crédito obrigatório, na tela Sobre |
+| Almeida 1911 | Transcrição de domínio público (eBook 62383) | Domínio público nos EUA | Grafia de 1911; sem notas nem títulos dos salmos; 5 capítulos com numeração própria |
+| KJV | eBible.org (eng-kjv2006) | Domínio público fora do Reino Unido | Restrição é de impressão no Reino Unido |
+
+NVI, ACF e ARA ficam para quando houver licença. Antes de publicar, vale uma revisão jurídica do uso comercial, sobretudo da Almeida 1911 no Brasil e em Portugal.
+
+## Dados locais
+Marcações e posição de leitura ficam em armazenamento chave-valor, igual no aparelho e no web. O SQLite no web exige cabeçalhos especiais no servidor e não tem busca textual. A troca por banco fica para quando houver sincronização.
 
 ## Decisões em aberto
 - Preços mensal e anual.

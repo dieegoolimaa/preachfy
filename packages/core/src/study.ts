@@ -1,5 +1,7 @@
 import type { PulpitSection } from './pulpitSession.ts';
 
+export const foldText = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
 export type VerseRef = { book: string; chapter: number; verse: number };
 
 /**

@@ -2,23 +2,24 @@ import { resolveSpan, wordsOf, type Mark, type VerseText } from '@preachfy/core'
 import { Text, StyleSheet } from 'react-native';
 
 import { categoryColor, paper, serif } from '@/lib/theme';
-import { TRANSLATION } from '@/lib/sample';
 
 type Props = {
   verse: VerseText;
+  translationId: string;
+  focused?: boolean;
   marks: Mark[];
   isSelected: (wordIndex: number) => boolean;
   onWordPress: (wordIndex: number) => void;
 };
 
 /** Each word is its own nested Text, so selection behaves the same on native and web. */
-export function Verse({ verse, marks, isSelected, onWordPress }: Props) {
+export function Verse({ verse, translationId, focused, marks, isSelected, onWordPress }: Props) {
   const { text, ref } = verse;
   const ranges = marks.flatMap((mark) =>
     mark.spans
-      .filter((s) => s.ref.verse === ref.verse)
+      .filter((s) => s.ref.book === ref.book && s.ref.chapter === ref.chapter && s.ref.verse === ref.verse)
       .map((span) => {
-        const found = resolveSpan(span, text, TRANSLATION);
+        const found = resolveSpan(span, text, translationId);
         const range = found.kind === 'wholeVerse' ? { start: 0, end: text.length } : found;
         return { ...range, color: categoryColor(mark.categoryKey) };
       }),
@@ -54,7 +55,7 @@ export function Verse({ verse, marks, isSelected, onWordPress }: Props) {
   if (cursor < text.length) parts.push(<Text key="end">{text.slice(cursor)}</Text>);
 
   return (
-    <Text style={styles.verse}>
+    <Text style={[styles.verse, focused && styles.focused]}>
       <Text style={styles.number}>{ref.verse} </Text>
       {parts}
     </Text>
@@ -64,5 +65,6 @@ export function Verse({ verse, marks, isSelected, onWordPress }: Props) {
 const styles = StyleSheet.create({
   verse: { fontFamily: serif, fontSize: 21, lineHeight: 33, color: paper.fg, marginBottom: 12 },
   number: { fontSize: 13, fontWeight: '600', color: paper.muted },
+  focused: { backgroundColor: paper.soft },
   selected: { backgroundColor: paper.fg, color: paper.bg },
 });

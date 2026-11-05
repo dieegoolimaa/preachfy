@@ -1,5 +1,5 @@
-/** Reading and simple marking are free. Everything else needs Pro. */
-export const FREE_FEATURES = ['read', 'switchTranslation', 'search', 'cleanMode', 'simpleMark'] as const;
+/** Reading, simple marking, copying and sharing verses are free. Everything else needs Pro. */
+export const FREE_FEATURES = ['read', 'switchTranslation', 'search', 'cleanMode', 'simpleMark', 'copyVerse', 'shareVerse'] as const;
 
 export const PRO_FEATURES = [
   'notes',
@@ -7,7 +7,6 @@ export const PRO_FEATURES = [
   'compareTranslations',
   'readingPlan',
   'sync',
-  'shareVerse',
   'snapshot',
   'studyLayers',
   'create',

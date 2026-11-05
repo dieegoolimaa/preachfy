@@ -20,7 +20,7 @@ function fold(text: string): { folded: string; positions: number[] } {
   let folded = '';
   const positions: number[] = [];
   for (let i = 0; i < text.length; i++) {
-    const unit = text[i]!.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+    const unit = text[i]!.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     for (const char of unit) {
       folded += char;
       positions.push(i);
@@ -63,7 +63,7 @@ export type Snapshot = { id: string; createdAt: number; marks: Mark[] };
 /** Frozen copy of marks for one study. Later edits on either side stay separate. */
 export function captureSnapshot(id: string, source: Mark[], createdAt: number, newId: () => string): Snapshot {
   const marks = source.map((m) => ({
-    ...structuredClone(m),
+    ...(JSON.parse(JSON.stringify(m)) as Mark),
     id: newId(),
     scope: { kind: 'study', studyId: id } as const,
   }));

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   canUse, captureSnapshot, elapsed, goTo, isReadyForPulpit, pace, pause, remaining, resolveSpan, resume,
-  spentInSection, startSession, stepsMissingBaseText, timerState, visibleMarks,
+  selectionSpans, spentInSection, startSession, stepsMissingBaseText, timerState, visibleMarks, wordsOf,
 } from '../src/index.ts';
 import type { Mark, Study, VerseSpan } from '../src/index.ts';
 
@@ -108,9 +108,33 @@ test('pulpit requires a base text on every step', () => {
   assert.equal(isReadyForPulpit({ id: 'e', title: 'Vazio', steps: [] }), false);
 });
 
-test('only reading and simple marking are free', () => {
-  for (const f of ['read', 'search', 'cleanMode', 'simpleMark'] as const) assert.equal(canUse(f, false), true);
+test('reading, simple marking, copying and sharing are free', () => {
+  for (const f of ['read', 'search', 'cleanMode', 'simpleMark', 'copyVerse', 'shareVerse'] as const) assert.equal(canUse(f, false), true);
   for (const f of ['notes', 'pulpit', 'snapshot', 'create', 'sync', 'liveClass'] as const) assert.equal(canUse(f, false), false);
   assert.equal(canUse('pulpit', true), true);
   assert.equal(canUse('exportOwnContent', false), true);
+});
+
+const psalm = [
+  { ref: { book: 'sl', chapter: 23, verse: 1 }, text: 'The LORD is my shepherd; I shall not want.' },
+  { ref: { book: 'sl', chapter: 23, verse: 2 }, text: 'He maketh me to lie down in green pastures.' },
+];
+
+test('words ignore punctuation and keep positions', () => {
+  const words = wordsOf(psalm[0]!.text);
+  assert.equal(words[4]!.text, 'shepherd');
+  assert.equal(psalm[0]!.text.slice(words[4]!.start, words[4]!.end), 'shepherd');
+});
+
+test('selecting inside a verse gives one exact span, in either tap order', () => {
+  const forward = selectionSpans(psalm, 'kjv', { verseIndex: 0, wordIndex: 3 }, { verseIndex: 0, wordIndex: 4 });
+  const backward = selectionSpans(psalm, 'kjv', { verseIndex: 0, wordIndex: 4 }, { verseIndex: 0, wordIndex: 3 });
+  assert.deepEqual(forward, backward);
+  assert.equal(forward[0]!.quote, 'my shepherd');
+  assert.equal(resolveSpan(forward[0]!, psalm[0]!.text, 'kjv').kind, 'exact');
+});
+
+test('selecting across verses gives one span per verse', () => {
+  const spans = selectionSpans(psalm, 'kjv', { verseIndex: 0, wordIndex: 7 }, { verseIndex: 1, wordIndex: 1 });
+  assert.deepEqual(spans.map((s) => s.quote), ['not want', 'He maketh']);
 });

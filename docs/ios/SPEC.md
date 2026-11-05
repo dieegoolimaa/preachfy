@@ -9,15 +9,16 @@ Quando há conflito, valem as decisões de 2026-11-05 registradas aqui.
 - Ler e marcar funcionam sem conta. Púlpito e conteúdo já baixado funcionam sem internet.
 - Sincronizar entre aparelhos e web exige conta (Pro).
 
-## Stack (proposta, aguardando confirmação)
+## Stack
 - **Expo com Expo Router:** as mesmas telas geram iPhone, iPad e web. É o que garante o visual idêntico.
 - **`packages/core`:** regras em TypeScript, compartilhadas e testadas.
 - **`apps/api`:** conta, sincronização, aula ao vivo e telão por link.
-- **Build:** EAS na nuvem, sem depender do Xcode local.
+- **Fonte da Escritura:** Newsreader embutida, porque New York só existe em aparelhos Apple e o visual precisa ser idêntico no web.
+- **Build e testes:** EAS na nuvem e aparelho real. Decisão: não usar Xcode local.
 - **Módulos nativos em Swift só onde preciso:** tela externa e Apple Watch.
 
 Riscos a validar primeiro:
-- **Seleção por palavra:** o texto do React Native não expõe a seleção. Cada palavra vira um elemento tocável, com lista virtualizada.
+- **Seleção por palavra:** cada palavra é um elemento tocável. Validado no web; falta validar em aparelho e em capítulos longos, como o Salmo 119.
 - **Tela externa:** a biblioteca conhecida está sem atualização há anos; pode exigir módulo próprio.
 - **Gravação em segundo plano:** testar em aparelho real.
 - **Assinatura:** Compra pela App Store no iOS e outro meio no web, com um único estado de Pro.
@@ -31,7 +32,7 @@ Riscos a validar primeiro:
 | Seção liga-se à anotação; editar atualiza os dois lugares | Snapshot copia as marcações para o estudo; depois disso são independentes | Isolamento de dados por estudo |
 | Púlpito com ponto atual e barra lateral | Passo a passo em fluxo, com foco em um passo por vez | Distinção de um app de notas |
 | SwiftData com CloudKit | Banco local no aparelho e sincronização pela API | O web precisa dos mesmos dados, e iCloud não atende o web |
-| Marcar, anotar e plano de leitura grátis | Só leitura e marcação simples são grátis | Decisão do produto |
+| Marcar, anotar e plano de leitura grátis | Leitura, marcação simples, copiar e compartilhar são grátis | Decisão do produto |
 | Telão só por AirPlay ou cabo | Três saídas: tela externa, link no navegador, sem telão | Em muitas igrejas o projetor já está ligado ao computador da mídia |
 
 ## Púlpito realista
@@ -104,10 +105,10 @@ Alternativas descartadas como base: MultipeerConnectivity (limite de 8 aparelhos
 Reaproveita `apps/api` e `apps/web`. Guarda só o que o professor publicou e expira. O plano gratuito do Render hiberna, então a aula ao vivo exige um plano sempre ligado.
 
 ## Grátis e Pro
-Regra: só leitura e marcação simples são grátis. A lista oficial está em `packages/core/src/entitlements.ts`.
+Regra: leitura, marcação simples, copiar e compartilhar versículos são grátis. Criar conteúdo para o Púlpito é Pro. A lista oficial está em `packages/core/src/entitlements.ts`.
 
-- **Grátis:** ler, trocar de versão, buscar, Modo Limpo e destacar com as 8 categorias, inclusive por palavra (interpretação de "marcação simples", a confirmar).
-- **Pro:** todo o resto, incluindo notas, categorias próprias, comparar versões, plano de leitura, sincronização, compartilhar versículo, snapshot, criar, Púlpito, telão, gravação, aula ao vivo e PDF.
+- **Grátis:** ler, trocar de versão, buscar, Modo Limpo e destacar com as 8 categorias, inclusive por palavra, copiar e compartilhar versículos.
+- **Pro:** todo o resto, incluindo notas, categorias próprias, comparar versões, plano de leitura, sincronização, snapshot, criar, Púlpito, telão, gravação, aula ao vivo e PDF.
 - **Sempre disponível:** ver e exportar o que a pessoa já criou, mesmo sem assinatura.
 - **Aluno:** acessa a aula de graça; quem paga é o professor.
 
@@ -115,7 +116,6 @@ Regra: só leitura e marcação simples são grátis. A lista oficial está em `
 Almeida 1911, Bíblia Livre e KJV. Confirmar a licença de cada uma na fonte antes de publicar. NVI, ACF e ARA ficam para quando houver licença.
 
 ## Decisões em aberto
-- Confirmar Expo.
 - Preços mensal e anual.
 - Ícone (recomendado: B, a fita) e tema padrão.
 - Plano de leitura e folheto em PDF: v1 ou v1.x.

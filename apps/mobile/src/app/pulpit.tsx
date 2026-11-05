@@ -1,6 +1,6 @@
 import {
   goTo, isPaused, isReadyForPulpit, pace, pause, pulpitSections, remaining, resume,
-  spentInSection, startSession, timerState, type Pace, type PulpitSession,
+  spentInSection, startSession, timerState, type PulpitSession,
 } from '@preachfy/core';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { router } from 'expo-router';
@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useT } from '@/lib/i18n';
 import { sampleStudy, studyText } from '@/lib/sample';
 import { paper, serif, serifBold, stage, type Theme } from '@/lib/theme';
 
@@ -19,12 +20,8 @@ function clock(ms: number) {
   return ms < 0 ? `+${text}` : text;
 }
 
-function paceLabel(value: Pace) {
-  if (value.kind === 'onPace') return 'No ritmo';
-  return `${clock(value.ms)} ${value.kind === 'behind' ? 'atrás' : 'adiantado'}`;
-}
-
 export default function Pulpit() {
+  const { t: tr } = useT();
   const [session, setSession] = useState<PulpitSession>(() => startSession(pulpitSections(study), Date.now()));
   const [now, setNow] = useState(() => Date.now());
   const [dark, setDark] = useState(true);
@@ -61,6 +58,9 @@ export default function Pulpit() {
   if (!isReadyForPulpit(study)) return null;
 
   const index = session.currentIndex;
+  const currentPace = pace(session);
+  const paceText =
+    currentPace.kind === 'onPace' ? tr('onPace') : tr(currentPace.kind, { time: clock(currentPace.ms) });
   const step = study.steps[index]!;
   const next = study.steps[index + 1];
   const base = studyText(step.baseText);
@@ -77,18 +77,18 @@ export default function Pulpit() {
   return (
     <SafeAreaView style={s.page}>
       <View style={s.top}>
-        <Pressable testID="exit" style={s.tool} onPress={() => router.back()}><Text style={s.toolText}>Sair</Text></Pressable>
+        <Pressable testID="exit" style={s.tool} onPress={() => router.back()}><Text style={s.toolText}>{tr('exit')}</Text></Pressable>
         <View style={s.timerBox}>
           <Text testID="timer" style={[s.timer, { color: timeColor }]}>{clock(remaining(session, now))}</Text>
           <Text testID="pace" style={s.pace}>
-            {paceLabel(pace(session))} · neste passo {clock(spentInSection(session, index, now))}
+            {paceText} · {tr('inStep', { time: clock(spentInSection(session, index, now)) })}
           </Text>
         </View>
         <Pressable
           testID="pause"
           style={s.tool}
           onPress={() => setSession((c) => (isPaused(c) ? resume(c, Date.now()) : pause(c, Date.now())))}>
-          <Text style={s.toolText}>{isPaused(session) ? 'Retomar' : 'Pausar'}</Text>
+          <Text style={s.toolText}>{tr(isPaused(session) ? 'resume' : 'pause')}</Text>
         </Pressable>
       </View>
 
@@ -108,41 +108,41 @@ export default function Pulpit() {
 
       <View style={s.body}>
         <ScrollView style={s.main} contentContainerStyle={s.mainInner}>
-          <Text style={s.label}>Passo {index + 1} de {study.steps.length}</Text>
+          <Text style={s.label}>{tr('stepOf', { i: index + 1, n: study.steps.length })}</Text>
           <Text testID="step-title" style={s.title}>{step.title}</Text>
           <View style={s.base}>
             {base?.label ? <Text style={s.label}>{base.label}</Text> : null}
             <Text testID="base-text" style={s.baseText}>{base?.body}</Text>
           </View>
           <Text testID="notes" style={s.notes}>{step.notes}</Text>
-          {next ? <Text style={s.nextHint}>A seguir: {next.title}</Text> : null}
+          {next ? <Text style={s.nextHint}>{tr('upNext', { title: next.title })}</Text> : null}
         </ScrollView>
         {wide && contextOpen ? <View testID="context-pane" style={s.pane}>{contextBody}</View> : null}
       </View>
 
       <View style={s.bottom}>
         <Pressable testID="prev" disabled={index === 0} style={[s.nav, index === 0 && s.off]} onPress={() => move(-1)}>
-          <Text style={s.navText}>← Anterior</Text>
+          <Text style={s.navText}>{tr('previous')}</Text>
         </Pressable>
         <Pressable testID="context" style={s.tool} onPress={() => setContextOpen((o) => !o)}>
-          <Text style={s.toolText}>Contexto</Text>
+          <Text style={s.toolText}>{tr('context')}</Text>
         </Pressable>
         <Pressable testID="theme" style={s.tool} onPress={() => setDark((d) => !d)}>
-          <Text style={s.toolText}>{dark ? 'Claro' : 'Palco'}</Text>
+          <Text style={s.toolText}>{tr(dark ? 'light' : 'stage')}</Text>
         </Pressable>
         <Pressable
           testID="next"
           disabled={!next}
           style={[s.nav, s.navMain, !next && s.off]}
           onPress={() => move(1)}>
-          <Text style={[s.navText, s.navTextMain]}>Próximo →</Text>
+          <Text style={[s.navText, s.navTextMain]}>{tr('next')}</Text>
         </Pressable>
       </View>
 
       <Modal visible={!wide && contextOpen} transparent animationType="slide" onRequestClose={() => setContextOpen(false)}>
         <View style={s.sheetBackdrop}>
           <View testID="context-sheet" style={s.sheet}>
-            <Pressable style={s.tool} onPress={() => setContextOpen(false)}><Text style={s.toolText}>Fechar</Text></Pressable>
+            <Pressable style={s.tool} onPress={() => setContextOpen(false)}><Text style={s.toolText}>{tr('close')}</Text></Pressable>
             {contextBody}
           </View>
         </View>

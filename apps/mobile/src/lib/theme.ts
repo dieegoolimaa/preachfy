@@ -15,14 +15,14 @@ export const serif = 'Newsreader_400Regular';
 export const serifBold = 'Newsreader_600SemiBold';
 
 export const categories = [
-  { key: 'promessa', name: 'Promessa', color: '#F2C14E' },
-  { key: 'mandamento', name: 'Mandamento', color: '#F0875F' },
-  { key: 'aplicacao', name: 'Aplicação', color: '#E9879B' },
-  { key: 'cristo', name: 'Cristo', color: '#A59CE8' },
-  { key: 'revelacao', name: 'Revelação', color: '#6FB7E8' },
-  { key: 'contexto', name: 'Contexto', color: '#7CCFC0' },
-  { key: 'vida', name: 'Vida', color: '#9ED077' },
-  { key: 'significado', name: 'Significado', color: '#C4B5A5' },
+  { key: 'promessa', color: '#F2C14E' },
+  { key: 'mandamento', color: '#F0875F' },
+  { key: 'aplicacao', color: '#E9879B' },
+  { key: 'cristo', color: '#A59CE8' },
+  { key: 'revelacao', color: '#6FB7E8' },
+  { key: 'contexto', color: '#7CCFC0' },
+  { key: 'vida', color: '#9ED077' },
+  { key: 'significado', color: '#C4B5A5' },
 ] as const;
 
 export const categoryColor = (key: string) => categories.find((c) => c.key === key)?.color ?? paper.mark;

@@ -26,6 +26,13 @@ export const translations: Translation[] = [
       'A Bíblia Sagrada, tradução de João Ferreira d’Almeida, edição revista e corrigida de 1911. Domínio público. Texto sem notas nem títulos dos salmos.',
   },
   {
+    id: 'rv1909',
+    name: 'Reina-Valera 1909',
+    short: 'RV1909',
+    language: 'Español',
+    credit: 'Santa Biblia, Reina-Valera 1909. Dominio público. Texto vía eBible.org.',
+  },
+  {
     id: 'kjv',
     name: 'King James Version',
     short: 'KJV',

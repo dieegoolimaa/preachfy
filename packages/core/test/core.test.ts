@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  BOOKS, parseReference, searchBook,
+  BOOKS, bookName, parseReference, searchBook,
   canUse, captureSnapshot, elapsed, goTo, isReadyForPulpit, pace, pause, remaining, resolveSpan, resume,
   selectionSpans, spentInSection, startSession, stepsMissingBaseText, timerState, visibleMarks, wordsOf,
 } from '../src/index.ts';
@@ -162,4 +162,17 @@ test('search ignores case and accents and respects the limit', () => {
   assert.deepEqual(searchBook('JOH', chapters, 'graça', 10).map((h) => [h.chapter, h.verse]), [[1, 2], [2, 1]]);
   assert.equal(searchBook('JOH', chapters, 'graca', 1).length, 1);
   assert.deepEqual(searchBook('JOH', chapters, '  ', 10), []);
+});
+
+test('books and references work in the three languages', () => {
+  assert.equal(bookName('REV', 'en'), 'Revelation');
+  assert.equal(bookName('REV', 'es'), 'Apocalipsis');
+  assert.equal(bookName('JOH', 'pt'), 'João');
+  assert.deepEqual(parseReference('John 3:16', 'en'), { book: 'JOH', chapter: 3, verse: 16 });
+  assert.deepEqual(parseReference('Juan 3 16', 'es'), { book: 'JOH', chapter: 3, verse: 16 });
+  assert.deepEqual(parseReference('Santiago 1', 'es'), { book: 'JAM', chapter: 1 });
+  assert.deepEqual(parseReference('Revelation 22', 'en'), { book: 'REV', chapter: 22 });
+  assert.deepEqual(parseReference('1 Corinthians 13', 'en'), { book: '1CO', chapter: 13 });
+  assert.deepEqual(parseReference('job 1', 'en'), { book: 'JOB', chapter: 1 });
+  for (const b of BOOKS) for (const name of Object.values(b.names)) assert.ok(name.length > 0);
 });

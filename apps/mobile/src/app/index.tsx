@@ -1,5 +1,5 @@
 import {
-  bookById, canUse, resolveSpan, selectionSpans, visibleMarks,
+  bookById, bookName, canUse, resolveSpan, selectionSpans, visibleMarks,
   type Mark, type ReadingLayer, type VerseSpan, type VerseText, type WordPoint,
 } from '@preachfy/core';
 import * as Clipboard from 'expo-clipboard';
@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Verse } from '@/components/Verse';
 import { loadBook } from '@/lib/bible';
+import { useT } from '@/lib/i18n';
 import { updateReader, useReader } from '@/lib/store';
 import { categories, paper, serifBold } from '@/lib/theme';
 import { translationById, translations } from '@/lib/translations';
@@ -24,6 +25,7 @@ function verseLabel(spans: VerseSpan[]) {
 
 export default function Reader() {
   const { translation, book, chapter, verse: focusVerse, marks } = useReader();
+  const { t, locale } = useT();
   const [chapters, setChapters] = useState<string[][] | null>(null);
   const [failed, setFailed] = useState(false);
   const [layer, setLayer] = useState<ReadingLayer>({ kind: 'personal' });
@@ -33,6 +35,7 @@ export default function Reader() {
   const list = useRef<FlatList<VerseText>>(null);
 
   const info = bookById(book)!;
+  const title = bookName(book, locale);
   const version = translationById(translation);
 
   useEffect(() => {
@@ -68,7 +71,7 @@ export default function Reader() {
   const shown = useMemo(() => visibleMarks(layer, marks), [layer, marks]);
   const spans = anchor ? selectionSpans(verses, translation, anchor, focus ?? anchor) : [];
   const quoted = spans.map((s) => s.quote).join(' ');
-  const reference = spans.length ? `${info.name} ${chapter}:${verseLabel(spans)} · ${version.short}` : '';
+  const reference = spans.length ? `${title} ${chapter}:${verseLabel(spans)} · ${version.short}` : '';
 
   const widened = useMemo(() => {
     let count = 0;
@@ -108,20 +111,20 @@ export default function Reader() {
     if (!canUse('simpleMark', false)) return;
     const created: Mark = { id: `${Date.now()}-${marks.length}`, scope: { kind: 'bible' }, spans, categoryKey, note: '' };
     updateReader({ marks: [...marks, created] });
-    setNotice('Destaque salvo');
+    setNotice(t('markSaved'));
     clear();
   };
 
   const copy = async () => {
     await Clipboard.setStringAsync(`“${quoted}” ${reference}`);
-    setNotice('Copiado');
+    setNotice(t('copied'));
   };
 
   const share = async () => {
     const message = `“${quoted}” ${reference}\nPreachfy`;
     if (Platform.OS === 'web' && !('share' in navigator)) {
       await Clipboard.setStringAsync(message);
-      setNotice('Copiado para compartilhar');
+      setNotice(t('copiedToShare'));
       return;
     }
     await Share.share({ message });
@@ -138,20 +141,20 @@ export default function Reader() {
   };
 
   const clean = layer.kind === 'clean';
-  const hint = notice || (anchor ? 'Toque em outra palavra para fechar o trecho.' : 'Toque em uma palavra para começar.');
+  const hint = notice || t(anchor ? 'tapEnd' : 'tapStart');
 
   return (
     <SafeAreaView style={styles.page}>
       <View style={styles.header}>
         <Pressable testID="open-picker" accessibilityRole="button" onPress={() => router.push('/picker')}>
-          <Text testID="reader-title" style={styles.title}>{info.name} {chapter}</Text>
+          <Text testID="reader-title" style={styles.title}>{title} {chapter}</Text>
         </Pressable>
         <View style={styles.row}>
           <Pressable testID="open-search" style={styles.pill} onPress={() => router.push('/search')}>
-            <Text style={styles.pillText}>Buscar</Text>
+            <Text style={styles.pillText}>{t('search')}</Text>
           </Pressable>
           <Pressable testID="open-pulpit" style={[styles.pill, styles.pillOn]} onPress={() => router.push('/pulpit')}>
-            <Text style={[styles.pillText, styles.pillTextOn]}>Púlpito</Text>
+            <Text style={[styles.pillText, styles.pillTextOn]}>{t('pulpit')}</Text>
           </Pressable>
         </View>
       </View>
@@ -163,15 +166,15 @@ export default function Reader() {
           testID="toggle-clean"
           style={[styles.pill, clean && styles.pillOn]}
           onPress={() => setLayer(clean ? { kind: 'personal' } : { kind: 'clean' })}>
-          <Text style={[styles.pillText, clean && styles.pillTextOn]}>Limpo</Text>
+          <Text style={[styles.pillText, clean && styles.pillTextOn]}>{t('clean')}</Text>
         </Pressable>
         <Pressable testID="open-about" style={styles.pill} onPress={() => router.push('/about')}>
-          <Text style={styles.pillText}>Sobre</Text>
+          <Text style={styles.pillText}>{t('about')}</Text>
         </Pressable>
       </View>
 
-      {failed ? <Text style={styles.message}>Não foi possível abrir este livro.</Text> : null}
-      {!chapters && !failed ? <Text style={styles.message}>Abrindo…</Text> : null}
+      {failed ? <Text style={styles.message}>{t('openFailed')}</Text> : null}
+      {!chapters && !failed ? <Text style={styles.message}>{t('opening')}</Text> : null}
 
       <FlatList
         ref={list}
@@ -199,7 +202,7 @@ export default function Reader() {
             <Text testID="hint" style={styles.hint}>{hint}</Text>
             {widened ? (
               <Text testID="widened" style={styles.hint}>
-                {widened === 1 ? '1 marcação aparece' : `${widened} marcações aparecem`} no versículo inteiro nesta versão.
+                {widened === 1 ? t('widenedOne') : t('widenedMany', { n: widened })}
               </Text>
             ) : null}
           </View>
@@ -216,23 +219,23 @@ export default function Reader() {
                 testID={`cat-${c.key}`}
                 style={[styles.category, { backgroundColor: c.color }]}
                 onPress={() => mark(c.key)}>
-                <Text style={styles.categoryText}>{c.name}</Text>
+                <Text style={styles.categoryText}>{t(`cat${c.key}`)}</Text>
               </Pressable>
             ))}
           </ScrollView>
           <View style={styles.row}>
-            <Pressable testID="copy" style={styles.pill} onPress={copy}><Text style={styles.pillText}>Copiar</Text></Pressable>
-            <Pressable testID="share" style={styles.pill} onPress={share}><Text style={styles.pillText}>Compartilhar</Text></Pressable>
-            <Pressable style={styles.pill} onPress={clear}><Text style={styles.pillText}>Cancelar</Text></Pressable>
+            <Pressable testID="copy" style={styles.pill} onPress={copy}><Text style={styles.pillText}>{t('copy')}</Text></Pressable>
+            <Pressable testID="share" style={styles.pill} onPress={share}><Text style={styles.pillText}>{t('share')}</Text></Pressable>
+            <Pressable style={styles.pill} onPress={clear}><Text style={styles.pillText}>{t('cancel')}</Text></Pressable>
           </View>
         </View>
       ) : (
         <View style={styles.nav}>
           <Pressable testID="prev-chapter" disabled={chapter <= 1} style={[styles.pill, chapter <= 1 && styles.off]} onPress={() => turn(-1)}>
-            <Text style={styles.pillText}>← Anterior</Text>
+            <Text style={styles.pillText}>{t('previous')}</Text>
           </Pressable>
           <Pressable testID="next-chapter" disabled={chapter >= info.chapters} style={[styles.pill, chapter >= info.chapters && styles.off]} onPress={() => turn(1)}>
-            <Text style={styles.pillText}>Próximo →</Text>
+            <Text style={styles.pillText}>{t('next')}</Text>
           </Pressable>
         </View>
       )}

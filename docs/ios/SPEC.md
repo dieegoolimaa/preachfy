@@ -5,6 +5,7 @@ Quando há conflito, valem as decisões de 2026-11-05 registradas aqui.
 
 ## Escopo
 - iPhone, iPad e web, com visual idêntico. Mac nativo fora do escopo.
+- Interface em português, inglês e espanhol. O idioma da interface é separado da versão da Bíblia.
 - O Modo Púlpito é o diferencial do produto.
 - Ler e marcar funcionam sem conta. Púlpito e conteúdo já baixado funcionam sem internet.
 - Sincronizar entre aparelhos e web exige conta (Pro).
@@ -101,6 +102,50 @@ Alternativas descartadas como base: MultipeerConnectivity (limite de 8 aparelhos
 - Em destaque, só o texto base e as anotações daquele passo.
 - O texto de contexto fica a um toque, sem tirar o foco do passo atual.
 
+## Conta, cobrança e integração (proposta)
+
+| Peça | Papel |
+|---|---|
+| `apps/mobile` (Expo) | App e web, com as mesmas telas |
+| `apps/api` (NestJS + MongoDB) | Login, sincronização, aula ao vivo, telão por link, webhook de assinatura |
+| Better Auth, dentro da API | Conta única. Adaptador oficial para MongoDB e plugin para Expo |
+| RevenueCat | Fonte única do estado Pro. Produto `pro`, para App Store e web |
+| App Store (compra no app) | Cobrança no iPhone e no iPad |
+| Stripe ou Paddle, via RevenueCat | Cobrança no web |
+
+### Regras
+- O `id` do usuário no Better Auth é o `appUserID` no RevenueCat. Sem isso, a assinatura feita em um lugar não aparece no outro.
+- Ler, marcar, copiar e compartilhar não exigem conta. A conta é pedida na hora de assinar ou sincronizar.
+- O app nunca aponta para a compra no web na v1. Quem assinou no web entra na conta e o Pro é liberado. Link externo tem comissão e regras por país; revisar depois.
+- O webhook do RevenueCat grava a validade do Pro na API. A API confere isso em sincronização, aula ao vivo e telão. O app usa o SDK só para a tela.
+- Cancelar a assinatura nunca apaga dados.
+
+### Login
+- Sign in with Apple, Google e e-mail. Oferecer Google no iOS exige uma opção equivalente, e Sign in with Apple cumpre isso.
+- Excluir a conta dentro do app é obrigatório, incluindo revogar o token da Apple no servidor. O aviso precisa dizer que a assinatura da App Store é cancelada à parte.
+- Sessão em armazenamento seguro no aparelho e em cookie no web. API e web no mesmo domínio-pai.
+
+### Sincronização
+- O app continua funcionando offline: grava local e envia depois.
+- Conflito: vale a alteração mais recente, por item. Exclusão é marcada, não apagada na hora.
+- Ao criar conta, o que já existe no aparelho sobe para a conta.
+
+### Privacidade
+Sermões, anotações e respostas de alunos podem revelar convicção religiosa, que é dado sensível na LGPD e no GDPR. Exige política de privacidade, base legal, exportação e exclusão antes de publicar. Vale revisão jurídica.
+
+### Infraestrutura
+O plano gratuito do Render hiberna e não serve para login nem aula ao vivo. O web fica em hospedagem estática; a API, em plano pago.
+
+## Strong (hebraico e grego)
+Viável, como recurso Pro, depois de Criar e Púlpito.
+
+- **Dados:** STEPBible-Data (TAHOT, TAGNT, TBESH, TBESG). CC BY 4.0: exige crédito com link para STEPBible.org e publicar o registro das alterações.
+- **Como funciona:** painel "Original" por versículo: palavras em hebraico ou grego, Strong, morfologia e definição, em qualquer versão, porque a ligação é por referência.
+- **Limite:** Bíblia Livre, Almeida e Reina-Valera não têm cada palavra ligada ao Strong. Não dá para tocar em "pastor" e cair direto no número. Só a KJV tem esse alinhamento, com licença ainda a confirmar.
+- **Idiomas:** as definições são em inglês. Não achei versão aberta em português ou espanhol confirmada. Traduzir cerca de 14 mil verbetes exige revisão teológica.
+- **Numeração:** versículos em hebraico podem não bater com as traduções, sobretudo nos Salmos. Exige tabela de correspondência.
+- **Tamanho:** baixar como pacote opcional, para não pesar no app.
+
 ## Serviço de compartilhamento
 Reaproveita `apps/api` e `apps/web`. Guarda só o que o professor publicou e expira. O plano gratuito do Render hiberna, então a aula ao vivo exige um plano sempre ligado.
 
@@ -119,6 +164,7 @@ Geradas por `tools/bible/build.mjs`, que falha se surgir divergência de estrutu
 |---|---|---|---|
 | Bíblia Livre | eBible.org (porbr2018) | CC BY; 3.0 Brasil no repositório oficial, 4.0 no eBible | Crédito obrigatório, na tela Sobre |
 | Almeida 1911 | Transcrição de domínio público (eBook 62383) | Domínio público nos EUA | Grafia de 1911; sem notas nem títulos dos salmos; 5 capítulos com numeração própria |
+| Reina-Valera 1909 | eBible.org (spaRV1909) | Domínio público | Numeração espanhola em 12 capítulos; texto completo |
 | KJV | eBible.org (eng-kjv2006) | Domínio público fora do Reino Unido | Restrição é de impressão no Reino Unido |
 
 NVI, ACF e ARA ficam para quando houver licença. Antes de publicar, vale uma revisão jurídica do uso comercial, sobretudo da Almeida 1911 no Brasil e em Portugal.
@@ -127,7 +173,9 @@ NVI, ACF e ARA ficam para quando houver licença. Antes de publicar, vale uma re
 Marcações e posição de leitura ficam em armazenamento chave-valor, igual no aparelho e no web. O SQLite no web exige cabeçalhos especiais no servidor e não tem busca textual. A troca por banco fica para quando houver sincronização.
 
 ## Decisões em aberto
+- Onde fica a empresa que vende (define Stripe ou Paddle, impostos e Pix).
 - Preços mensal e anual.
+- Português único ou pt-BR e pt-PT separados.
 - Ícone (recomendado: B, a fita) e tema padrão.
 - Plano de leitura e folheto em PDF: v1 ou v1.x.
 

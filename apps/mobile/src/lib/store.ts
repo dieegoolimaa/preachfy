@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Mark } from '@preachfy/core';
+import type { Locale, Mark } from '@preachfy/core';
 import { useSyncExternalStore } from 'react';
 
 export type ReaderState = {
   ready: boolean;
+  locale: Locale;
   translation: string;
   book: string;
   chapter: number;
@@ -13,7 +14,9 @@ export type ReaderState = {
 
 const KEY = 'preachfy.reader.v1';
 
-let state: ReaderState = { ready: false, translation: 'blivre', book: 'PSA', chapter: 23, marks: [] };
+export const defaultTranslation: Record<Locale, string> = { pt: 'blivre', en: 'kjv', es: 'rv1909' };
+
+let state: ReaderState = { ready: false, locale: 'pt', translation: 'blivre', book: 'PSA', chapter: 23, marks: [] };
 const listeners = new Set<() => void>();
 
 function publish(next: ReaderState) {
@@ -27,12 +30,14 @@ export function updateReader(patch: Partial<ReaderState>) {
   AsyncStorage.setItem(KEY, JSON.stringify(saved)).catch(() => {});
 }
 
-export async function loadReader() {
+/** First run follows the device language; after that the saved choice wins. */
+export async function loadReader(device: Locale) {
+  const first = { locale: device, translation: defaultTranslation[device] };
   try {
     const saved = await AsyncStorage.getItem(KEY);
-    publish({ ...state, ...(saved ? JSON.parse(saved) : null), ready: true });
+    publish({ ...state, ...first, ...(saved ? JSON.parse(saved) : null), ready: true });
   } catch {
-    publish({ ...state, ready: true });
+    publish({ ...state, ...first, ready: true });
   }
 }
 

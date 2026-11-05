@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // Builds per-book Bible assets from downloaded sources.
-// Usage: node tools/bible/build.mjs <blivre_vpl.txt> <kjv_vpl.txt> <almeida_gutenberg.txt> <outDir>
+// Usage: node tools/bible/build.mjs <blivre_vpl.txt> <kjv_vpl.txt> <almeida_gutenberg.txt> <rv1909_vpl.txt> <outDir>
 import fs from 'node:fs';
 import path from 'node:path';
 
-const [blivrePath, kjvPath, almeidaPath, outDir] = process.argv.slice(2);
+const [blivrePath, kjvPath, almeidaPath, rvPath, outDir] = process.argv.slice(2);
 
 function parseVpl(file, clean = (t) => t) {
   const books = new Map();
@@ -88,6 +88,12 @@ function compare(name, books, shape) {
 
 const kjv = parseVpl(kjvPath, (t) => t.replace(/[[\]¶]/g, '').replace(/\s+/g, ' ').trim());
 const blivre = parseVpl(blivrePath, (t) => t.replace(/[[\]]/g, ''));
+const rv1909 = parseVpl(rvPath, (t) => t.replace(/[[\]¶]/g, '').replace(/\s+/g, ' ').trim());
+// Spanish numbering: a chapter's last verses can sit in the next chapter (Jonah 1:17 is 2:1),
+// leaving empty slots at the end. Only those are dropped; an empty verse elsewhere still fails.
+for (const chapters of rv1909.values()) {
+  for (const verses of chapters) while (verses.length && !verses[verses.length - 1]) verses.pop();
+}
 const almeida = parseAlmeida(almeidaPath, kjv);
 
 // The 1911 edition numbers these chapters differently; the text itself is complete.
@@ -98,12 +104,27 @@ const KNOWN_ALMEIDA = new Set([
   '2CO 13: 13 verses, expected 14',
   '3JO 1: 15 verses, expected 14',
 ]);
+const KNOWN_RV1909 = new Set([
+  'NUM 12: 15 verses, expected 16',
+  'NUM 29: 39 verses, expected 40',
+  '1SA 23: 28 verses, expected 29',
+  '2SA 20: 25 verses, expected 26',
+  '2CH 33: 24 verses, expected 25',
+  'JOB 35: 15 verses, expected 16',
+  'JOB 38: 38 verses, expected 41',
+  'JOB 40: 19 verses, expected 24',
+  'HOS 11: 11 verses, expected 12',
+  'JON 1: 16 verses, expected 17',
+  'ACT 19: 40 verses, expected 41',
+  '2CO 13: 13 verses, expected 14',
+]);
 const failures = [
   ...compare('kjv', kjv, kjv),
   ...compare('blivre', blivre, kjv),
+  ...compare('rv1909', rv1909, kjv).filter((p) => !KNOWN_RV1909.has(p)),
   ...compare('almeida', almeida.books, kjv).filter((p) => !KNOWN_ALMEIDA.has(p)),
 ];
-for (const [name, books] of [['kjv', kjv], ['blivre', blivre], ['almeida', almeida.books]]) {
+for (const [name, books] of [['kjv', kjv], ['blivre', blivre], ['rv1909', rv1909], ['almeida', almeida.books]]) {
   for (const [book, chapters] of books) {
     chapters.forEach((verses, c) => Array.from(verses).forEach((text, v) => {
       if (!text || /[[\]_¶<>{}]/.test(text)) failures.push(`${name} ${book} ${c + 1}:${v + 1} bad text: ${text}`);
@@ -116,13 +137,13 @@ if (failures.length) {
 }
 
 if (outDir) {
-  for (const [id, books] of [['kjv', kjv], ['blivre', blivre], ['alm1911', almeida.books]]) {
+  for (const [id, books] of [['kjv', kjv], ['blivre', blivre], ['rv1909', rv1909], ['alm1911', almeida.books]]) {
     fs.mkdirSync(path.join(outDir, id), { recursive: true });
     for (const [book, chapters] of books) {
       fs.writeFileSync(path.join(outDir, id, `${book}.bible`), JSON.stringify(chapters));
     }
   }
-  const entries = ['alm1911', 'blivre', 'kjv'].map((id) => {
+  const entries = ['alm1911', 'blivre', 'kjv', 'rv1909'].map((id) => {
     const lines = [...kjv.keys()].map((book) => `    ${book.match(/^\d/) ? `'${book}'` : book}: require('../../assets/bible/${id}/${book}.bible'),`);
     return `  ${id}: {\n${lines.join('\n')}\n  },`;
   });

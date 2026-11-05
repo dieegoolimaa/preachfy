@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useT } from '@/lib/i18n';
 import { updateReader, useReader } from '@/lib/store';
 import { paper, serifBold } from '@/lib/theme';
 
 export default function Picker() {
   const reader = useReader();
+  const { t, locale } = useT();
   const [book, setBook] = useState<Book | null>(null);
 
   const open = (chapter: number) => {
@@ -19,9 +21,9 @@ export default function Picker() {
   return (
     <SafeAreaView style={styles.page}>
       <View style={styles.header}>
-        <Text style={styles.title}>{book ? book.name : 'Livros'}</Text>
+        <Text style={styles.title}>{book ? book.names[locale] : t('books')}</Text>
         <Pressable testID="picker-close" style={styles.pill} onPress={() => (book ? setBook(null) : router.back())}>
-          <Text style={styles.pillText}>{book ? 'Voltar' : 'Fechar'}</Text>
+          <Text style={styles.pillText}>{t(book ? 'back' : 'close')}</Text>
         </Pressable>
       </View>
       {book ? (
@@ -40,7 +42,7 @@ export default function Picker() {
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
             <Pressable testID={`book-${item.id}`} style={styles.book} onPress={() => setBook(item)}>
-              <Text style={[styles.bookText, item.id === reader.book && styles.current]}>{item.name}</Text>
+              <Text style={[styles.bookText, item.id === reader.book && styles.current]}>{item.names[locale]}</Text>
               <Text style={styles.count}>{item.chapters}</Text>
             </Pressable>
           )}

@@ -1,15 +1,17 @@
-import { bookById, parseReference, type SearchHit } from '@preachfy/core';
+import { bookName, parseReference, type SearchHit } from '@preachfy/core';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { searchBible } from '@/lib/bible';
+import { useT } from '@/lib/i18n';
 import { updateReader, useReader } from '@/lib/store';
 import { paper, serif } from '@/lib/theme';
 
 export default function Search() {
   const { translation } = useReader();
+  const { t, locale } = useT();
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -23,7 +25,7 @@ export default function Search() {
   const submit = async () => {
     const text = query.trim();
     if (!text) return;
-    const reference = parseReference(text);
+    const reference = parseReference(text, locale);
     if (reference) return open(reference.book, reference.chapter, reference.verse);
     const id = ++run.current;
     setBusy(true);
@@ -42,7 +44,7 @@ export default function Search() {
           value={query}
           onChangeText={setQuery}
           onSubmitEditing={submit}
-          placeholder="Palavra ou referência (jo 3 16)"
+          placeholder={t('searchHint')}
           placeholderTextColor={paper.muted}
           returnKeyType="search"
           autoCapitalize="none"
@@ -50,13 +52,13 @@ export default function Search() {
           autoFocus
         />
         <Pressable testID="search-close" style={styles.pill} onPress={() => router.back()}>
-          <Text style={styles.pillText}>Fechar</Text>
+          <Text style={styles.pillText}>{t('close')}</Text>
         </Pressable>
       </View>
-      {busy ? <Text style={styles.message}>Buscando…</Text> : null}
+      {busy ? <Text style={styles.message}>{t('searching')}</Text> : null}
       {hits && !busy ? (
         <Text testID="search-count" style={styles.message}>
-          {hits.length === 0 ? 'Nada encontrado.' : `${hits.length >= 100 ? 'Primeiros 100' : hits.length} resultados`}
+          {hits.length === 0 ? t('nothing') : hits.length >= 100 ? t('first100') : t('results', { n: hits.length })}
         </Text>
       ) : null}
       <FlatList
@@ -65,7 +67,7 @@ export default function Search() {
         contentContainerStyle={styles.list}
         renderItem={({ item, index }) => (
           <Pressable testID={`hit-${index}`} style={styles.hit} onPress={() => open(item.book, item.chapter, item.verse)}>
-            <Text style={styles.ref}>{bookById(item.book)?.name} {item.chapter}:{item.verse}</Text>
+            <Text style={styles.ref}>{bookName(item.book, locale)} {item.chapter}:{item.verse}</Text>
             <Text style={styles.text} numberOfLines={3}>{item.text}</Text>
           </Pressable>
         )}

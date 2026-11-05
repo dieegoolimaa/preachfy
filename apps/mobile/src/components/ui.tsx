@@ -20,7 +20,7 @@ export function Screen({ title, right, close, children, testID }: ScreenProps) {
       {close ? (
         <View style={ui.navBar}>
           <Pressable testID="close" accessibilityRole="button" style={ui.back} onPress={() => goBack()}>
-            <Icon name="chevron-back" size={24} color={paper.accent} />
+            <Icon name="chevron-back" size={22} color={paper.accent} />
             <Text style={ui.backText}>{t('back')}</Text>
           </Pressable>
           <Text style={ui.navTitle} numberOfLines={1}>{title}</Text>
@@ -72,7 +72,7 @@ export function Pill({ label, onPress, primary, big, plain, danger, disabled, te
 export function IconButton({ icon, onPress, testID, label, color = paper.accent, disabled }: { icon: IconName; onPress: () => void; testID?: string; label: string; color?: string; disabled?: boolean }) {
   return (
     <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} disabled={disabled} hitSlop={6} style={[ui.iconButton, disabled && ui.off]} onPress={onPress}>
-      <Icon name={icon} size={28} color={color} />
+      <Icon name={icon} size={24} color={color} />
     </Pressable>
   );
 }
@@ -134,22 +134,19 @@ export function Group({ title, footer, children, testID }: { title?: string; foo
 
 type RowProps = {
   label: string; detail?: string; value?: string; onPress?: () => void; testID?: string; labelTestID?: string;
-  icon?: IconName; danger?: boolean; tint?: boolean; right?: ReactNode;
+  danger?: boolean; tint?: boolean; right?: ReactNode;
 };
 
-export function Row({ label, detail, value, onPress, testID, labelTestID, icon, danger, tint, right }: RowProps) {
+export function Row({ label, detail, value, onPress, testID, labelTestID, danger, tint, right }: RowProps) {
   const body = (
     <>
-      {icon ? (
-        <Icon name={icon} size={21} color={paper.fg} />
-      ) : null}
       <View style={ui.rowText}>
         <Text testID={labelTestID} style={[ui.rowLabel, danger && ui.rowDanger, tint && ui.rowTint]}>{label}</Text>
         {detail ? <Text style={ui.rowDetail}>{detail}</Text> : null}
       </View>
       {value ? <Text style={ui.rowValue} numberOfLines={1}>{value}</Text> : null}
       {right}
-      {onPress && !danger && !tint ? <Icon name="chevron-forward" size={16} color={paper.muted} /> : null}
+      {onPress && !danger && !tint ? <Icon name="chevron-forward" size={15} color={paper.muted} /> : null}
     </>
   );
   if (!onPress) return <View testID={testID} style={ui.listRow}>{body}</View>;

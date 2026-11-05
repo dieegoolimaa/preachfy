@@ -251,7 +251,7 @@ export default function StudyEditor() {
           onRemove={() => change({ steps: study.steps.filter((item) => item.id !== step.id) })}
         />
       ))}
-      {pro ? <Pill testID="add-step" plain icon="add-circle" label={t('addStep')} onPress={addStep} /> : null}
+      {pro ? <Pill testID="add-step" plain label={t('addStep')} onPress={addStep} /> : null}
 
       <Group title={t('deliver')} />
       {ready ? null : (
@@ -261,12 +261,11 @@ export default function StudyEditor() {
         testID="open-pulpit"
         primary
         big
-        icon="mic"
         disabled={!ready}
         label={template?.role[locale] ?? t('pulpit')}
         onPress={() => requirePro('pulpit') && router.push(`/pulpit?id=${study.id}`)}
       />
-      <Pill testID="handout" plain icon="document" label={t('handout')} onPress={() => requirePro('pdf') && shareHandout(study, locale, t('madeWith'))} />
+      <Pill testID="handout" plain label={t('handout')} onPress={() => requirePro('pdf') && shareHandout(study, locale, t('madeWith'))} />
       <LivePanel study={study} />
 
       {delivered.length ? <Group title={t('history')} /> : null}

@@ -22,7 +22,7 @@ export default function Create() {
     <Screen
       title={t('create')}
       testID="create"
-      right={<IconButton testID="new-study" icon="add-circle" label={t('newContent')} onPress={() => requirePro('create') && router.push('/new')} />}>
+      right={<IconButton testID="new-study" icon="plus" label={t('newContent')} onPress={() => requirePro('create') && router.push('/new')} />}>
       <Field testID="library-search" value={query} onChangeText={setQuery} placeholder={t('searchLibrary')} />
       <Chips>
         {TEMPLATES.map((template) => (

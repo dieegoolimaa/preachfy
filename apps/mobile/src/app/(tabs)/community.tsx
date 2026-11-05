@@ -54,7 +54,7 @@ export default function Communities() {
             <Row
               key={item.id}
               testID="community-row"
-              icon="people"
+             
               label={item.name}
               detail={`${t('membersCount', { n: item.memberCount })} · ${t(item.role === 'leader' ? 'leader' : 'member')}`}
               onPress={() => router.push(`/community/${item.id}`)}

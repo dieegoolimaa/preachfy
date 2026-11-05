@@ -55,8 +55,8 @@ export default function Paywall() {
       <Title>Preachfy Pro</Title>
       {feature ? <Hint testID="paywall-reason">{t('proNeeded')}</Hint> : null}
       <Group>
-        {([['proCreate', 'create'], ['proPulpit', 'mic'], ['proClass', 'school'], ['proCommunity', 'people'], ['proSync', 'sync']] as const).map(([key, icon]) => (
-          <Row key={key} icon={icon} label={t(key)} />
+        {(['proCreate', 'proPulpit', 'proClass', 'proCommunity', 'proSync'] as const).map((key) => (
+          <Row key={key} label={t(key)} />
         ))}
       </Group>
       {isPending ? null : !userId ? (

@@ -55,16 +55,15 @@ export default function Today() {
 
       <Group>
         {next ? (
-          <Row testID="next-content" icon="calendar" label={next.title} detail={`${t('nextUp')} · ${dateTime(next.scheduledFor!, locale)}`} onPress={() => router.push(`/study/${next.id}`)} />
+          <Row testID="next-content" label={next.title} detail={`${t('nextUp')} · ${dateTime(next.scheduledFor!, locale)}`} onPress={() => router.push(`/study/${next.id}`)} />
         ) : null}
         <Row
           testID="open-plan"
-          icon="calendar"
           label={planFirst ? `${bookName(planFirst.book, locale)} ${planFirst.chapter}` : t('readingPlan')}
           detail={planFirst ? t('planToday') : t('planIntro')}
           onPress={() => requirePro('readingPlan') && router.push('/plan')}
         />
-        <Row testID="continue" icon="book-fill" label={`${bookName(book, locale)} ${chapter}`} detail={t('continueReading')} onPress={() => router.navigate('/bible')} />
+        <Row testID="continue" label={`${bookName(book, locale)} ${chapter}`} detail={t('continueReading')} onPress={() => router.navigate('/bible')} />
       </Group>
 
       {recent.length ? (
@@ -76,7 +75,7 @@ export default function Today() {
       ) : null}
 
       <Group title={t('tryPulpit')} footer={t('tryPulpitHint')}>
-        <Row testID="open-demo" icon="mic" label={t('openDemo')} onPress={() => router.push('/pulpit?id=demo')} />
+        <Row testID="open-demo" label={t('openDemo')} onPress={() => router.push('/pulpit?id=demo')} />
       </Group>
     </Screen>
   );

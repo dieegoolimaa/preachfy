@@ -152,7 +152,7 @@ Falta, antes de publicar:
 - Implantar a API. A versão do Node precisa ser 22.12 ou maior, porque o `better-auth` é um pacote ESM.
 - Gravação com capítulos: feita para iPhone e iPad, falta testar em aparelho, inclusive em segundo plano. O arquivo fica só no aparelho. No web não há gravação.
 - Tela externa e Apple Watch: dependem de aparelho real.
-- Ícones: SF Symbols no iPhone e iPad; no web, conjunto de traço fino equivalente, porque os da Apple não existem fora dos sistemas dela.
+- Ícones: poucos, desenhados em SVG com traço fino, iguais no iPhone, iPad e web. Listas e a barra de abas não têm ícones; a aba ativa leva o traço de marca-texto. SF Symbols foram descartados por ficarem pesados e misturarem sólido e contorno.
 
 ### Regras
 - O `id` do usuário no Better Auth é o `appUserID` no RevenueCat. Sem isso, a assinatura feita em um lugar não aparece no outro.

@@ -30,18 +30,18 @@ export default function Settings() {
   return (
     <Screen title={t('settings')} testID="settings">
       <Group testID="plan-card" footer={pro ? t('manageHint') : undefined}>
-        <Row icon="star" label={t(pro ? 'planPro' : 'planFree')} />
+        <Row label={t(pro ? 'planPro' : 'planFree')} />
         {pro ? null : <Row testID="see-plans" tint label={t('seePlans')} onPress={() => router.push('/paywall')} />}
       </Group>
       <Group>
-        <Row testID="open-account" icon="person" label={t('account')} value={session?.user?.email} onPress={() => router.push('/account')} />
-        <Row testID="open-marks" icon="highlighter" label={t('myMarks')} onPress={() => router.push('/marks')} />
-        <Row testID="open-about" icon="info" label={t('aboutTitle')} onPress={() => router.push('/about')} />
+        <Row testID="open-account" label={t('account')} value={session?.user?.email} onPress={() => router.push('/account')} />
+        <Row testID="open-marks" label={t('myMarks')} onPress={() => router.push('/marks')} />
+        <Row testID="open-about" label={t('aboutTitle')} onPress={() => router.push('/about')} />
       </Group>
       <Group title={t('yourData')} footer={exported ? t('copied') : undefined}>
-        <Row testID="export" icon="share" label={t('exportAll')} onPress={exportAll} />
-        <Row testID="open-privacy" icon="hand" label={t('privacy')} onPress={() => router.push('/legal?doc=privacy')} />
-        <Row testID="open-terms" icon="document" label={t('terms')} onPress={() => router.push('/legal?doc=terms')} />
+        <Row testID="export" label={t('exportAll')} onPress={exportAll} />
+        <Row testID="open-privacy" label={t('privacy')} onPress={() => router.push('/legal?doc=privacy')} />
+        <Row testID="open-terms" label={t('terms')} onPress={() => router.push('/legal?doc=terms')} />
       </Group>
     </Screen>
   );

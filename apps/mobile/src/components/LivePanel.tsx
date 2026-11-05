@@ -48,7 +48,7 @@ export function LivePanel({ study }: { study: Study }) {
   if (!code) {
     return (
       <>
-        <Pill testID="open-live" big icon="qr-code" disabled={busy} label={t('shareClass')} onPress={open} />
+        <Pill testID="open-live" big disabled={busy} label={t('shareClass')} onPress={open} />
         <Hint>{t('shareClassHint')}</Hint>
         {failed ? <Text testID="live-error" style={ui.error}>{t('offline')}</Text> : null}
       </>
@@ -62,8 +62,8 @@ export function LivePanel({ study }: { study: Study }) {
       <Qr testID="live-qr" value={classLink(code)} />
       <Hint>{classLink(code)}</Hint>
       <View style={ui.row}>
-        <Pill plain icon="link" testID="copy-class" label={t('copyClassLink')} onPress={() => copy(classLink(code))} />
-        <Pill plain icon="tv" testID="copy-screen" label={t('copyScreenLink')} onPress={() => copy(screenLink(code))} />
+        <Pill plain testID="copy-class" label={t('copyClassLink')} onPress={() => copy(classLink(code))} />
+        <Pill plain testID="copy-screen" label={t('copyScreenLink')} onPress={() => copy(screenLink(code))} />
       </View>
       {copied ? <Hint>{t('copied')}</Hint> : null}
       <Hint>{t('screenHint')}</Hint>

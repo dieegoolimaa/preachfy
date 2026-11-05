@@ -80,7 +80,7 @@ export default function Account() {
             </Group>
           )}
           <Group footer={t('syncNote')}>
-            <Row icon="person" label={user.email} labelTestID="account-email" />
+            <Row label={user.email} labelTestID="account-email" />
             <Row label={pro === null ? ' ' : t(pro ? 'planPro' : 'planFree')} labelTestID="account-plan" />
           </Group>
           <Group>

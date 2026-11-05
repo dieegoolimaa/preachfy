@@ -384,7 +384,7 @@ export default function Reader() {
           <View style={[styles.toolbar, { backgroundColor: look.bg, borderTopColor: look.line }]}>
             <IconButton testID="prev-chapter" icon="chevron-back" color={look.fg} label={t('previous')} disabled={chapter <= 1} onPress={() => turn(-1)} />
             <IconButton testID="toggle-clean" icon={clean ? 'eye-off' : 'eye'} color={look.fg} label={t('clean')} onPress={() => setLayer(clean ? { kind: 'personal' } : { kind: 'clean' })} />
-            <IconButton testID="open-look" icon="look" color={look.fg} label={t('readerLook')} onPress={() => setLookOpen(!lookOpen)} />
+            <IconButton testID="open-look" icon="text-size" color={look.fg} label={t('readerLook')} onPress={() => setLookOpen(!lookOpen)} />
             <IconButton testID="open-compare" icon="compare" color={look.fg} label={t('compare')} onPress={() => requirePro('compareTranslations') && router.push('/compare')} />
             <IconButton testID="open-marks" icon="bookmark" color={look.fg} label={t('myMarks')} onPress={() => router.push('/marks')} />
             <IconButton testID="next-chapter" icon="chevron-forward" color={look.fg} label={t('next')} disabled={chapter >= info.chapters} onPress={() => turn(1)} />

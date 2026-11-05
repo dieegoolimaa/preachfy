@@ -52,8 +52,7 @@ export default function Plan() {
         testID="plan-done"
         primary={!done}
         big
-        icon={done ? 'check' : undefined}
-        label={t(done ? 'planRead' : 'planMark')}
+                label={t(done ? 'planRead' : 'planMark')}
         onPress={() => updateReader({ plan: { ...plan, done: done ? plan.done.filter((d) => d !== day) : [...plan.done, day] } })}
       />
       {leaving ? (

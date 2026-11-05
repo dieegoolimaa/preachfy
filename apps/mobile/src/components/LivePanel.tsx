@@ -9,7 +9,7 @@ import { useT } from '@/lib/i18n';
 import { classLink, endLive, openLive, readLive, screenLink } from '@/lib/live';
 import { requirePro } from '@/lib/pro';
 import { useReader } from '@/lib/store';
-import { paper } from '@/lib/theme';
+import { paper, sansBold } from '@/lib/theme';
 
 /** Opens the class link for students and the screen link for the media computer. */
 export function LivePanel({ study }: { study: Study }) {
@@ -73,4 +73,4 @@ export function LivePanel({ study }: { study: Study }) {
   );
 }
 
-const s = StyleSheet.create({ code: { fontSize: 32, fontWeight: '700', letterSpacing: 4, textAlign: 'center', color: paper.accent } });
+const s = StyleSheet.create({ code: { fontSize: 32, fontFamily: sansBold, letterSpacing: 4, textAlign: 'center', color: paper.accent } });

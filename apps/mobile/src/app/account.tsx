@@ -6,7 +6,7 @@ import { apiFetch, authClient } from '@/lib/auth';
 import { useT } from '@/lib/i18n';
 import { goBack } from '@/lib/navigation';
 import { updateReader } from '@/lib/store';
-import { paper, serifBold } from '@/lib/theme';
+import { paper, sans, sansBold, sansSemi } from '@/lib/theme';
 
 export default function Account() {
   const { t } = useT();
@@ -137,18 +137,18 @@ export default function Account() {
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: paper.bg },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: paper.line },
-  title: { fontFamily: serifBold, fontSize: 26, color: paper.fg },
+  title: { fontFamily: sansBold, fontSize: 26, color: paper.fg },
   body: { padding: 16, gap: 12, maxWidth: 480, width: '100%', alignSelf: 'center' },
-  name: { fontSize: 18, fontWeight: '600', color: paper.fg },
-  hint: { fontSize: 15, lineHeight: 22, color: paper.muted },
-  input: { minHeight: 48, paddingHorizontal: 14, fontSize: 16, color: paper.fg, borderRadius: 10, borderWidth: 1, borderColor: paper.line, backgroundColor: paper.soft },
+  name: { fontSize: 18, fontFamily: sansSemi, color: paper.fg },
+  hint: { fontFamily: sans, fontSize: 15, lineHeight: 22, color: paper.muted },
+  input: { minHeight: 48, paddingHorizontal: 14, fontFamily: sans, fontSize: 16, color: paper.fg, borderRadius: 10, borderWidth: 1, borderColor: paper.line, backgroundColor: paper.soft },
   pill: { minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, borderRadius: 999, borderWidth: 1, borderColor: paper.line, backgroundColor: paper.soft },
   pillOn: { backgroundColor: paper.accent, borderColor: paper.accent },
-  pillText: { fontSize: 15, color: paper.fg },
-  pillTextOn: { fontSize: 15, fontWeight: '600', color: paper.accentFg },
+  pillText: { fontFamily: sans, fontSize: 15, color: paper.fg },
+  pillTextOn: { fontSize: 15, fontFamily: sansSemi, color: paper.accentFg },
   pillDanger: { backgroundColor: paper.over, borderColor: paper.over },
-  pillDangerText: { fontSize: 15, fontWeight: '600', color: paper.accentFg },
+  pillDangerText: { fontSize: 15, fontFamily: sansSemi, color: paper.accentFg },
   danger: { gap: 10, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: paper.line },
-  warning: { fontSize: 15, lineHeight: 22, color: paper.fg },
-  error: { fontSize: 15, color: paper.over },
+  warning: { fontFamily: sans, fontSize: 15, lineHeight: 22, color: paper.fg },
+  error: { fontFamily: sans, fontSize: 15, color: paper.over },
 });

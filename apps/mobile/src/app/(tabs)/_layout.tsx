@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT } from '@/lib/i18n';
-import { paper, serifBold } from '@/lib/theme';
+import { paper, sans, sansBold } from '@/lib/theme';
 
 const tabs = [
   { key: 'today', href: '/', label: 'today' },
@@ -55,12 +55,12 @@ const s = StyleSheet.create({
   wide: { flexDirection: 'row' },
   content: { flex: 1 },
   rail: { width: 220, gap: 4, padding: 16, paddingTop: 24, borderRightWidth: 1, borderRightColor: paper.line, backgroundColor: paper.soft },
-  brand: { fontFamily: serifBold, fontSize: 24, color: paper.accent, paddingHorizontal: 12, paddingBottom: 16 },
+  brand: { fontFamily: sansBold, fontSize: 24, color: paper.accent, paddingHorizontal: 12, paddingBottom: 16 },
   railItem: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 10 },
   railOn: { backgroundColor: paper.line },
-  railText: { fontSize: 16, color: paper.fg },
+  railText: { fontFamily: sans, fontSize: 16, color: paper.fg },
   bar: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: paper.line, backgroundColor: paper.bg },
   barItem: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2 },
-  barText: { fontSize: 12, color: paper.muted },
-  textOn: { color: paper.accent, fontWeight: '700' },
+  barText: { fontFamily: sans, fontSize: 12, color: paper.muted },
+  textOn: { color: paper.accent, fontFamily: sansBold },
 });

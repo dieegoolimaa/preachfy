@@ -1,18 +1,21 @@
 export const paper = {
-  bg: '#FBFAF8', fg: '#1F1A1B', muted: '#6B6162', line: '#E4DEDB', soft: '#F3EEEA',
-  accent: '#722F27', accentFg: '#FBFAF8', mark: '#F2C14E', warn: '#8A5A00', over: '#722F27',
+  bg: '#F7F8FC', fg: '#14162B', muted: '#5C6178', line: '#E1E4F0', soft: '#EEF0FA',
+  accent: '#3A3FD9', accentFg: '#FFFFFF', mark: '#F2C14E', warn: '#8A5A00', over: '#C2272D',
 };
 
 export const stage: typeof paper = {
-  bg: '#000000', fg: '#FFFFFF', muted: '#A6A0A0', line: '#2A2A2A', soft: '#121212',
-  accent: '#FFD166', accentFg: '#000000', mark: '#FFD166', warn: '#FFD166', over: '#E08A7B',
+  bg: '#0A0B18', fg: '#F4F5FF', muted: '#9A9EC0', line: '#262948', soft: '#14162C',
+  accent: '#9498FF', accentFg: '#0A0B18', mark: '#9498FF', warn: '#FFD166', over: '#FF8A80',
 };
 
 export type Theme = typeof paper;
 
-// Bundled so scripture looks the same on iPhone, iPad and web.
+// Bundled so everything looks the same on iPhone, iPad and web.
+export const sans = 'Figtree_400Regular';
+export const sansSemi = 'Figtree_600SemiBold';
+export const sansBold = 'Figtree_700Bold';
+/** Only for scripture, where a serif helps long reading. */
 export const serif = 'Newsreader_400Regular';
-export const serifBold = 'Newsreader_600SemiBold';
 
 export const categories = [
   { key: 'promessa', color: '#F2C14E' },

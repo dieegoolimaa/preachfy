@@ -1,7 +1,7 @@
 import { resolveSpan, wordsOf, type Mark, type VerseText } from '@preachfy/core';
 import { Text, StyleSheet } from 'react-native';
 
-import { categoryColor, paper, serif } from '@/lib/theme';
+import { categoryColor, paper, sansSemi, serif } from '@/lib/theme';
 
 type Props = {
   verse: VerseText;
@@ -64,7 +64,7 @@ export function Verse({ verse, translationId, focused, marks, isSelected, onWord
 
 const styles = StyleSheet.create({
   verse: { fontFamily: serif, fontSize: 21, lineHeight: 33, color: paper.fg, marginBottom: 12 },
-  number: { fontSize: 13, fontWeight: '600', color: paper.muted },
+  number: { fontSize: 13, fontFamily: sansSemi, color: paper.muted },
   focused: { backgroundColor: paper.soft },
-  selected: { backgroundColor: paper.fg, color: paper.bg },
+  selected: { backgroundColor: paper.accent, color: paper.accentFg },
 });

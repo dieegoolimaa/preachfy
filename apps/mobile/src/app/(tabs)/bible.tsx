@@ -14,7 +14,7 @@ import { useT } from '@/lib/i18n';
 import { newId } from '@/lib/ids';
 import { requirePro } from '@/lib/pro';
 import { updateReader, useReader } from '@/lib/store';
-import { categories, paper, serifBold } from '@/lib/theme';
+import { categories, paper, sans, sansBold, sansSemi } from '@/lib/theme';
 import { translationById, translations } from '@/lib/translations';
 
 const order = (p: WordPoint) => p.verseIndex * 10_000 + p.wordIndex;
@@ -258,23 +258,23 @@ export default function Reader() {
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: paper.bg },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingTop: 12 },
-  title: { fontFamily: serifBold, fontSize: 26, color: paper.fg },
+  title: { fontFamily: sansBold, fontSize: 26, color: paper.fg },
   toolsBar: { flexGrow: 0, borderBottomWidth: 1, borderBottomColor: paper.line },
   tools: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingVertical: 10 },
   row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   list: { flex: 1 },
   text: { padding: 20, maxWidth: 720, width: '100%', alignSelf: 'center' },
   footer: { gap: 4, marginTop: 8 },
-  hint: { color: paper.muted, fontSize: 14 },
-  message: { color: paper.muted, fontSize: 15, padding: 20 },
+  hint: { color: paper.muted, fontFamily: sans, fontSize: 14 },
+  message: { color: paper.muted, fontFamily: sans, fontSize: 15, padding: 20 },
   pill: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 16, borderRadius: 999, borderWidth: 1, borderColor: paper.line, backgroundColor: paper.soft },
   pillOn: { backgroundColor: paper.accent, borderColor: paper.accent },
-  pillText: { fontSize: 15, color: paper.fg },
-  pillTextOn: { color: paper.accentFg, fontWeight: '600' },
+  pillText: { fontFamily: sans, fontSize: 15, color: paper.fg },
+  pillTextOn: { color: paper.accentFg, fontFamily: sansSemi },
   off: { opacity: 0.4 },
   nav: { flexDirection: 'row', justifyContent: 'space-between', padding: 12, borderTopWidth: 1, borderTopColor: paper.line },
   bar: { gap: 10, padding: 16, borderTopWidth: 1, borderTopColor: paper.line, backgroundColor: paper.bg },
-  quote: { fontSize: 14, color: paper.muted },
+  quote: { fontFamily: sans, fontSize: 14, color: paper.muted },
   category: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 10 },
-  categoryText: { fontSize: 14, fontWeight: '600', color: paper.fg },
+  categoryText: { fontSize: 14, fontFamily: sansSemi, color: paper.fg },
 });

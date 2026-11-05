@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useT } from '@/lib/i18n';
 import { goBack } from '@/lib/navigation';
 import { updateReader, useReader } from '@/lib/store';
-import { paper, serifBold } from '@/lib/theme';
+import { paper, sans, sansBold, sansSemi } from '@/lib/theme';
 
 export default function Picker() {
   const reader = useReader();
@@ -55,15 +55,15 @@ export default function Picker() {
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: paper.bg },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: paper.line },
-  title: { fontFamily: serifBold, fontSize: 26, color: paper.fg },
+  title: { fontFamily: sansBold, fontSize: 26, color: paper.fg },
   pill: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 16, borderRadius: 999, borderWidth: 1, borderColor: paper.line, backgroundColor: paper.soft },
-  pillText: { fontSize: 15, color: paper.fg },
+  pillText: { fontFamily: sans, fontSize: 15, color: paper.fg },
   list: { paddingHorizontal: 16, maxWidth: 720, width: '100%', alignSelf: 'center' },
   book: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: paper.line },
-  bookText: { fontSize: 17, color: paper.fg },
-  current: { color: paper.accent, fontWeight: '600' },
-  count: { fontSize: 14, color: paper.muted },
+  bookText: { fontFamily: sans, fontSize: 17, color: paper.fg },
+  current: { color: paper.accent, fontFamily: sansSemi },
+  count: { fontFamily: sans, fontSize: 14, color: paper.muted },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 16, maxWidth: 720, width: '100%', alignSelf: 'center' },
   cell: { width: 52, height: 52, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: paper.soft },
-  cellText: { fontSize: 16, color: paper.fg },
+  cellText: { fontFamily: sans, fontSize: 16, color: paper.fg },
 });

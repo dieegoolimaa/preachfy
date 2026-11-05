@@ -9,7 +9,7 @@ import { useT } from '@/lib/i18n';
 import { goBack } from '@/lib/navigation';
 import { buy, isCancelled, loadPackages, restore } from '@/lib/purchases';
 import { updateReader } from '@/lib/store';
-import { paper } from '@/lib/theme';
+import { paper, sans, sansSemi } from '@/lib/theme';
 
 export default function Paywall() {
   const { t } = useT();
@@ -94,11 +94,11 @@ export default function Paywall() {
 
 const s = StyleSheet.create({
   list: { gap: 6 },
-  benefit: { fontSize: 16, lineHeight: 23, color: paper.fg },
+  benefit: { fontFamily: sans, fontSize: 16, lineHeight: 23, color: paper.fg },
   plans: { flexDirection: 'row', gap: 10 },
   plan: { flex: 1, gap: 2, padding: 12, borderRadius: 14, borderWidth: 1.5, borderColor: paper.line, backgroundColor: paper.bg },
   planOn: { borderColor: paper.accent },
-  tag: { fontSize: 11, fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase', color: paper.accent },
-  planName: { fontSize: 16, fontWeight: '600', color: paper.fg },
-  price: { fontSize: 14, color: paper.muted },
+  tag: { fontSize: 11, fontFamily: sansSemi, letterSpacing: 1, textTransform: 'uppercase', color: paper.accent },
+  planName: { fontSize: 16, fontFamily: sansSemi, color: paper.fg },
+  price: { fontFamily: sans, fontSize: 14, color: paper.muted },
 });

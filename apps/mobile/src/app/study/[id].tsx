@@ -16,7 +16,7 @@ import { resolvePassage } from '@/lib/passage';
 import { requirePro, usePro } from '@/lib/pro';
 import { saveStudy, useReader } from '@/lib/store';
 import { renderStudy, useRendered } from '@/lib/studyText';
-import { categoryColor, paper, serif } from '@/lib/theme';
+import { categoryColor, paper, sansSemi, serif } from '@/lib/theme';
 
 type BaseProps = { value: StudyText | undefined; onChange: (text: StudyText | undefined) => void; translationId: string; editable: boolean; testID: string };
 
@@ -289,10 +289,10 @@ const s = StyleSheet.create({
   text: { gap: 8 },
   scripture: { fontFamily: serif, fontSize: 18, lineHeight: 26, color: paper.fg },
   stepHead: { flexDirection: 'row', gap: 12, alignItems: 'center', minHeight: 44 },
-  number: { width: 28, fontSize: 15, fontWeight: '600', color: paper.accent },
+  number: { width: 28, fontSize: 15, fontFamily: sansSemi, color: paper.accent },
   stepTitle: { flex: 1 },
   stepBody: { gap: 12, marginTop: 8 },
   suggestion: { gap: 4, padding: 10, borderLeftWidth: 4, borderRadius: 6, backgroundColor: paper.soft },
   suggestionText: { fontFamily: serif, fontSize: 16, color: paper.fg },
-  runTitle: { fontSize: 15, fontWeight: '600', color: paper.fg },
+  runTitle: { fontSize: 15, fontFamily: sansSemi, color: paper.fg },
 });

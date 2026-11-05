@@ -9,9 +9,9 @@ import { useT } from '@/lib/i18n';
 import { resolvePassage } from '@/lib/passage';
 import { useReader } from '@/lib/store';
 import { renderText, type Rendered } from '@/lib/studyText';
-import { paper, serif } from '@/lib/theme';
+import { paper, sans, serif } from '@/lib/theme';
 
-const backgrounds = { dawn: '#8A4A32', night: '#232247', field: '#37573F', wine: '#722F27' } as const;
+const backgrounds = { dawn: '#8A4A32', night: '#232247', field: '#37573F', indigo: '#3A3FD9' } as const;
 const shapes = { square: 1, story: 9 / 16, wide: 16 / 9 } as const;
 const MAX_VERSES = 3;
 
@@ -21,7 +21,7 @@ export default function VerseCard() {
   const { translation, book, chapter } = useReader();
   const [reference, setReference] = useState(params.reference ?? `${bookName(book, locale)} ${chapter}:1`);
   const [text, setText] = useState<Rendered | null>(null);
-  const [background, setBackground] = useState<keyof typeof backgrounds>('wine');
+  const [background, setBackground] = useState<keyof typeof backgrounds>('indigo');
   const [shape, setShape] = useState<keyof typeof shapes>('square');
   const [signature, setSignature] = useState('');
   const [failed, setFailed] = useState(false);
@@ -100,7 +100,7 @@ const s = StyleSheet.create({
   swatchOn: { borderWidth: 3, borderColor: paper.mark },
   card: { width: '100%', maxWidth: 420, alignSelf: 'center', justifyContent: 'center', gap: 14, padding: 28, borderRadius: 16 },
   story: { maxWidth: 280 },
-  reference: { fontSize: 12, letterSpacing: 1.5, textTransform: 'uppercase', color: '#FFFFFF' },
+  reference: { fontFamily: sans, fontSize: 12, letterSpacing: 1.5, textTransform: 'uppercase', color: '#FFFFFF' },
   text: { fontFamily: serif, fontSize: 22, lineHeight: 30, color: '#FFFFFF' },
-  brand: { fontSize: 12, color: '#FFFFFF', opacity: 0.85 },
+  brand: { fontFamily: sans, fontSize: 12, color: '#FFFFFF', opacity: 0.85 },
 });

@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { localeNames, locales, useT } from '@/lib/i18n';
 import { goBack } from '@/lib/navigation';
 import { defaultTranslation, updateReader, useReader } from '@/lib/store';
-import { paper, serifBold } from '@/lib/theme';
+import { paper, sans, sansBold, sansSemi } from '@/lib/theme';
 import { translations } from '@/lib/translations';
 
 export default function About() {
@@ -56,16 +56,16 @@ export default function About() {
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: paper.bg },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 16, borderBottomWidth: 1, borderBottomColor: paper.line },
-  title: { fontFamily: serifBold, fontSize: 24, color: paper.fg, flexShrink: 1 },
+  title: { fontFamily: sansBold, fontSize: 24, color: paper.fg, flexShrink: 1 },
   pill: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 16, borderRadius: 999, borderWidth: 1, borderColor: paper.line, backgroundColor: paper.soft },
   pillOn: { backgroundColor: paper.accent, borderColor: paper.accent },
-  pillText: { fontSize: 15, color: paper.fg },
-  pillTextOn: { color: paper.accentFg, fontWeight: '600' },
+  pillText: { fontFamily: sans, fontSize: 15, color: paper.fg },
+  pillTextOn: { color: paper.accentFg, fontFamily: sansSemi },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 6 },
   body: { padding: 16, gap: 20, maxWidth: 720, width: '100%', alignSelf: 'center' },
   item: { gap: 4 },
-  name: { fontSize: 17, fontWeight: '600', color: paper.fg },
-  language: { fontSize: 13, color: paper.muted },
-  credit: { fontSize: 15, lineHeight: 22, color: paper.fg },
-  link: { fontSize: 14, color: paper.accent },
+  name: { fontSize: 17, fontFamily: sansSemi, color: paper.fg },
+  language: { fontFamily: sans, fontSize: 13, color: paper.muted },
+  credit: { fontFamily: sans, fontSize: 15, lineHeight: 22, color: paper.fg },
+  link: { fontFamily: sans, fontSize: 14, color: paper.accent },
 });

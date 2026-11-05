@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { readLive, type LiveView } from '@/lib/live';
-import { serif, serifBold, stage } from '@/lib/theme';
+import { sans, sansBold, serif, stage } from '@/lib/theme';
 
 const POLL_MS = 1500;
 
@@ -31,7 +31,7 @@ export default function Projection() {
 
   return (
     <View style={s.page} testID="projection">
-      <Text testID="projection-text" style={[s.text, { fontSize: size, lineHeight: size * 1.3 }]}>{text || (view && !view.ended ? view.title : '')}</Text>
+      <Text testID="projection-text" style={[s.text, { fontFamily: sans, fontSize: size, lineHeight: size * 1.3 }]}>{text || (view && !view.ended ? view.title : '')}</Text>
       {label ? <Text testID="projection-label" style={s.label}>{label}</Text> : null}
     </View>
   );
@@ -40,5 +40,5 @@ export default function Projection() {
 const s = StyleSheet.create({
   page: { flex: 1, justifyContent: 'center', gap: 24, padding: '6%', backgroundColor: stage.bg },
   text: { fontFamily: serif, color: stage.fg, textAlign: 'center' },
-  label: { fontFamily: serifBold, fontSize: 24, color: stage.mark, textAlign: 'center' },
+  label: { fontFamily: sansBold, fontSize: 24, color: stage.mark, textAlign: 'center' },
 });

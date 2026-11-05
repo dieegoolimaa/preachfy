@@ -4,7 +4,7 @@ import { StyleSheet, Text } from 'react-native';
 import { Heading, Screen } from '@/components/ui';
 import { useT } from '@/lib/i18n';
 import { legal } from '@/lib/legal';
-import { paper } from '@/lib/theme';
+import { paper, sans } from '@/lib/theme';
 
 export default function Legal() {
   const { doc } = useLocalSearchParams<{ doc?: string }>();
@@ -23,4 +23,4 @@ export default function Legal() {
   );
 }
 
-const s = StyleSheet.create({ body: { fontSize: 16, lineHeight: 24, color: paper.fg } });
+const s = StyleSheet.create({ body: { fontFamily: sans, fontSize: 16, lineHeight: 24, color: paper.fg } });

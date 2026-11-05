@@ -7,7 +7,7 @@ import { searchBible } from '@/lib/bible';
 import { useT } from '@/lib/i18n';
 import { goBack } from '@/lib/navigation';
 import { updateReader, useReader } from '@/lib/store';
-import { paper, serif } from '@/lib/theme';
+import { paper, sans, sansSemi, serif } from '@/lib/theme';
 
 export default function Search() {
   const { translation } = useReader();
@@ -79,12 +79,12 @@ export default function Search() {
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: paper.bg },
   header: { flexDirection: 'row', gap: 8, alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: paper.line },
-  input: { flex: 1, minWidth: 0, minHeight: 44, paddingHorizontal: 14, fontSize: 16, color: paper.fg, borderRadius: 10, borderWidth: 1, borderColor: paper.line, backgroundColor: paper.soft },
+  input: { flex: 1, minWidth: 0, minHeight: 44, paddingHorizontal: 14, fontFamily: sans, fontSize: 16, color: paper.fg, borderRadius: 10, borderWidth: 1, borderColor: paper.line, backgroundColor: paper.soft },
   pill: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 16, borderRadius: 999, borderWidth: 1, borderColor: paper.line, backgroundColor: paper.soft },
-  pillText: { fontSize: 15, color: paper.fg },
-  message: { padding: 16, fontSize: 14, color: paper.muted },
+  pillText: { fontFamily: sans, fontSize: 15, color: paper.fg },
+  message: { padding: 16, fontFamily: sans, fontSize: 14, color: paper.muted },
   list: { paddingHorizontal: 16, maxWidth: 720, width: '100%', alignSelf: 'center' },
   hit: { paddingVertical: 12, gap: 4, borderBottomWidth: 1, borderBottomColor: paper.line },
-  ref: { fontSize: 13, fontWeight: '600', color: paper.accent },
+  ref: { fontSize: 13, fontFamily: sansSemi, color: paper.accent },
   text: { fontFamily: serif, fontSize: 18, lineHeight: 26, color: paper.fg },
 });

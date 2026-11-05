@@ -6,7 +6,7 @@ import { Pill, Screen, ui } from '@/components/ui';
 import { loadBook } from '@/lib/bible';
 import { useT } from '@/lib/i18n';
 import { useReader } from '@/lib/store';
-import { paper, serif } from '@/lib/theme';
+import { paper, sansSemi, serif } from '@/lib/theme';
 import { translationById, translations } from '@/lib/translations';
 
 const cycle = (id: string) => translations[(translations.findIndex((t) => t.id === id) + 1) % translations.length]!.id;
@@ -51,6 +51,6 @@ export default function Compare() {
 const s = StyleSheet.create({
   row: { gap: 6, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: paper.line },
   side: { flexDirection: 'row', gap: 16 },
-  number: { width: 24, fontSize: 13, fontWeight: '600', color: paper.muted },
+  number: { width: 24, fontSize: 13, fontFamily: sansSemi, color: paper.muted },
   text: { flex: 1, fontFamily: serif, fontSize: 18, lineHeight: 26, color: paper.fg },
 });

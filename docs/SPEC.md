@@ -14,7 +14,7 @@ Quando há conflito, valem as decisões de 2026-11-05 registradas aqui.
 - **Expo com Expo Router:** as mesmas telas geram iPhone, iPad e web. É o que garante o visual idêntico.
 - **`packages/core`:** regras em TypeScript, compartilhadas e testadas.
 - **`apps/api`:** conta, sincronização, aula ao vivo e telão por link.
-- **Fonte da Escritura:** Newsreader embutida, porque New York só existe em aparelhos Apple e o visual precisa ser idêntico no web.
+- **Identidade:** Índigo, decidido em 2026-11-05. Substitui o vinho e creme dos artefatos. Interface e títulos em Figtree; serifa só no texto bíblico, em Newsreader. As fontes vão embutidas, para o visual ser idêntico no web. Cores em `apps/mobile/src/lib/theme.ts`.
 - **Build e testes:** EAS na nuvem e aparelho real. Decisão: não usar Xcode local.
 - **Módulos nativos em Swift só onde preciso:** tela externa e Apple Watch.
 
@@ -220,9 +220,16 @@ NVI, ACF e ARA ficam para quando houver licença. Antes de publicar, vale uma re
 ## Dados locais
 Marcações e posição de leitura ficam em armazenamento chave-valor, igual no aparelho e no web. O SQLite no web exige cabeçalhos especiais no servidor e não tem busca textual. A troca por banco fica para quando houver sincronização.
 
+## Preços
+Decididos em 2026-11-05, com teste grátis de 14 dias. Valores definidos em cada loja, por país.
+
+| Região | Mensal | Anual |
+|---|---|---|
+| EUA e Europa | US$ 9,99 | US$ 79,99 |
+| Brasil | R$ 24,90 | R$ 199,90 |
+
 ## Decisões em aberto
-- Preços mensal e anual.
-- Ícone (recomendado: B, a fita) e tema padrão.
+- Ícone.
 - Plano de leitura e folheto em PDF: v1 ou v1.x.
 
 ## Referência

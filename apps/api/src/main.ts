@@ -13,6 +13,8 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   // Better Auth reads the raw body, so the parsers are added after its route.
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
+  // Behind one proxy in production, so limits see the visitor and not the proxy.
+  app.set('trust proxy', 1);
   const origins = allowedOrigins();
   app.enableCors(origins.length > 0 ? { origin: origins, credentials: true } : undefined);
   app.getHttpAdapter().getInstance().all('/api/auth/{*path}', toNodeHandler(getAuth()));

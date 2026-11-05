@@ -49,7 +49,7 @@ const webhook = (event, authorization = WEBHOOK) =>
   call('/webhooks/revenuecat', { method: 'POST', body: { event }, headers: { authorization } });
 
 async function makePro(user) {
-  subscribers.set(user.id, { pro: { expires_date: new Date(Date.now() + 86_400_000).toISOString() } });
+  subscribers.set(user.id, { preachfy_pro: { expires_date: new Date(Date.now() + 86_400_000).toISOString() } });
   assert.equal((await webhook({ app_user_id: user.id })).status, 200);
 }
 
@@ -115,7 +115,7 @@ test('sync is blocked without Pro', async () => {
 
 test('webhook rejects a wrong or missing secret and grants nothing', async () => {
   const user = await signUp('forged@example.com');
-  subscribers.set(user.id, { pro: { expires_date: null } });
+  subscribers.set(user.id, { preachfy_pro: { expires_date: null } });
   assert.equal((await webhook({ app_user_id: user.id }, 'wrong')).status, 401);
   assert.equal((await call('/webhooks/revenuecat', { method: 'POST', body: { event: { app_user_id: user.id } } })).status, 401);
   assert.equal((await (await call('/me', { cookie: user.cookie })).json()).pro, false);
@@ -125,7 +125,7 @@ test('webhook grants Pro, and it ends with the subscription', async () => {
   const user = await signUp('pro@example.com');
   await makePro(user);
   assert.equal((await (await call('/me', { cookie: user.cookie })).json()).pro, true);
-  subscribers.set(user.id, { pro: { expires_date: new Date(Date.now() - 1000).toISOString() } });
+  subscribers.set(user.id, { preachfy_pro: { expires_date: new Date(Date.now() - 1000).toISOString() } });
   await webhook({ app_user_id: user.id });
   assert.equal((await (await call('/me', { cookie: user.cookie })).json()).pro, false);
   assert.equal((await sync(user, 0, [])).status, 403);

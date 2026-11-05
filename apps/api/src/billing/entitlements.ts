@@ -1,6 +1,6 @@
 import { db } from '../database';
 
-const ENTITLEMENT = 'pro';
+const entitlement = () => process.env.REVENUECAT_ENTITLEMENT ?? 'preachfy_pro';
 
 const apiUrl = () => process.env.REVENUECAT_API_URL ?? 'https://api.revenuecat.com';
 const headers = () => ({ Authorization: `Bearer ${process.env.REVENUECAT_SECRET_KEY}` });
@@ -17,7 +17,7 @@ export async function refreshEntitlement(userId: string): Promise<void> {
       entitlements?: Record<string, { expires_date?: string | null; grace_period_expires_date?: string | null }>;
     };
   };
-  const found = body.subscriber?.entitlements?.[ENTITLEMENT];
+  const found = body.subscriber?.entitlements?.[entitlement()];
   const end = found?.grace_period_expires_date ?? found?.expires_date ?? null;
   await db()
     .collection<Stored>('entitlements')

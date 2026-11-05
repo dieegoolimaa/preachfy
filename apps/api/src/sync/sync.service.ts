@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { db } from '../database';
 
-const KINDS = ['mark', 'study'];
+const KINDS = ['mark', 'study', 'run'];
 const MAX_ITEMS = 500;
 const MAX_ITEM_BYTES = 256_000;
 const PAGE = 1000;

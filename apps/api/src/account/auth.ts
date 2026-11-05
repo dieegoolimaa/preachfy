@@ -2,7 +2,9 @@ import { expo } from '@better-auth/expo';
 import { mongodbAdapter } from '@better-auth/mongo-adapter';
 import { betterAuth } from 'better-auth';
 import { deleteSubscriber } from '../billing/entitlements';
+import { deleteCommunityData } from '../community/community.service';
 import { db, mongo } from '../database';
+import { deleteLiveData } from '../live/live.service';
 
 export const allowedOrigins = (): string[] =>
   (process.env.ALLOWED_ORIGINS ?? '')
@@ -43,6 +45,8 @@ function createAuth() {
         beforeDelete: async (user) => {
           await db().collection('syncItems').deleteMany({ userId: user.id });
           await db().collection('entitlements').deleteOne({ userId: user.id });
+          await deleteCommunityData(user.id);
+          await deleteLiveData(user.id);
         },
         afterDelete: async (user) => {
           await deleteSubscriber(user.id).catch(() => undefined);

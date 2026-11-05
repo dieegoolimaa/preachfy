@@ -9,7 +9,7 @@
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node dist/main",
-    "test": "nest build && node --test test/account.integration.mjs",
+    "test": "nest build && node --test --test-concurrency=1 test/*.integration.mjs",
     "check-types": "tsc --noEmit -p tsconfig.build.json"
   },
   "dependencies": {
@@ -18,12 +18,13 @@
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/throttler": "^6.7.1",
     "better-auth": "^1.7.17",
     "dotenv": "^16.0.3",
+    "express": "^5.2.1",
     "mongodb": "^7.8.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1",
-    "express": "^5.2.1"
+    "rxjs": "^7.8.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

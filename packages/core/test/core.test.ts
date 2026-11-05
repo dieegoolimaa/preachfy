@@ -1,0 +1,116 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import {
+  canUse, captureSnapshot, elapsed, goTo, isReadyForPulpit, pace, pause, remaining, resolveSpan, resume,
+  spentInSection, startSession, stepsMissingBaseText, timerState, visibleMarks,
+} from '../src/index.ts';
+import type { Mark, Study, VerseSpan } from '../src/index.ts';
+
+const sections = [
+  { title: 'Introdução', plannedMs: 300_000 },
+  { title: 'Ponto 1', plannedMs: 600_000 },
+  { title: 'Conclusão', plannedMs: 300_000 },
+];
+const s0 = () => startSession(sections, 0);
+
+test('timer moves from normal to warning to over', () => {
+  assert.equal(timerState(s0(), 100_000), 'normal');
+  assert.equal(timerState(s0(), 900_000), 'warning');
+  assert.equal(timerState(s0(), 1_201_000), 'over');
+  assert.equal(remaining(s0(), 1_210_000), -10_000);
+});
+
+test('pause stops the clock', () => {
+  const paused = pause(s0(), 60_000);
+  assert.equal(elapsed(paused, 500_000), 60_000);
+  assert.equal(elapsed(resume(paused, 500_000), 510_000), 70_000);
+});
+
+test('pace compares actual and planned section start', () => {
+  assert.deepEqual(pace(s0()), { kind: 'onPace' });
+  assert.deepEqual(pace(goTo(s0(), 1, 420_000)), { kind: 'behind', ms: 120_000 });
+  assert.deepEqual(pace(goTo(s0(), 1, 180_000)), { kind: 'ahead', ms: 120_000 });
+});
+
+test('revisited section keeps its time and first entry', () => {
+  const s = goTo(goTo(goTo(s0(), 1, 300_000), 0, 400_000), 1, 450_000);
+  assert.equal(spentInSection(s, 0, 450_000), 350_000);
+  assert.equal(spentInSection(s, 1, 460_000), 110_000);
+  assert.deepEqual(pace(s), { kind: 'onPace' });
+});
+
+test('invalid navigation is ignored', () => {
+  assert.equal(goTo(s0(), 9, 10).currentIndex, 0);
+});
+
+test('clock survives relaunch through JSON', () => {
+  const restored = JSON.parse(JSON.stringify(goTo(s0(), 1, 300_000)));
+  assert.equal(elapsed(restored, 1_000_000), 1_000_000);
+});
+
+const verse = 'O Senhor é o meu pastor; nada me faltará.';
+const span: VerseSpan = {
+  ref: { book: 'sl', chapter: 23, verse: 1 }, translationId: 'a', start: 13, end: 23, quote: 'meu pastor',
+};
+
+test('word span resolves exactly', () => {
+  assert.deepEqual(resolveSpan(span, verse, 'a'), { kind: 'exact', start: 13, end: 23 });
+});
+
+test('word span relocates ignoring case and accents, in original positions', () => {
+  const text = 'Javé é o Meu Pastór, de nada terei falta.';
+  const found = resolveSpan(span, text, 'b');
+  assert.equal(found.kind, 'relocated');
+  if (found.kind === 'relocated') assert.equal(text.slice(found.start, found.end), 'Meu Pastór');
+});
+
+test('relocation handles decomposed accents', () => {
+  const text = 'Javé é o meu pastor.';
+  const found = resolveSpan(span, text, 'b');
+  assert.ok(found.kind === 'relocated');
+  assert.equal(text.slice(found.start, found.end), 'meu pastor');
+});
+
+test('missing words fall back to the whole verse', () => {
+  assert.deepEqual(resolveSpan(span, 'The LORD is my shepherd', 'kjv'), { kind: 'wholeVerse' });
+});
+
+const personal = (): Mark => ({ id: 'm1', scope: { kind: 'bible' }, spans: [span], categoryKey: 'promessa', note: 'original' });
+
+test('layers separate marks', () => {
+  const mark = personal();
+  const snap = captureSnapshot('st1', [mark], 0, () => 'm2');
+  const all = [mark, ...snap.marks];
+  assert.deepEqual(visibleMarks({ kind: 'clean' }, all), []);
+  assert.deepEqual(visibleMarks({ kind: 'personal' }, all), [mark]);
+  assert.deepEqual(visibleMarks({ kind: 'study', studyId: 'st1' }, all), snap.marks);
+});
+
+test('snapshot stays frozen', () => {
+  const mark = personal();
+  const snap = captureSnapshot('st1', [mark], 0, () => 'm2');
+  mark.note = 'editada';
+  mark.spans[0]!.quote = 'outra';
+  assert.equal(snap.marks[0]!.note, 'original');
+  assert.equal(snap.marks[0]!.spans[0]!.quote, 'meu pastor');
+  assert.notEqual(snap.marks[0]!.id, mark.id);
+});
+
+test('pulpit requires a base text on every step', () => {
+  const study: Study = { id: 's', title: 'Salmo 23', steps: [
+    { id: '1', title: 'Ponto 1', baseText: { kind: 'scripture', spans: [span] }, notes: '', plannedMs: 0 },
+    { id: '2', title: 'Ponto 2', baseText: { kind: 'authored', text: '   ' }, notes: '', plannedMs: 0 },
+  ] };
+  assert.equal(isReadyForPulpit(study), false);
+  assert.deepEqual(stepsMissingBaseText(study).map((s) => s.title), ['Ponto 2']);
+  study.steps[1]!.baseText = { kind: 'authored', text: 'Ele está comigo' };
+  assert.equal(isReadyForPulpit(study), true);
+  assert.equal(isReadyForPulpit({ id: 'e', title: 'Vazio', steps: [] }), false);
+});
+
+test('only reading and simple marking are free', () => {
+  for (const f of ['read', 'search', 'cleanMode', 'simpleMark'] as const) assert.equal(canUse(f, false), true);
+  for (const f of ['notes', 'pulpit', 'snapshot', 'create', 'sync', 'liveClass'] as const) assert.equal(canUse(f, false), false);
+  assert.equal(canUse('pulpit', true), true);
+  assert.equal(canUse('exportOwnContent', false), true);
+});

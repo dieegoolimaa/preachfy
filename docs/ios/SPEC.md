@@ -1,22 +1,37 @@
-# Preachfy para iPhone e iPad: especificação
+# Preachfy para iPhone, iPad e web: especificação
 
 Reconstruída a partir de quatro artefatos: Modo Púlpito, Modelos e Telas, Criar e Identidade.
 Quando há conflito, valem as decisões de 2026-11-05 registradas aqui.
 
 ## Escopo
-- iPhone e iPad. Mac fora do escopo.
-- O Modo Púlpito é o diferencial do app.
-- Leitura, marcação, criação e púlpito funcionam sem conta e sem internet.
-- Internet só é necessária para o que for compartilhado ao vivo (aula e telão por link).
+- iPhone, iPad e web, com visual idêntico. Mac nativo fora do escopo.
+- O Modo Púlpito é o diferencial do produto.
+- Ler e marcar funcionam sem conta. Púlpito e conteúdo já baixado funcionam sem internet.
+- Sincronizar entre aparelhos e web exige conta (Pro).
+
+## Stack (proposta, aguardando confirmação)
+- **Expo com Expo Router:** as mesmas telas geram iPhone, iPad e web. É o que garante o visual idêntico.
+- **`packages/core`:** regras em TypeScript, compartilhadas e testadas.
+- **`apps/api`:** conta, sincronização, aula ao vivo e telão por link.
+- **Build:** EAS na nuvem, sem depender do Xcode local.
+- **Módulos nativos em Swift só onde preciso:** tela externa e Apple Watch.
+
+Riscos a validar primeiro:
+- **Seleção por palavra:** o texto do React Native não expõe a seleção. Cada palavra vira um elemento tocável, com lista virtualizada.
+- **Tela externa:** a biblioteca conhecida está sem atualização há anos; pode exigir módulo próprio.
+- **Gravação em segundo plano:** testar em aparelho real.
+- **Assinatura:** Compra pela App Store no iOS e outro meio no web, com um único estado de Pro.
 
 ## Mudanças em relação aos artefatos
 | Antes | Agora | Motivo |
 |---|---|---|
 | Mac incluído | Removido | Decisão do produto |
-| Sem servidor no v1 | Serviço pequeno e opcional, só para aula e telão por link | Cerca de 3 em cada 4 celulares no Brasil são Android; o aluno precisa entrar pelo navegador |
+| Sem servidor e sem conta no v1 | Serviço para conta, sincronização, aula e telão por link | Cerca de 3 em cada 4 celulares no Brasil são Android; o aluno precisa entrar pelo navegador |
 | Anotação ligada ao versículo | Marcação por palavra, expressão, trecho ou versículo | Requisito de marcação granular |
 | Seção liga-se à anotação; editar atualiza os dois lugares | Snapshot copia as marcações para o estudo; depois disso são independentes | Isolamento de dados por estudo |
 | Púlpito com ponto atual e barra lateral | Passo a passo em fluxo, com foco em um passo por vez | Distinção de um app de notas |
+| SwiftData com CloudKit | Banco local no aparelho e sincronização pela API | O web precisa dos mesmos dados, e iCloud não atende o web |
+| Marcar, anotar e plano de leitura grátis | Só leitura e marcação simples são grátis | Decisão do produto |
 | Telão só por AirPlay ou cabo | Três saídas: tela externa, link no navegador, sem telão | Em muitas igrejas o projetor já está ligado ao computador da mídia |
 
 ## Púlpito realista
@@ -88,13 +103,22 @@ Alternativas descartadas como base: MultipeerConnectivity (limite de 8 aparelhos
 ## Serviço de compartilhamento
 Reaproveita `apps/api` e `apps/web`. Guarda só o que o professor publicou e expira. O plano gratuito do Render hiberna, então a aula ao vivo exige um plano sempre ligado.
 
+## Grátis e Pro
+Regra: só leitura e marcação simples são grátis. A lista oficial está em `packages/core/src/entitlements.ts`.
+
+- **Grátis:** ler, trocar de versão, buscar, Modo Limpo e destacar com as 8 categorias, inclusive por palavra (interpretação de "marcação simples", a confirmar).
+- **Pro:** todo o resto, incluindo notas, categorias próprias, comparar versões, plano de leitura, sincronização, compartilhar versículo, snapshot, criar, Púlpito, telão, gravação, aula ao vivo e PDF.
+- **Sempre disponível:** ver e exportar o que a pessoa já criou, mesmo sem assinatura.
+- **Aluno:** acessa a aula de graça; quem paga é o professor.
+
+## Traduções da v1
+Almeida 1911, Bíblia Livre e KJV. Confirmar a licença de cada uma na fonte antes de publicar. NVI, ACF e ARA ficam para quando houver licença.
+
 ## Decisões em aberto
-- Traduções da v1. Candidatas sem custo: Almeida 1911 e Bíblia Livre (confirmar licença na fonte), KJV em inglês. ACF, NVI e ARA exigem licença.
+- Confirmar Expo.
 - Preços mensal e anual.
 - Ícone (recomendado: B, a fita) e tema padrão.
 - Plano de leitura e folheto em PDF: v1 ou v1.x.
-- Snapshot e camadas de estudo: Pro; Modo Limpo e marcação por palavra: grátis (proposta).
-- Exportar PDF: grátis com rodapé; personalização é Pro (proposta).
 
 ## Referência
 Telas, modelos, dados e marca seguem os artefatos:

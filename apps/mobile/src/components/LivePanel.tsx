@@ -47,11 +47,11 @@ export function LivePanel({ study }: { study: Study }) {
 
   if (!code) {
     return (
-      <>
+      <View style={{ gap: 6 }}>
         <Pill testID="open-live" big disabled={busy} label={t('shareClass')} onPress={open} />
         <Hint>{t('shareClassHint')}</Hint>
         {failed ? <Text testID="live-error" style={ui.error}>{t('offline')}</Text> : null}
-      </>
+      </View>
     );
   }
 

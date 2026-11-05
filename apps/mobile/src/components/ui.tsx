@@ -10,10 +10,10 @@ import { paper, serifBold } from '@/lib/theme';
 
 export type { IconName };
 
-type ScreenProps = { title: string; right?: ReactNode; close?: boolean; children: ReactNode; testID?: string };
+type ScreenProps = { title: string; right?: ReactNode; close?: boolean; wide?: boolean; children: ReactNode; testID?: string };
 
 /** Tab screens open with a large title; pushed screens get a bar with a back button. */
-export function Screen({ title, right, close, children, testID }: ScreenProps) {
+export function Screen({ title, right, close, wide, children, testID }: ScreenProps) {
   const { t } = useT();
   return (
     <SafeAreaView style={ui.page} edges={close ? ['top', 'bottom'] : ['top']} testID={testID}>
@@ -29,7 +29,7 @@ export function Screen({ title, right, close, children, testID }: ScreenProps) {
       ) : (
         <View style={ui.tabBarTop}>{right}</View>
       )}
-      <ScrollView contentContainerStyle={ui.body} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[ui.body, wide && ui.bodyWide]} keyboardShouldPersistTaps="handled">
         {close ? null : <Title>{title}</Title>}
         {children}
       </ScrollView>
@@ -192,6 +192,7 @@ export const ui = StyleSheet.create({
   titleMark: { position: 'absolute', left: 0, right: 0, bottom: 7, height: 14, backgroundColor: paper.mark },
   largeTitle: { fontFamily: serifBold, fontSize: 38, lineHeight: 46, letterSpacing: -0.6, color: paper.fg },
   body: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 32, gap: 20, maxWidth: 720, width: '100%', alignSelf: 'center' },
+  bodyWide: { maxWidth: 1080 },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 50, paddingVertical: 11 },
   rowPressed: { opacity: 0.55 },
   rowText: { flex: 1, gap: 2 },
@@ -229,7 +230,7 @@ export const ui = StyleSheet.create({
   field: { gap: 6 },
   fieldLabel: { fontSize: 12, fontWeight: '600', letterSpacing: 1.4, color: paper.muted, textTransform: 'uppercase' },
   input: { minHeight: 46, paddingHorizontal: 14, paddingVertical: 11, borderRadius: 12, backgroundColor: paper.soft, fontSize: 17, color: paper.fg },
-  inputLong: { minHeight: 110, textAlignVertical: 'top' },
+  inputLong: { minHeight: 88, textAlignVertical: 'top' },
   inputOff: { color: paper.muted },
   card: { gap: 6, paddingVertical: 14, borderTopWidth: hairline, borderBottomWidth: hairline, borderColor: paper.line },
   cardTitle: { fontFamily: serifBold, fontSize: 21, lineHeight: 26, color: paper.fg },

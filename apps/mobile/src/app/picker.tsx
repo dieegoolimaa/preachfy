@@ -1,5 +1,5 @@
 import { BOOKS, type Book } from '@preachfy/core';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Icon } from '@/components/Icon';
 import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,7 +23,7 @@ export default function Picker() {
     <SafeAreaView style={styles.page}>
       <View style={styles.header}>
         <Pressable testID="picker-close" style={styles.back} onPress={() => (book ? setBook(null) : goBack())}>
-          <Ionicons name="chevron-back" size={24} color={paper.accent} />
+          <Icon name="chevron-back" size={24} color={paper.accent} />
           <Text style={styles.backText}>{t('back')}</Text>
         </Pressable>
         <Text style={styles.title}>{book ? book.names[locale] : t('books')}</Text>

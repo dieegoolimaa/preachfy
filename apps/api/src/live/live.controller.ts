@@ -54,6 +54,13 @@ export class LiveController {
   @HttpCode(200)
   @UseGuards(SessionGuard)
   highlight(@Req() { user }: AuthedRequest, @Param('code') code: string, @Body() body: Fields) {
-    return this.service.highlight(code, user.id, body?.answerId);
+    return this.service.highlight(code, user.id, body ?? {});
+  }
+
+  @Post(':code/screen')
+  @HttpCode(200)
+  @UseGuards(SessionGuard)
+  screen(@Req() { user }: AuthedRequest, @Param('code') code: string, @Body() body: Fields) {
+    return this.service.setScreen(code, user.id, body ?? {});
   }
 }

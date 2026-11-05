@@ -2,7 +2,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
-import { readLive, type LiveView } from '@/lib/live';
+import { backgrounds, readLive, type LiveView } from '@/lib/live';
 import { serif, stage } from '@/lib/theme';
 
 const POLL_MS = 1500;
@@ -26,12 +26,14 @@ export default function Projection() {
   }, [code]);
 
   const step = view?.started && !view.ended ? view.steps[view.current] : undefined;
-  const text = view?.highlight ?? step?.body ?? '';
-  const label = view?.highlight ? '' : step?.label;
+  const text = view?.blank ? '' : (view?.highlight ?? step?.body ?? '');
+  const label = view?.highlight || view?.blank ? '' : step?.label;
+  const background = view && !view.blank ? (backgrounds[view.background] ?? stage.bg) : stage.bg;
 
   return (
-    <View style={s.page} testID="projection">
-      <Text testID="projection-text" style={[s.text, { fontSize: size, lineHeight: size * 1.3 }]}>{text || (view && !view.ended ? view.title : '')}</Text>
+    <View style={[s.page, { backgroundColor: background }]} testID="projection">
+      {view && view.background !== 'none' && !view.blank ? <View style={[s.dim, { opacity: view.dim / 100 }]} /> : null}
+      <Text testID="projection-text" style={[s.text, { fontSize: size, lineHeight: size * 1.3 }]}>{text || (view && !view.ended && !view.blank ? view.title : '')}</Text>
       {label ? <Text testID="projection-label" style={s.label}>{label}</Text> : null}
     </View>
   );
@@ -39,6 +41,7 @@ export default function Projection() {
 
 const s = StyleSheet.create({
   page: { flex: 1, justifyContent: 'center', gap: 24, padding: '6%', backgroundColor: stage.bg },
+  dim: { ...StyleSheet.absoluteFill, backgroundColor: '#000000' },
   text: { fontFamily: serif, color: stage.fg, textAlign: 'center' },
   label: { fontWeight: '700', fontSize: 24, color: stage.mark, textAlign: 'center' },
 });

@@ -1,5 +1,5 @@
 import { bookName, parseReference, type SearchHit } from '@preachfy/core';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Icon } from '@/components/Icon';
 import { useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -40,7 +40,7 @@ export default function Search() {
     <SafeAreaView style={styles.page}>
       <View style={styles.header}>
         <View style={styles.field}>
-        <Ionicons name="search" size={17} color={paper.muted} />
+        <Icon name="search" size={17} color={paper.muted} />
         <TextInput
           testID="search-input"
           style={styles.input}

@@ -4,7 +4,7 @@ import {
 } from '@preachfy/core';
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Icon } from '@/components/Icon';
 import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,12 +16,14 @@ import { useT } from '@/lib/i18n';
 import { newId } from '@/lib/ids';
 import { requirePro } from '@/lib/pro';
 import { updateReader, useReader } from '@/lib/store';
-import { categories, paper, serifBold } from '@/lib/theme';
+import { categories, paper, readingThemes, serifBold } from '@/lib/theme';
 import { translationById, translations } from '@/lib/translations';
 
 const HOLD_MS = 220;
 const DRAG_PX = 10;
 const DOUBLE_TAP_MS = 320;
+const EDGE_PX = 70;
+const EDGE_STEP = 9;
 
 const order = (p: WordPoint) => p.verseIndex * 10_000 + p.wordIndex;
 
@@ -32,7 +34,9 @@ function verseLabel(spans: VerseSpan[]) {
 }
 
 export default function Reader() {
-  const { translation, book, chapter, verse: focusVerse, marks } = useReader();
+  const { translation, book, chapter, verse: focusVerse, marks, readerTheme, textScale } = useReader();
+  const look = readingThemes[readerTheme];
+  const [lookOpen, setLookOpen] = useState(false);
   const { t, locale } = useT();
   const [chapters, setChapters] = useState<string[][] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -130,7 +134,12 @@ export default function Reader() {
     return best < 0 ? null : { verseIndex, wordIndex: best };
   };
 
-  const gesture = useRef({ origin: { x: 0, y: 0 }, start: { x: 0, y: 0 }, active: false, timer: undefined as ReturnType<typeof setTimeout> | undefined, lastTap: 0 });
+  const gesture = useRef({
+    origin: { x: 0, y: 0 }, start: { x: 0, y: 0 }, finger: { x: 0, y: 0 }, top: 0, bottom: 0, offset: 0, max: 0, active: false,
+    timer: undefined as ReturnType<typeof setTimeout> | undefined,
+    edge: undefined as ReturnType<typeof setInterval> | undefined,
+    lastTap: 0,
+  });
   const actions = useRef({ wordAt, clear, hasSelection: false });
   actions.current = { wordAt, clear, hasSelection: Boolean(anchor) };
 
@@ -145,10 +154,23 @@ export default function Reader() {
       setNotice('');
       setAnchor(hit);
       setFocus(hit);
+      g.edge = setInterval(() => {
+        // Near an edge the text moves by itself, so a selection can go past the screen.
+        const direction = g.finger.y < g.top + EDGE_PX ? -1 : g.finger.y > g.bottom - EDGE_PX ? 1 : 0;
+        const next = Math.min(Math.max(g.offset + direction * EDGE_STEP, 0), g.max);
+        if (next === g.offset) return;
+        g.origin.y -= next - g.offset;
+        g.offset = next;
+        list.current?.scrollTo({ y: next, animated: false });
+        const moved = point(g.finger.x, g.finger.y);
+        if (moved) setFocus(moved);
+      }, 30);
     };
     const stop = () => {
       if (g.timer) clearTimeout(g.timer);
+      if (g.edge) clearInterval(g.edge);
       g.timer = undefined;
+      g.edge = undefined;
       g.active = false;
       setSelecting(false);
     };
@@ -157,12 +179,18 @@ export default function Reader() {
       onPanResponderTerminationRequest: () => !g.active,
       onPanResponderGrant: ({ nativeEvent: { pageX, pageY } }) => {
         g.start = { x: pageX, y: pageY };
+        g.finger = g.start;
+        list.current?.measureInWindow?.((_x: number, y: number, _w: number, height: number) => {
+          g.top = y;
+          g.bottom = y + height;
+        });
         area.current?.measureInWindow((x, y) => {
           g.origin = { x, y };
         });
         g.timer = setTimeout(begin, HOLD_MS);
       },
       onPanResponderMove: ({ nativeEvent: { pageX, pageY } }) => {
+        g.finger = { x: pageX, y: pageY };
         const dx = Math.abs(pageX - g.start.x);
         const dy = Math.abs(pageY - g.start.y);
         if (!g.active && dx > DRAG_PX && dx > dy * 2) {
@@ -252,24 +280,32 @@ export default function Reader() {
   const hint = notice || t(anchor ? 'tapEnd' : 'tapStart');
 
   return (
-    <SafeAreaView style={styles.page} edges={['top']}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.page, { backgroundColor: look.bg }]} edges={['top']}>
+      <View style={[styles.header, { borderBottomColor: look.line }]}>
         <Pressable testID="translation" style={styles.side} onPress={nextVersion}>
-          <Text style={styles.version}>{version.short}</Text>
+          <Text style={[styles.version, { color: look.muted }]}>{version.short}</Text>
         </Pressable>
         <Pressable testID="open-picker" accessibilityRole="button" style={styles.titleButton} onPress={() => router.push('/picker')}>
-          <Text testID="reader-title" style={styles.title} numberOfLines={1}>{title} {chapter}</Text>
-          <Ionicons name="chevron-down" size={15} color={paper.muted} />
+          <Text testID="reader-title" style={[styles.title, { color: look.fg }]} numberOfLines={1}>{title} {chapter}</Text>
+          <Icon name="chevron-down" size={13} color={look.muted} />
         </Pressable>
         <View style={[styles.side, styles.sideRight]}>
-          <IconButton testID="open-search" icon="search" label={t('search')} onPress={() => router.push('/search')} />
+          <IconButton testID="open-search" icon="search" color={look.fg} label={t('search')} onPress={() => router.push('/search')} />
         </View>
       </View>
 
       {failed ? <Text style={styles.message}>{t('openFailed')}</Text> : null}
       {!chapters && !failed ? <Text style={styles.message}>{t('opening')}</Text> : null}
 
-      <ScrollView ref={list} testID="verses" style={styles.list} contentContainerStyle={styles.text} scrollEnabled={!selecting}>
+      <ScrollView ref={list} testID="verses" style={styles.list} contentContainerStyle={styles.text} scrollEnabled={!selecting}
+        scrollEventThrottle={32}
+        onScroll={({ nativeEvent: { contentOffset, contentSize, layoutMeasurement } }) => {
+          gesture.current.offset = contentOffset.y;
+          gesture.current.max = Math.max(contentSize.height - layoutMeasurement.height, 0);
+        }}
+        onContentSizeChange={(_w, height) => {
+          gesture.current.max = Math.max(height - (gesture.current.bottom - gesture.current.top), 0);
+        }}>
         <View ref={area} style={styles.area} {...responder.panHandlers}>
           {verses.map((item, index) => (
             <Verse
@@ -279,6 +315,8 @@ export default function Reader() {
               focused={item.ref.verse === focusVerse}
               marks={shown}
               isSelected={(wordIndex) => isSelected(index, wordIndex)}
+              look={look}
+              scale={textScale}
               onVerseLayout={(rect) => {
                 layout.current.verses[index] = rect;
               }}
@@ -289,7 +327,7 @@ export default function Reader() {
           ))}
         </View>
         <View style={styles.footer}>
-          <Text testID="hint" style={styles.hint}>{hint}</Text>
+          <Text testID="hint" style={[styles.hint, { color: look.muted }]}>{hint}</Text>
           {widened ? (
             <Text testID="widened" style={styles.hint}>
               {widened === 1 ? t('widenedOne') : t('widenedMany', { n: widened })}
@@ -310,25 +348,48 @@ export default function Reader() {
             ))}
           </ScrollView>
           <View style={styles.actions}>
-            <Action testID="copy" icon="copy-outline" label={t('copy')} onPress={copy} />
-            <Action testID="share" icon="share-outline" label={t('share')} onPress={share} />
-            <Action testID="create-from-selection" icon="create-outline" label={t('create')} onPress={createFromSelection} />
+            <Action testID="copy" icon="copy" label={t('copy')} onPress={copy} />
+            <Action testID="share" icon="share" label={t('share')} onPress={share} />
+            <Action testID="create-from-selection" icon="create" label={t('create')} onPress={createFromSelection} />
             <Action icon="close" label={t('cancel')} onPress={clear} />
           </View>
         </View>
       ) : (
-        <View style={styles.toolbar}>
-          <IconButton testID="prev-chapter" icon="chevron-back" label={t('previous')} disabled={chapter <= 1} onPress={() => turn(-1)} />
-          <IconButton
-            testID="toggle-clean"
-            icon={clean ? 'eye-off' : 'eye-outline'}
-            label={t('clean')}
-            onPress={() => setLayer(clean ? { kind: 'personal' } : { kind: 'clean' })}
-          />
-          <IconButton testID="open-compare" icon="git-compare-outline" label={t('compare')} onPress={() => requirePro('compareTranslations') && router.push('/compare')} />
-          <IconButton testID="open-marks" icon="bookmark-outline" label={t('myMarks')} onPress={() => router.push('/marks')} />
-          <IconButton testID="next-chapter" icon="chevron-forward" label={t('next')} disabled={chapter >= info.chapters} onPress={() => turn(1)} />
-        </View>
+        <>
+          {lookOpen ? (
+            <View style={styles.sheet} testID="look-panel">
+              <View style={styles.lookRow}>
+                {(['paper', 'sepia', 'dark'] as const).map((key) => (
+                  <Pressable
+                    key={key}
+                    testID={`theme-${key}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: readerTheme === key }}
+                    style={[styles.swatch, { backgroundColor: readingThemes[key].bg }, readerTheme === key && styles.swatchOn]}
+                    onPress={() => updateReader({ readerTheme: key })}>
+                    <Text style={[styles.swatchText, { color: readingThemes[key].fg }]}>{t(key === 'paper' ? 'themePaper' : key === 'sepia' ? 'themeSepia' : 'themeDark')}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <View style={styles.lookRow}>
+                <Pressable testID="text-smaller" accessibilityRole="button" accessibilityLabel={t('textSmaller')} style={styles.size} disabled={textScale <= 0.85} onPress={() => updateReader({ textScale: Math.round((textScale - 0.1) * 10) / 10 })}>
+                  <Text style={styles.sizeSmall}>A</Text>
+                </Pressable>
+                <Pressable testID="text-larger" accessibilityRole="button" accessibilityLabel={t('textLarger')} style={styles.size} disabled={textScale >= 1.5} onPress={() => updateReader({ textScale: Math.round((textScale + 0.1) * 10) / 10 })}>
+                  <Text style={styles.sizeLarge}>A</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
+          <View style={[styles.toolbar, { backgroundColor: look.bg, borderTopColor: look.line }]}>
+            <IconButton testID="prev-chapter" icon="chevron-back" color={look.fg} label={t('previous')} disabled={chapter <= 1} onPress={() => turn(-1)} />
+            <IconButton testID="toggle-clean" icon={clean ? 'eye-off' : 'eye'} color={look.fg} label={t('clean')} onPress={() => setLayer(clean ? { kind: 'personal' } : { kind: 'clean' })} />
+            <IconButton testID="open-look" icon="look" color={look.fg} label={t('readerLook')} onPress={() => setLookOpen(!lookOpen)} />
+            <IconButton testID="open-compare" icon="compare" color={look.fg} label={t('compare')} onPress={() => requirePro('compareTranslations') && router.push('/compare')} />
+            <IconButton testID="open-marks" icon="bookmark" color={look.fg} label={t('myMarks')} onPress={() => router.push('/marks')} />
+            <IconButton testID="next-chapter" icon="chevron-forward" color={look.fg} label={t('next')} disabled={chapter >= info.chapters} onPress={() => turn(1)} />
+          </View>
+        </>
       )}
     </SafeAreaView>
   );
@@ -337,7 +398,7 @@ export default function Reader() {
 function Action({ icon, label, onPress, testID }: { icon: IconName; label: string; onPress: () => void; testID?: string }) {
   return (
     <Pressable testID={testID} accessibilityRole="button" style={styles.action} onPress={onPress}>
-      <Ionicons name={icon} size={23} color={paper.accent} />
+      <Icon name={icon} size={23} color={paper.accent} />
       <Text style={styles.actionText} numberOfLines={1}>{label}</Text>
     </Pressable>
   );
@@ -359,6 +420,13 @@ const styles = StyleSheet.create({
   message: { color: paper.muted, fontSize: 15, padding: 20 },
   toolbar: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingHorizontal: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: paper.line, backgroundColor: paper.bg },
   sheet: { gap: 12, paddingTop: 12, paddingBottom: 8, borderTopLeftRadius: 18, borderTopRightRadius: 18, backgroundColor: paper.card, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 16, shadowOffset: { width: 0, height: -2 } },
+  lookRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16 },
+  swatch: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: paper.line },
+  swatchOn: { borderWidth: 2, borderColor: paper.fg },
+  swatchText: { fontSize: 14, fontWeight: '500' },
+  size: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: paper.soft },
+  sizeSmall: { fontFamily: serifBold, fontSize: 15, color: paper.fg },
+  sizeLarge: { fontFamily: serifBold, fontSize: 23, color: paper.fg },
   quote: { fontSize: 13, color: paper.muted, paddingHorizontal: 16 },
   colors: { flexDirection: 'row', gap: 4, paddingHorizontal: 10 },
   color: { width: 72, minHeight: 58, alignItems: 'center', gap: 5 },

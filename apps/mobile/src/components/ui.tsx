@@ -1,13 +1,14 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { Children, Fragment, type ComponentProps, type ReactNode } from 'react';
+import { Children, Fragment, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Icon } from '@/components/Icon';
+import type { IconName } from '@/components/iconNames';
 import { useT } from '@/lib/i18n';
 import { goBack } from '@/lib/navigation';
 import { paper, serifBold } from '@/lib/theme';
 
-export type IconName = ComponentProps<typeof Ionicons>['name'];
+export type { IconName };
 
 type ScreenProps = { title: string; right?: ReactNode; close?: boolean; children: ReactNode; testID?: string };
 
@@ -19,7 +20,7 @@ export function Screen({ title, right, close, children, testID }: ScreenProps) {
       {close ? (
         <View style={ui.navBar}>
           <Pressable testID="close" accessibilityRole="button" style={ui.back} onPress={() => goBack()}>
-            <Ionicons name="chevron-back" size={24} color={paper.accent} />
+            <Icon name="chevron-back" size={24} color={paper.accent} />
             <Text style={ui.backText}>{t('back')}</Text>
           </Pressable>
           <Text style={ui.navTitle} numberOfLines={1}>{title}</Text>
@@ -61,7 +62,7 @@ export function Pill({ label, onPress, primary, big, plain, danger, disabled, te
       disabled={disabled}
       style={({ pressed }) => [ui.pill, big && ui.pillBig, primary && ui.pillOn, plain && ui.pillPlain, (disabled || pressed) && ui.off]}
       onPress={onPress}>
-      {icon ? <Ionicons name={icon} size={18} color={color} /> : null}
+      {icon ? <Icon name={icon} size={18} color={color} /> : null}
       <Text style={[ui.pillText, big && ui.pillTextBig, { color }, primary && ui.pillTextOn]}>{label}</Text>
     </Pressable>
   );
@@ -71,7 +72,7 @@ export function Pill({ label, onPress, primary, big, plain, danger, disabled, te
 export function IconButton({ icon, onPress, testID, label, color = paper.accent, disabled }: { icon: IconName; onPress: () => void; testID?: string; label: string; color?: string; disabled?: boolean }) {
   return (
     <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} disabled={disabled} hitSlop={6} style={[ui.iconButton, disabled && ui.off]} onPress={onPress}>
-      <Ionicons name={icon} size={28} color={color} />
+      <Icon name={icon} size={28} color={color} />
     </Pressable>
   );
 }
@@ -140,7 +141,7 @@ export function Row({ label, detail, value, onPress, testID, labelTestID, icon, 
   const body = (
     <>
       {icon ? (
-        <Ionicons name={icon} size={21} color={paper.fg} />
+        <Icon name={icon} size={21} color={paper.fg} />
       ) : null}
       <View style={ui.rowText}>
         <Text testID={labelTestID} style={[ui.rowLabel, danger && ui.rowDanger, tint && ui.rowTint]}>{label}</Text>
@@ -148,7 +149,7 @@ export function Row({ label, detail, value, onPress, testID, labelTestID, icon, 
       </View>
       {value ? <Text style={ui.rowValue} numberOfLines={1}>{value}</Text> : null}
       {right}
-      {onPress && !danger && !tint ? <Ionicons name="chevron-forward" size={16} color={paper.muted} /> : null}
+      {onPress && !danger && !tint ? <Icon name="chevron-forward" size={16} color={paper.muted} /> : null}
     </>
   );
   if (!onPress) return <View testID={testID} style={ui.listRow}>{body}</View>;

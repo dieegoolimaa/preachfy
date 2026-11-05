@@ -6,6 +6,7 @@ import { captureRef } from 'react-native-view-shot';
 
 import { Field, Hint, Pill, Screen, Segmented, ui } from '@/components/ui';
 import { useT } from '@/lib/i18n';
+import { useProScreen } from '@/lib/pro';
 import { resolvePassage } from '@/lib/passage';
 import { useReader } from '@/lib/store';
 import { renderText, type Rendered } from '@/lib/studyText';
@@ -17,6 +18,7 @@ const MAX_VERSES = 3;
 
 export default function VerseCard() {
   const { t, locale } = useT();
+  const allowed = useProScreen('create');
   const params = useLocalSearchParams<{ reference?: string }>();
   const { translation, book, chapter } = useReader();
   const [reference, setReference] = useState(params.reference ?? `${bookName(book, locale)} ${chapter}:1`);
@@ -63,6 +65,8 @@ export default function VerseCard() {
     }
   };
 
+  if (!allowed) return null;
+
   return (
     <Screen title={t('verseCard')} close testID="card">
       <Field testID="card-reference" value={reference} onChangeText={setReference} placeholder={t('passageHint')} autoCorrect={false} />
@@ -93,7 +97,7 @@ export default function VerseCard() {
         <Text style={s.text}>{text?.body}</Text>
         <Text style={s.brand}>{signature ? `${signature} · ` : ''}Preachfy</Text>
       </View>
-      <Pill testID="card-share" primary big icon="share-outline" disabled={!text} label={t('share')} onPress={share} />
+      <Pill testID="card-share" primary big icon="share" disabled={!text} label={t('share')} onPress={share} />
       {failed ? <Hint testID="card-failed">{t('imageFailed')}</Hint> : null}
     </Screen>
   );

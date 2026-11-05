@@ -2,7 +2,7 @@ import {
   bookName, hasBaseText, isReadyForPulpit, passageText, stepsMissingBaseText, stepSuggestions, templateFor,
   type Step, type Study, type StudyText,
 } from '@preachfy/core';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Icon } from '@/components/Icon';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
@@ -103,7 +103,7 @@ function StepEditor({ study, step, index, open, editable, onToggle, onChange, on
           <Text style={s.stepName}>{step.title}</Text>
           <Text style={s.stepMeta}>{t('minutes', { n: Math.round(step.plannedMs / 60_000) })}{missing ? ` · ${t('noBaseText')}` : ''}</Text>
         </View>
-        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={17} color="#C4C4C7" />
+        <Icon name={open ? 'chevron-up' : 'chevron-down'} size={17} color="#C4C4C7" />
       </Pressable>
       {open ? (
         <View style={s.stepBody}>
@@ -211,7 +211,7 @@ export default function StudyEditor() {
       title={study.title}
       close
       testID="study"
-      right={<IconButton testID="share-study" icon="share-outline" label={t('share')} onPress={shareText} />}>
+      right={<IconButton testID="share-study" icon="share" label={t('share')} onPress={shareText} />}>
       {!pro ? <Hint testID="read-only">{t('readOnlyHint')}</Hint> : null}
       <Field testID="study-title" label={t('titleLabel')} editable={pro} value={study.title} onChangeText={(title) => change({ title })} />
       {template?.goal ? (

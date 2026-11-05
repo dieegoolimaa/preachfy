@@ -4,6 +4,20 @@ import { getLocales } from 'expo-localization';
 import { useReader } from './store';
 
 const pt = {
+  readerLook: 'Aparência',
+  themePaper: 'Papel',
+  themeSepia: 'Sépia',
+  themeDark: 'Escuro',
+  textSmaller: 'Letra menor',
+  textLarger: 'Letra maior',
+  lockScreen: 'Travar a tela',
+  lockedHint: 'Tela travada. Segure o cadeado para destravar.',
+  verseOutside: 'Versículo fora do esboço',
+  detourHint: 'Desvio: o cronômetro continua',
+  projectThis: 'Projetar este',
+  backToStep: 'Voltar ao passo',
+  screenSheet: 'Telão',
+  blankScreen: 'Tela em branco',
   today: 'Hoje',
   bible: 'Bíblia',
   create: 'Criar',
@@ -194,6 +208,20 @@ const pt = {
 type Key = keyof typeof pt;
 
 const en: Record<Key, string> = {
+  readerLook: 'Appearance',
+  themePaper: 'Paper',
+  themeSepia: 'Sepia',
+  themeDark: 'Dark',
+  textSmaller: 'Smaller text',
+  textLarger: 'Larger text',
+  lockScreen: 'Lock screen',
+  lockedHint: 'Screen locked. Hold the lock to unlock.',
+  verseOutside: 'Verse outside the outline',
+  detourHint: 'Detour: the timer keeps running',
+  projectThis: 'Project this',
+  backToStep: 'Back to the step',
+  screenSheet: 'Screen',
+  blankScreen: 'Blank screen',
   today: 'Today',
   bible: 'Bible',
   create: 'Create',
@@ -382,6 +410,20 @@ const en: Record<Key, string> = {
 };
 
 const es: Record<Key, string> = {
+  readerLook: 'Apariencia',
+  themePaper: 'Papel',
+  themeSepia: 'Sepia',
+  themeDark: 'Oscuro',
+  textSmaller: 'Letra más pequeña',
+  textLarger: 'Letra más grande',
+  lockScreen: 'Bloquear pantalla',
+  lockedHint: 'Pantalla bloqueada. Mantén el candado para desbloquear.',
+  verseOutside: 'Versículo fuera del bosquejo',
+  detourHint: 'Desvío: el cronómetro sigue',
+  projectThis: 'Proyectar este',
+  backToStep: 'Volver al paso',
+  screenSheet: 'Pantalla',
+  blankScreen: 'Pantalla en blanco',
   today: 'Hoy',
   bible: 'Biblia',
   create: 'Crear',

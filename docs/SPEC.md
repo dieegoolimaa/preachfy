@@ -151,6 +151,7 @@ Falta, antes de publicar:
 - Nome legal, morada e contato na Política de Privacidade e nos Termos (`apps/mobile/src/lib/legal.ts`), com revisão jurídica.
 - Implantar a API. A versão do Node precisa ser 22.12 ou maior, porque o `better-auth` é um pacote ESM.
 - Gravação de áudio, tela externa, Apple Watch: dependem de aparelho real.
+- Ícones: SF Symbols no iPhone e iPad; no web, conjunto de traço fino equivalente, porque os da Apple não existem fora dos sistemas dela.
 
 ### Regras
 - O `id` do usuário no Better Auth é o `appUserID` no RevenueCat. Sem isso, a assinatura feita em um lugar não aparece no outro.

@@ -63,7 +63,7 @@ export function LivePanel({ study }: { study: Study }) {
       <Hint>{classLink(code)}</Hint>
       <View style={ui.row}>
         <Pill plain icon="link" testID="copy-class" label={t('copyClassLink')} onPress={() => copy(classLink(code))} />
-        <Pill plain icon="tv-outline" testID="copy-screen" label={t('copyScreenLink')} onPress={() => copy(screenLink(code))} />
+        <Pill plain icon="tv" testID="copy-screen" label={t('copyScreenLink')} onPress={() => copy(screenLink(code))} />
       </View>
       {copied ? <Hint>{t('copied')}</Hint> : null}
       <Hint>{t('screenHint')}</Hint>

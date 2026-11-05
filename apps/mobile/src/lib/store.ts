@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Locale, Mark, PulpitRun, PulpitSession, Study } from '@preachfy/core';
 import { useSyncExternalStore } from 'react';
 
+export type ReaderTheme = 'paper' | 'sepia' | 'dark';
+
 export type ReaderState = {
   ready: boolean;
   locale: Locale;
@@ -16,6 +18,9 @@ export type ReaderState = {
   sessions: Record<string, PulpitSession>;
   /** The open live class of each study. */
   liveCodes: Record<string, string>;
+  readerTheme: ReaderTheme;
+  /** Multiplies the size of the Bible text. */
+  textScale: number;
   /** Last known plan. Lets the Pulpit open offline, until `proUntil`. */
   pro: boolean | null;
   proUntil: number | null;
@@ -28,7 +33,7 @@ const KEY = 'preachfy.reader.v1';
 
 export const defaultTranslation: Record<Locale, string> = { pt: 'blivre', en: 'kjv', es: 'rv1909' };
 
-let state: ReaderState = { ready: false, locale: 'pt', translation: 'blivre', book: 'PSA', chapter: 23, marks: [], studies: [], runs: [], sessions: {}, liveCodes: {}, pro: null, proUntil: null, syncCursor: 0, syncPushedAt: 0 };
+let state: ReaderState = { ready: false, locale: 'pt', translation: 'blivre', book: 'PSA', chapter: 23, marks: [], studies: [], runs: [], sessions: {}, liveCodes: {}, readerTheme: 'paper', textScale: 1, pro: null, proUntil: null, syncCursor: 0, syncPushedAt: 0 };
 const listeners = new Set<() => void>();
 let saving: ReturnType<typeof setTimeout> | undefined;
 

@@ -1,4 +1,4 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Icon } from '@/components/Icon';
 import { Linking } from 'react-native';
 
 import { Group, Row, Screen } from '@/components/ui';
@@ -25,7 +25,7 @@ export default function About() {
             key={code}
             testID={`locale-${code}`}
             label={localeNames[code]}
-            right={code === locale ? <Ionicons name="checkmark" size={20} color={paper.accent} /> : undefined}
+            right={code === locale ? <Icon name="check" size={20} color={paper.accent} /> : undefined}
             tint={false}
             onPress={() => choose(code)}
           />

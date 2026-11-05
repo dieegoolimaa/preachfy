@@ -1,18 +1,19 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Icon } from '@/components/Icon';
 import { router, Slot, usePathname, type Href } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { IconName } from '@/components/ui';
 import { useT } from '@/lib/i18n';
-import { paper, serifBold } from '@/lib/theme';
+import { useReader } from '@/lib/store';
+import { paper, readingThemes, serifBold } from '@/lib/theme';
 
 const tabs: { key: 'today' | 'bible' | 'create' | 'community' | 'settings'; href: string; icon: IconName }[] = [
-  { key: 'today', href: '/', icon: 'sunny' },
-  { key: 'bible', href: '/bible', icon: 'book' },
+  { key: 'today', href: '/', icon: 'sun-fill' },
+  { key: 'bible', href: '/bible', icon: 'book-fill' },
   { key: 'create', href: '/create', icon: 'create' },
-  { key: 'community', href: '/community', icon: 'people' },
-  { key: 'settings', href: '/settings', icon: 'settings-sharp' },
+  { key: 'community', href: '/community', icon: 'people-fill' },
+  { key: 'settings', href: '/settings', icon: 'gear' },
 ];
 
 /** A tab bar on iPhone; a sidebar on iPad and on the web. */
@@ -22,10 +23,12 @@ export default function Shell() {
   const { width } = useWindowDimensions();
   const { bottom } = useSafeAreaInsets();
   const wide = width >= 768;
+  const { readerTheme } = useReader();
+  const page = path === '/bible' && !wide ? readingThemes[readerTheme] : null;
 
   const items = tabs.map((tab) => {
     const on = path === tab.href;
-    const color = on ? paper.fg : paper.muted;
+    const color = on ? (page?.fg ?? paper.fg) : (page?.muted ?? paper.muted);
     return (
       <Pressable
         key={tab.key}
@@ -34,7 +37,7 @@ export default function Shell() {
         accessibilityState={{ selected: on }}
         style={[wide ? s.railItem : s.barItem, on && wide && s.railOn]}
         onPress={() => router.navigate(tab.href as Href)}>
-        <Ionicons name={tab.icon} size={wide ? 21 : 24} color={color} />
+        <Icon name={tab.icon} size={wide ? 21 : 24} color={color} />
         <Text numberOfLines={1} style={wide ? [s.railText, on && s.railTextOn] : [s.barText, { color }]}>{t(tab.key)}</Text>
       </Pressable>
     );
@@ -49,7 +52,7 @@ export default function Shell() {
         </View>
       ) : null}
       <View style={s.content}><Slot /></View>
-      {wide ? null : <View style={[s.bar, { paddingBottom: bottom }, Platform.OS === 'web' && s.glass]}>{items}</View>}
+      {wide ? null : <View style={[s.bar, { paddingBottom: bottom }, Platform.OS === 'web' && s.glass, page && { backgroundColor: page.bg, borderTopColor: page.line }]}>{items}</View>}
     </View>
   );
 }

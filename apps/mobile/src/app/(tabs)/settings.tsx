@@ -35,13 +35,13 @@ export default function Settings() {
       </Group>
       <Group>
         <Row testID="open-account" icon="person" label={t('account')} value={session?.user?.email} onPress={() => router.push('/account')} />
-        <Row testID="open-marks" icon="color-wand" label={t('myMarks')} onPress={() => router.push('/marks')} />
-        <Row testID="open-about" icon="information" label={t('aboutTitle')} onPress={() => router.push('/about')} />
+        <Row testID="open-marks" icon="highlighter" label={t('myMarks')} onPress={() => router.push('/marks')} />
+        <Row testID="open-about" icon="info" label={t('aboutTitle')} onPress={() => router.push('/about')} />
       </Group>
       <Group title={t('yourData')} footer={exported ? t('copied') : undefined}>
         <Row testID="export" icon="share" label={t('exportAll')} onPress={exportAll} />
-        <Row testID="open-privacy" icon="hand-left" label={t('privacy')} onPress={() => router.push('/legal?doc=privacy')} />
-        <Row testID="open-terms" icon="document-text" label={t('terms')} onPress={() => router.push('/legal?doc=terms')} />
+        <Row testID="open-privacy" icon="hand" label={t('privacy')} onPress={() => router.push('/legal?doc=privacy')} />
+        <Row testID="open-terms" icon="document" label={t('terms')} onPress={() => router.push('/legal?doc=terms')} />
       </Group>
     </Screen>
   );

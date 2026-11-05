@@ -55,7 +55,7 @@ export default function Today() {
         {next ? (
           <Row testID="next-content" icon="calendar" label={next.title} detail={`${t('nextUp')} · ${dateTime(next.scheduledFor!, locale)}`} onPress={() => router.push(`/study/${next.id}`)} />
         ) : null}
-        <Row testID="continue" icon="book" label={`${bookName(book, locale)} ${chapter}`} detail={t('continueReading')} onPress={() => router.navigate('/bible')} />
+        <Row testID="continue" icon="book-fill" label={`${bookName(book, locale)} ${chapter}`} detail={t('continueReading')} onPress={() => router.navigate('/bible')} />
       </Group>
 
       {recent.length ? (

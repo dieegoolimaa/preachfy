@@ -13,7 +13,10 @@ export type LiveView = {
   code: string; title: string; goal: string; context: { label: string; body: string } | null;
   steps: { id: string; title: string; label: string; body: string; question?: string }[];
   total: number; current: number; started: boolean; ended: boolean; highlight: string | null; closing: string; expiresAt: number;
+  blank: boolean; background: string; dim: number;
 };
+
+export const backgrounds: Record<string, string> = { none: '#000000', dawn: '#B5602F', night: '#262A63', field: '#3C6B4A' };
 
 export async function readLive(code: string): Promise<LiveView | null> {
   const response = await fetch(`${API_URL}/live/${encodeURIComponent(code)}`);
@@ -36,6 +39,14 @@ export async function openLive(study: Study, locale: Locale): Promise<string | n
 /** The class follows the Pulpit when it can. A failure here never stops the speaker. */
 export function pushStep(code: string, current: number) {
   apiFetch(`/live/${code}/state`, { method: 'POST', body: JSON.stringify({ current }) }).catch(() => {});
+}
+
+export function pushScreen(code: string, screen: { blank: boolean; background: string; dim: number }) {
+  apiFetch(`/live/${code}/screen`, { method: 'POST', body: JSON.stringify(screen) }).catch(() => {});
+}
+
+export function pushHighlight(code: string, value: { answerId?: string; text?: string }) {
+  apiFetch(`/live/${code}/highlight`, { method: 'POST', body: JSON.stringify(value) }).catch(() => {});
 }
 
 export async function endLive(studyId: string, code: string, closing: string) {

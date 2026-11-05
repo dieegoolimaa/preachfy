@@ -266,6 +266,23 @@ test('an answer can be changed, is shown without a name, and stops when the clas
   assert.equal((await send('tarde')).status, 409);
 });
 
+test('the teacher controls the screen, and a verse can go up outside the outline', async () => {
+  const teacher = await proUser('Prof');
+  const code = await newClass(teacher);
+  const other = await proUser('Intruso');
+  const body = { blank: true, background: 'night', dim: 99 };
+  assert.equal((await call(`/live/${code}/screen`, { user: other, method: 'POST', body })).status, 404);
+  assert.equal((await call(`/live/${code}/screen`, { user: teacher, method: 'POST', body: { background: 'http://evil' } })).status, 400);
+  await json(await call(`/live/${code}/screen`, { user: teacher, method: 'POST', body }));
+  let view = await call(`/live/${code}`).then(json);
+  assert.deepEqual([view.blank, view.background, view.dim], [true, 'night', 85]);
+  await json(await call(`/live/${code}/highlight`, { user: teacher, method: 'POST', body: { text: 'João 3:16' } }));
+  view = await call(`/live/${code}`).then(json);
+  assert.equal(view.highlight, 'João 3:16');
+  await json(await call(`/live/${code}/highlight`, { user: teacher, method: 'POST', body: {} }));
+  assert.equal((await call(`/live/${code}`).then(json)).highlight, null);
+});
+
 test('answers go only to steps that ask a question', async () => {
   const code = await newClass(await proUser('Prof'));
   const res = await call(`/live/${code}/answers`, { method: 'POST', body: { participantId: 'p', stepId: 'b', text: 'x' } });

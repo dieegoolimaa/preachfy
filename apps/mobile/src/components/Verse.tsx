@@ -1,7 +1,7 @@
 import { resolveSpan, wordsOf, type Mark, type VerseText } from '@preachfy/core';
 import { StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
 
-import { categoryColor, paper, selection, serif } from '@/lib/theme';
+import { categoryColor, readingThemes, serif } from '@/lib/theme';
 
 type Props = {
   verse: VerseText;
@@ -9,12 +9,14 @@ type Props = {
   focused?: boolean;
   marks: Mark[];
   isSelected: (wordIndex: number) => boolean;
+  look: (typeof readingThemes)['paper'];
+  scale: number;
   onVerseLayout: (layout: LayoutRectangle) => void;
   onWordLayout: (wordIndex: number, layout: LayoutRectangle) => void;
 };
 
 /** Each word is measured on its own, so a finger can be matched to a word on every platform. */
-export function Verse({ verse, translationId, focused, marks, isSelected, onVerseLayout, onWordLayout }: Props) {
+export function Verse({ verse, translationId, focused, marks, isSelected, look, scale, onVerseLayout, onWordLayout }: Props) {
   const { text, ref } = verse;
   const ranges = marks.flatMap((mark) =>
     mark.spans
@@ -28,11 +30,19 @@ export function Verse({ verse, translationId, focused, marks, isSelected, onVers
   const colorAt = (start: number, end: number) => ranges.find((r) => start < r.end && end > r.start)?.color;
 
   const words = wordsOf(text);
-  const paint = (i: number) => (isSelected(i) ? selection : colorAt(words[i]!.start, words[i]!.end));
+  const paint = (i: number) => {
+    if (isSelected(i)) return look.select;
+    const color = colorAt(words[i]!.start, words[i]!.end);
+    if (!color) return undefined;
+    // On a dark page the highlight becomes a translucent layer and the text stays light.
+    const alpha = Math.round(look.markOpacity * 255).toString(16).padStart(2, '0');
+    return `${color}${alpha}`;
+  };
+  const size = { fontSize: 20 * scale, lineHeight: 30 * scale, color: look.fg };
 
   return (
     <View style={[styles.verse, focused && styles.focused]} onLayout={(e) => onVerseLayout(e.nativeEvent.layout)}>
-      <Text style={styles.number}>{ref.verse}</Text>
+      <Text style={[styles.number, { lineHeight: 30 * scale, color: look.muted }]}>{ref.verse}</Text>
       {words.map((word, i) => {
         const next = words[i + 1];
         const after = text.slice(word.end, next ? next.start : text.length).trimEnd();
@@ -44,7 +54,7 @@ export function Verse({ verse, translationId, focused, marks, isSelected, onVers
           <Text
             key={i}
             testID={`word-${ref.verse}-${i}`}
-            style={[styles.word, joined ? { backgroundColor: color } : null]}
+            style={[styles.word, size, joined ? { backgroundColor: color } : null]}
             onLayout={(e) => onWordLayout(i, e.nativeEvent.layout)}>
             {before}
             <Text style={color ? { backgroundColor: color } : null}>{word.text}</Text>
@@ -58,7 +68,7 @@ export function Verse({ verse, translationId, focused, marks, isSelected, onVers
 
 const styles = StyleSheet.create({
   verse: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: 10 },
-  focused: { backgroundColor: paper.soft },
-  number: { fontSize: 11, lineHeight: 30, fontWeight: '600', color: paper.muted, paddingRight: 5 },
-  word: { fontFamily: serif, fontSize: 20, lineHeight: 30, color: paper.fg, paddingRight: 5 },
+  focused: { backgroundColor: '#8886' },
+  number: { fontSize: 11, fontWeight: '600', paddingRight: 5 },
+  word: { fontFamily: serif, paddingRight: 5 },
 });

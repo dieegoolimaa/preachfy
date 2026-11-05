@@ -11,6 +11,13 @@ export const stage: typeof paper = {
 
 export type Theme = typeof paper;
 
+/** Bible reading only. Sepia lowers the brightness in long readings. */
+export const readingThemes = {
+  paper: { bg: paper.bg, fg: paper.fg, muted: paper.muted, line: paper.line, select: '#FFE98A', markOpacity: 1 },
+  sepia: { bg: '#F1E4CC', fg: '#2B2118', muted: '#8A7660', line: '#DCC9A6', select: '#E6B445', markOpacity: 1 },
+  dark: { bg: '#15161A', fg: '#ECECEE', muted: '#9A9CA3', line: '#2C2D33', select: '#6B5A12', markOpacity: 0.42 },
+};
+
 /** Words being selected, before they get a category. */
 export const selection = '#FFE98A';
 

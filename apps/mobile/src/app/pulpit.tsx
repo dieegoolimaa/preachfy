@@ -1,8 +1,8 @@
 import {
   goTo, isPaused, isReadyForPulpit, pace, pause, pulpitSections, remaining, resume, spentInSection, startSession,
-  stepBody, timerState, totalPlanned, type PulpitRun, type PulpitSession, type StepDetail, type Study,
+  passageText, stepBody, timerState, totalPlanned, type PulpitRun, type PulpitSession, type StepDetail, type Study,
 } from '@preachfy/core';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Icon } from '@/components/Icon';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -14,11 +14,12 @@ import type { IconName } from '@/components/ui';
 import { apiFetch } from '@/lib/auth';
 import { useT } from '@/lib/i18n';
 import { newId } from '@/lib/ids';
-import { classLink, pushStep, screenLink } from '@/lib/live';
+import { backgrounds, classLink, openLive, pushHighlight, pushScreen, pushStep, screenLink } from '@/lib/live';
+import { resolvePassage } from '@/lib/passage';
 import { goBack } from '@/lib/navigation';
 import { demoStudy } from '@/lib/sample';
 import { getReader, isPro, updateReader, useReader } from '@/lib/store';
-import { renderStudy, type Rendered } from '@/lib/studyText';
+import { renderStudy, renderText, type Rendered } from '@/lib/studyText';
 import { paper, serif, serifBold, stage, type Theme } from '@/lib/theme';
 
 function clock(ms: number) {
@@ -35,10 +36,10 @@ const saveSession = (id: string, session: PulpitSession | null) => {
 type Texts = { steps: (Rendered | null)[]; context: Rendered | null };
 type Answer = { id: string; nickname: string; text: string };
 
-type RoundProps = { icon: IconName; label: string; onPress: () => void; t: Theme; testID: string; big?: boolean; disabled?: boolean };
+type RoundProps = { icon: IconName; label: string; onPress: () => void; onLongPress?: () => void; t: Theme; testID: string; big?: boolean; disabled?: boolean };
 
 /** Round controls leave the screen to the text, and stay easy to hit with a thumb. */
-function Round({ icon, label, onPress, t, testID, big, disabled }: RoundProps) {
+function Round({ icon, label, onPress, onLongPress, t, testID, big, disabled }: RoundProps) {
   const size = big ? 54 : 44;
   return (
     <Pressable
@@ -47,8 +48,10 @@ function Round({ icon, label, onPress, t, testID, big, disabled }: RoundProps) {
       accessibilityLabel={label}
       disabled={disabled}
       style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: t.soft, opacity: disabled ? 0.4 : 1 }}
+      delayLongPress={800}
+      onLongPress={onLongPress}
       onPress={onPress}>
-      <Ionicons name={icon} size={big ? 26 : 22} color={t.fg} />
+      <Icon name={icon} size={big ? 26 : 22} color={t.fg} />
     </Pressable>
   );
 }
@@ -129,6 +132,12 @@ export default function Pulpit() {
   const [contextOpen, setContextOpen] = useState(false);
   const [liveOpen, setLiveOpen] = useState(false);
   const [answers, setAnswers] = useState<Answer[]>([]);
+  const [locked, setLocked] = useState(false);
+  const [screen, setScreen] = useState({ blank: false, background: 'none', dim: 60 });
+  const [detourOpen, setDetourOpen] = useState(false);
+  const [detourQuery, setDetourQuery] = useState('');
+  const [detour, setDetour] = useState<Rendered | null>(null);
+  const [detourFailed, setDetourFailed] = useState(false);
   const allowed = id === 'demo' || isPro(reader);
   const { width } = useWindowDimensions();
   const wide = width >= 768;
@@ -175,6 +184,17 @@ export default function Pulpit() {
 
   const index = session?.currentIndex ?? 0;
 
+  const changeScreen = useCallback(
+    (next: (current: typeof screen) => typeof screen) => {
+      setScreen((current) => {
+        const updated = next(current);
+        if (code) pushScreen(code, updated);
+        return updated;
+      });
+    },
+    [code],
+  );
+
   useEffect(() => {
     if (code && session) pushStep(code, index);
   }, [code, index, session === null]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -195,9 +215,14 @@ export default function Pulpit() {
   useEffect(() => {
     if (Platform.OS !== 'web' || !session) return;
     const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); move(1); }
       if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); move(-1); }
-      if (e.key.toLowerCase() === 't') setContextOpen((open) => !open);
+      const key = e.key.toLowerCase();
+      if (key === 't') setContextOpen((open) => !open);
+      if (key === 'v') setDetourOpen(true);
+      if (key === 'l') setLocked((on) => !on);
+      if (key === 'b') changeScreen((current) => ({ ...current, blank: !current.blank }));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -242,8 +267,27 @@ export default function Pulpit() {
     saveSession(id, null);
   };
 
-  const highlight = (answerId: string | null) =>
-    code && apiFetch(`/live/${code}/highlight`, { method: 'POST', body: JSON.stringify({ answerId }) }).catch(() => {});
+  const highlight = (answerId: string | null) => {
+    if (code) pushHighlight(code, answerId ? { answerId } : {});
+  };
+
+  const findDetour = async () => {
+    const passage = await resolvePassage(detourQuery, locale, study.passage?.translationId ?? reader.translation);
+    setDetourFailed(!passage);
+    setDetour(passage ? await renderText(passageText(passage), locale) : null);
+  };
+
+  const closeDetour = () => {
+    setDetourOpen(false);
+    setDetour(null);
+    setDetourQuery('');
+    setDetourFailed(false);
+    if (code) pushHighlight(code, {});
+  };
+
+  const openScreen = () => {
+    if (id !== 'demo') openLive(study, locale).catch(() => {});
+  };
 
   const currentPace = pace(session);
   const paceText =
@@ -256,6 +300,15 @@ export default function Pulpit() {
   const timeColor = state === 'over' ? t.over : state === 'warning' ? t.warn : t.fg;
   const detailKey = { manuscript: 'manuscript', outline: 'outlineLevel', keywords: 'keywordsLevel' } as const;
   const nextDetail = { manuscript: 'outline', outline: 'keywords', keywords: 'manuscript' } as const;
+  const tools = (
+    <>
+      <Round testID="context" icon="book" label={tr('context')} t={t} onPress={() => setContextOpen((o) => !o)} />
+      <Round testID="detail" icon="text-size" label={tr(detailKey[detail])} t={t} onPress={() => setDetail(nextDetail[detail])} />
+      <Round testID="detour" icon="verse" label={tr('verseOutside')} t={t} onPress={() => setDetourOpen(true)} />
+      {id !== 'demo' ? <Round testID="live" icon="tv" label={tr('screenSheet')} t={t} onPress={() => setLiveOpen(true)} /> : null}
+      <Round testID="theme" icon={dark ? 'sun' : 'moon'} label={tr(dark ? 'light' : 'stage')} t={t} onPress={() => setDark((d) => !d)} />
+    </>
+  );
   const contextBody = (
     <ScrollView contentContainerStyle={s.contextBody}>
       <Text style={s.label}>{context?.label}</Text>
@@ -266,20 +319,20 @@ export default function Pulpit() {
   return (
     <SafeAreaView style={s.page}>
       <View style={s.top}>
-        <Round testID="exit" icon="close" label={tr('finish')} t={t} onPress={finish} />
+        {locked ? <View style={s.roundSpace} /> : <Round testID="exit" icon="close" label={tr('finish')} t={t} onPress={finish} />}
         <View style={s.timerBox}>
           <Text testID="timer" style={[s.timer, { color: timeColor }]}>{clock(remaining(session, now))}</Text>
           <Text testID="pace" style={s.pace}>
             {paceText} · {tr('inStep', { time: clock(spentInSection(session, index, now)) })}
           </Text>
         </View>
-        <Round
+        {locked ? <View style={s.roundSpace} /> : <Round
           testID="pause"
           icon={isPaused(session) ? 'play' : 'pause'}
           label={tr(isPaused(session) ? 'resume' : 'pause')}
           t={t}
           onPress={() => change((c) => (isPaused(c) ? resume(c, Date.now()) : pause(c, Date.now())))}
-        />
+        />}
       </View>
 
       <View style={s.timeBar} testID="time-bar">
@@ -337,24 +390,94 @@ export default function Pulpit() {
         {wide && contextOpen ? <View testID="context-pane" style={s.pane}>{contextBody}</View> : null}
       </View>
 
+      {!wide && !locked ? <View style={s.toolsRow}>{tools}</View> : null}
       <View style={s.bottom}>
         <Round testID="prev" big icon="chevron-back" label={tr('previous')} t={t} disabled={index === 0} onPress={() => move(-1)} />
-        <Round testID="context" icon="book-outline" label={tr('context')} t={t} onPress={() => setContextOpen((o) => !o)} />
-        <Round testID="detail" icon="text" label={tr(detailKey[detail])} t={t} onPress={() => setDetail(nextDetail[detail])} />
-        {code ? <Round testID="live" icon="radio-outline" label={tr('liveNow')} t={t} onPress={() => setLiveOpen(true)} /> : null}
-        <Round testID="theme" icon={dark ? 'sunny-outline' : 'moon-outline'} label={tr(dark ? 'light' : 'stage')} t={t} onPress={() => setDark((d) => !d)} />
+        {locked ? <Text testID="locked" style={s.lockedText}>{tr('lockedHint')}</Text> : wide ? tools : null}
+        <Round testID="lock" icon="lock" label={tr('lockScreen')} t={t} onPress={() => !locked && setLocked(true)} onLongPress={() => setLocked(false)} />
         <Pressable testID="next" accessibilityRole="button" disabled={!next} style={[s.nav, s.navMain, !next && s.off]} onPress={() => move(1)}>
           <Text style={[s.navText, s.navTextMain]} numberOfLines={1}>{tr('next')}</Text>
         </Pressable>
       </View>
+
+      <Modal visible={detourOpen} transparent animationType="slide" onRequestClose={closeDetour}>
+        <View style={s.sheetBackdrop}>
+          <View testID="detour-sheet" style={s.sheet}>
+            <ScrollView contentContainerStyle={s.contextBody} keyboardShouldPersistTaps="handled">
+              <Text style={s.label}>{tr('detourHint')}</Text>
+              <TextInput
+                testID="detour-input"
+                style={s.input}
+                value={detourQuery}
+                onChangeText={setDetourQuery}
+                onSubmitEditing={findDetour}
+                placeholder={tr('passageHint')}
+                placeholderTextColor={t.muted}
+                autoCorrect={false}
+                returnKeyType="search"
+              />
+              {detourFailed ? <Text testID="detour-error" style={s.pace}>{tr('passageInvalid')}</Text> : null}
+              {detour ? (
+                <>
+                  <Text testID="detour-ref" style={s.label}>{detour.label}</Text>
+                  <Text testID="detour-text" style={s.contextText}>{detour.body}</Text>
+                </>
+              ) : null}
+              <View style={s.tools}>
+                <Pressable testID="detour-find" style={s.tool} onPress={findDetour}><Text style={s.toolText}>{tr('search')}</Text></Pressable>
+                {detour && code ? (
+                  <Pressable testID="detour-project" style={s.tool} onPress={() => pushHighlight(code, { text: `${detour.body}\n${detour.label}` })}>
+                    <Text style={s.toolText}>{tr('projectThis')}</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable testID="detour-back" style={[s.tool, s.toolOn]} onPress={closeDetour}><Text style={[s.toolText, s.toolTextOn]}>{tr('backToStep')}</Text></Pressable>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={liveOpen} transparent animationType="slide" onRequestClose={() => setLiveOpen(false)}>
         <View style={s.sheetBackdrop}>
           <View testID="live-sheet" style={s.sheet}>
             <Pressable testID="live-close" style={s.tool} onPress={() => setLiveOpen(false)}><Text style={s.toolText}>{tr('close')}</Text></Pressable>
             <ScrollView contentContainerStyle={s.contextBody}>
-              {code ? <Qr value={classLink(code)} size={160} /> : null}
-              <Text style={s.label}>{code} · {code ? screenLink(code) : ''}</Text>
+              {code ? (
+                <>
+                  <View style={[s.preview, { backgroundColor: screen.blank ? '#000000' : (backgrounds[screen.background] ?? '#000000') }]} testID="screen-preview">
+                    {screen.background !== 'none' && !screen.blank ? <View style={[s.previewDim, { opacity: screen.dim / 100 }]} /> : null}
+                    <Text style={s.previewText} numberOfLines={3}>{screen.blank ? '' : base?.body}</Text>
+                  </View>
+                  <View style={s.tools}>
+                    <Pressable testID="screen-blank" style={[s.tool, screen.blank && s.toolOn]} onPress={() => changeScreen((c) => ({ ...c, blank: !c.blank }))}>
+                      <Text style={[s.toolText, screen.blank && s.toolTextOn]}>{tr('blankScreen')}</Text>
+                    </Pressable>
+                    <Pressable testID="clear-highlight" style={s.tool} onPress={() => highlight(null)}><Text style={s.toolText}>{tr('clearScreen')}</Text></Pressable>
+                  </View>
+                  <View style={s.swatches}>
+                    {Object.keys(backgrounds).map((key) => (
+                      <Pressable
+                        key={key}
+                        testID={`screen-bg-${key}`}
+                        accessibilityLabel={key}
+                        style={[s.swatch, { backgroundColor: backgrounds[key] }, screen.background === key && s.swatchOn]}
+                        onPress={() => changeScreen((c) => ({ ...c, background: key }))}
+                      />
+                    ))}
+                    {[50, 70, 85].map((dim) => (
+                      <Pressable key={dim} testID={`screen-dim-${dim}`} style={[s.tool, screen.dim === dim && s.toolOn]} onPress={() => changeScreen((c) => ({ ...c, dim }))}>
+                        <Text style={[s.toolText, screen.dim === dim && s.toolTextOn]}>{dim}%</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Qr value={classLink(code)} size={150} />
+                  <Text style={s.label}>{code} · {screenLink(code)}</Text>
+                </>
+              ) : (
+                <Pressable testID="screen-open" style={[s.nav, s.navMain]} onPress={openScreen}>
+                  <Text style={[s.navText, s.navTextMain]}>{tr('shareClass')}</Text>
+                </Pressable>
+              )}
               {step.question ? <Text style={s.notes}>{step.question}</Text> : null}
               {answers.map((answer) => (
                 <Pressable key={answer.id} testID="answer" style={s.answer} onPress={() => highlight(answer.id)}>
@@ -362,7 +485,6 @@ export default function Pulpit() {
                   <Text style={s.pace}>{answer.nickname || tr('anonymous')} · {tr('showOnScreen')}</Text>
                 </Pressable>
               ))}
-              <Pressable testID="clear-highlight" style={s.tool} onPress={() => highlight(null)}><Text style={s.toolText}>{tr('clearScreen')}</Text></Pressable>
             </ScrollView>
           </View>
         </View>
@@ -410,13 +532,25 @@ const themed = (t: Theme, wide: boolean) =>
     pane: { width: '36%', borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: t.line },
     contextBody: { padding: 20, gap: 10 },
     contextText: { fontFamily: serif, fontSize: 21, lineHeight: 31, color: t.fg },
-    bottom: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.line },
-    nav: { flex: 1, paddingHorizontal: 12, minHeight: 54, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: t.soft },
+    bottom: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, ...(wide ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.line } : {}) },
+    nav: { flexGrow: 1, flexShrink: 1, minWidth: 96, paddingHorizontal: 12, minHeight: 54, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: t.soft },
     navMain: { backgroundColor: t.accent },
     navText: { fontSize: 17, fontWeight: '600', color: t.fg },
     navTextMain: { color: t.accentFg },
     off: { opacity: 0.4 },
     sheetBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+    roundSpace: { width: 44, height: 44 },
+    toolsRow: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 12, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.line },
+    tools: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    toolOn: { backgroundColor: t.accent },
+    toolTextOn: { color: t.accentFg },
+    lockedText: { flex: 1, textAlign: 'center', fontSize: 12, color: t.muted },
+    preview: { aspectRatio: 16 / 9, borderRadius: 10, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', padding: 14 },
+    previewDim: { ...StyleSheet.absoluteFill, backgroundColor: '#000000' },
+    previewText: { fontFamily: serif, fontSize: 16, lineHeight: 22, color: '#FFFFFF', textAlign: 'center' },
+    swatches: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+    swatch: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: t.line },
+    swatchOn: { borderWidth: 3, borderColor: t.accent },
     timeBar: { flexDirection: 'row', gap: 3, paddingHorizontal: 16, paddingBottom: 8 },
     timeSegment: { height: 5, borderRadius: 3, overflow: 'hidden', backgroundColor: t.line },
     timeNow: { backgroundColor: t.muted },

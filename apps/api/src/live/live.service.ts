@@ -7,6 +7,7 @@ type LiveStep = Text & { id: string; title: string; question?: string };
 type Live = {
   _id: string; ownerId: string; title: string; goal: string; context: Text | null; steps: LiveStep[];
   current: number; started: boolean; ended: boolean; highlight: string | null; closing: string; expiresAt: Date;
+  blank?: boolean; background?: string; dim?: number;
 };
 type Answer = { _id: string; code: string; participantId: string; nickname: string; stepId: string; text: string; at: number; expiresAt: Date };
 
@@ -15,6 +16,7 @@ const CODE_LENGTH = 6;
 const MAX_STEPS = 60;
 const MAX_ANSWERS = 5000;
 const DAY = 86_400_000;
+const BACKGROUNDS = ['none', 'dawn', 'night', 'field'];
 
 const lives = () => db().collection<Live>('liveSessions');
 const answers = () => db().collection<Answer>('liveAnswers');
@@ -88,9 +90,12 @@ export class LiveService implements OnModuleInit {
 
   /** Students see only what the teacher has reached, and the whole class once it ends. */
   async read(code: string) {
-    const { _id, title, goal, context, steps, current, started, ended, highlight, closing, expiresAt } = await this.active(code);
+    const { _id, title, goal, context, steps, current, started, ended, highlight, closing, expiresAt, blank, background, dim } = await this.active(code);
     const reached = ended ? steps : started ? steps.slice(0, current + 1) : [];
-    return { code: _id, title, goal, context, steps: reached, total: steps.length, current, started, ended, highlight, closing, expiresAt: expiresAt.getTime() };
+    return {
+      code: _id, title, goal, context, steps: reached, total: steps.length, current, started, ended, highlight, closing,
+      expiresAt: expiresAt.getTime(), blank: blank ?? false, background: background ?? 'none', dim: dim ?? 60,
+    };
   }
 
   async setState(code: string, userId: string, body: { current?: unknown; highlight?: unknown }) {
@@ -129,10 +134,19 @@ export class LiveService implements OnModuleInit {
     return found.map(({ _id, nickname, text, at }) => ({ id: _id, nickname, text, at }));
   }
 
-  /** Shown to the room without the name of who wrote it. */
-  async highlight(code: string, userId: string, answerId: unknown) {
+  /** Shown to the room: an answer, without the name of who wrote it, or a verse outside the outline. */
+  async highlight(code: string, userId: string, body: { answerId?: unknown; text?: unknown }) {
     const live = await this.owned(code, userId);
-    const found = typeof answerId === 'string' ? await answers().findOne({ _id: answerId, code: live._id }) : null;
-    await lives().updateOne({ _id: live._id }, { $set: { highlight: found?.text ?? null } });
+    const found = typeof body.answerId === 'string' ? await answers().findOne({ _id: body.answerId, code: live._id }) : null;
+    await lives().updateOne({ _id: live._id }, { $set: { highlight: found?.text ?? (clean(body.text, 4000) || null) } });
+  }
+
+  async setScreen(code: string, userId: string, body: { blank?: unknown; background?: unknown; dim?: unknown }) {
+    const live = await this.owned(code, userId);
+    const background = typeof body.background === 'string' ? body.background : 'none';
+    if (!BACKGROUNDS.includes(background)) throw new BadRequestException('Invalid background');
+    // The image never gets bright enough to compete with the text.
+    const dim = Math.min(Math.max(Number(body.dim) || 60, 30), 85);
+    await lives().updateOne({ _id: live._id }, { $set: { blank: body.blank === true, background, dim } });
   }
 }

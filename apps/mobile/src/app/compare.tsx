@@ -5,6 +5,7 @@ import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Pill, Screen, ui } from '@/components/ui';
 import { loadBook } from '@/lib/bible';
 import { useT } from '@/lib/i18n';
+import { useProScreen } from '@/lib/pro';
 import { useReader } from '@/lib/store';
 import { paper, serif } from '@/lib/theme';
 import { translationById, translations } from '@/lib/translations';
@@ -13,6 +14,7 @@ const cycle = (id: string) => translations[(translations.findIndex((t) => t.id =
 
 export default function Compare() {
   const { locale } = useT();
+  const allowed = useProScreen('compareTranslations');
   const { book, chapter, translation } = useReader();
   const [left, setLeft] = useState(translation);
   const [right, setRight] = useState(cycle(translation));
@@ -28,6 +30,8 @@ export default function Compare() {
       live = false;
     };
   }, [left, right, book, chapter]);
+
+  if (!allowed) return null;
 
   const rows = Array.from({ length: Math.max(texts[0].length, texts[1].length) }, (_, i) => i);
 

@@ -1,4 +1,4 @@
-import { bookName, upcoming } from '@preachfy/core';
+import { bookName, planChapters, planDayOf, upcoming } from '@preachfy/core';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
@@ -7,6 +7,7 @@ import { Card, Group, Hint, Row, Screen, ui } from '@/components/ui';
 import { loadBook } from '@/lib/bible';
 import { dateTime } from '@/lib/dates';
 import { useT } from '@/lib/i18n';
+import { requirePro } from '@/lib/pro';
 import { updateReader, useReader } from '@/lib/store';
 import { paper, serif } from '@/lib/theme';
 import { translationById } from '@/lib/translations';
@@ -21,11 +22,12 @@ const DAILY: [string, number, number][] = [
 
 export default function Today() {
   const { t, locale } = useT();
-  const { book, chapter, translation, studies } = useReader();
+  const { book, chapter, translation, studies, plan } = useReader();
   const [daily, setDaily] = useState('');
   const dayOfYear = Math.floor(Date.now() / 86_400_000);
   const [dailyBook, dailyChapter, dailyVerse] = DAILY[dayOfYear % DAILY.length]!;
   const next = upcoming(studies, Date.now())[0];
+  const planFirst = plan ? planChapters(planDayOf(plan.startedAt, Date.now()))[0] : undefined;
   const recent = studies.filter((s) => !s.deletedAt).slice(0, 3);
 
   useEffect(() => {
@@ -55,6 +57,13 @@ export default function Today() {
         {next ? (
           <Row testID="next-content" icon="calendar" label={next.title} detail={`${t('nextUp')} · ${dateTime(next.scheduledFor!, locale)}`} onPress={() => router.push(`/study/${next.id}`)} />
         ) : null}
+        <Row
+          testID="open-plan"
+          icon="calendar"
+          label={planFirst ? `${bookName(planFirst.book, locale)} ${planFirst.chapter}` : t('readingPlan')}
+          detail={planFirst ? t('planToday') : t('planIntro')}
+          onPress={() => requirePro('readingPlan') && router.push('/plan')}
+        />
         <Row testID="continue" icon="book-fill" label={`${bookName(book, locale)} ${chapter}`} detail={t('continueReading')} onPress={() => router.navigate('/bible')} />
       </Group>
 

@@ -147,10 +147,11 @@ Falta, antes de publicar:
 - Chaves reais do RevenueCat: App Store e Web Billing, mais a chave secreta `sk_` na API. A chave de teste faz o build de produção travar de propósito, por isso só é usada em desenvolvimento.
 - Sign in with Apple e Google. O código liga sozinho com as credenciais, mas falta o botão e o teste real.
 - Revogar o token da Apple ao excluir a conta.
-- Recuperar senha e confirmar e-mail. Depende de um serviço de envio de e-mail.
+- E-mail: recuperar senha e confirmar conta já funcionam com o Brevo. Falta `BREVO_API_KEY` e `EMAIL_FROM`, com o remetente validado. Sem a chave, os links aparecem no log local. Confirmar o e-mail não bloqueia o uso.
 - Nome legal, morada e contato na Política de Privacidade e nos Termos (`apps/mobile/src/lib/legal.ts`), com revisão jurídica.
 - Implantar a API. A versão do Node precisa ser 22.12 ou maior, porque o `better-auth` é um pacote ESM.
-- Gravação de áudio, tela externa, Apple Watch: dependem de aparelho real.
+- Gravação com capítulos: feita para iPhone e iPad, falta testar em aparelho, inclusive em segundo plano. O arquivo fica só no aparelho. No web não há gravação.
+- Tela externa e Apple Watch: dependem de aparelho real.
 - Ícones: SF Symbols no iPhone e iPad; no web, conjunto de traço fino equivalente, porque os da Apple não existem fora dos sistemas dela.
 
 ### Regras
@@ -218,6 +219,10 @@ Geradas por `tools/bible/build.mjs`, que falha se surgir divergência de estrutu
 
 NVI, ACF e ARA ficam para quando houver licença. Antes de publicar, vale uma revisão jurídica do uso comercial, sobretudo da Almeida 1911 no Brasil e em Portugal.
 
+## Plano de leitura e folheto
+- **Plano:** a Bíblia em um ano, de três a quatro capítulos por dia, seguindo o calendário. Fica no aparelho; ainda não sincroniza e não tem lembrete.
+- **Folheto:** PDF para a plateia, com os mesmos campos públicos da aula ao vivo. Notas e resposta esperada nunca entram.
+
 ## Dados locais
 Marcações e posição de leitura ficam em armazenamento chave-valor, igual no aparelho e no web. O SQLite no web exige cabeçalhos especiais no servidor e não tem busca textual. A troca por banco fica para quando houver sincronização.
 
@@ -230,7 +235,6 @@ Decididos em 2026-11-05, com teste grátis de 14 dias. Valores definidos em cada
 | Brasil | R$ 24,90 | R$ 199,90 |
 
 ## Decisões em aberto
-- Plano de leitura e folheto em PDF: v1 ou v1.x.
 
 ## Referência
 Telas, modelos, dados e marca seguem os artefatos:

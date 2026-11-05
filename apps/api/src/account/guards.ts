@@ -4,7 +4,7 @@ import type { Request } from 'express';
 import { getAuth } from './auth';
 import { readEntitlement } from '../billing/entitlements';
 
-export type SessionUser = { id: string; email: string; name: string };
+export type SessionUser = { id: string; email: string; name: string; emailVerified: boolean };
 export type AuthedRequest = Request & { user: SessionUser };
 
 @Injectable()

@@ -149,9 +149,22 @@ export type PulpitRun = {
   spentMs: number[];
   place?: string;
   note?: string;
+  audio?: RunAudio;
   updatedAt?: number;
   deletedAt?: number;
 };
+
+/** A chapter is added each time the speaker moves to a step. */
+export type RecordingChapter = { atMs: number; stepIndex: number };
+export type RunAudio = { file: string; durationMs: number; chapters: RecordingChapter[] };
+
+export function addChapter(chapters: RecordingChapter[], atMs: number, stepIndex: number): RecordingChapter[] {
+  const last = chapters[chapters.length - 1];
+  if (last?.stepIndex === stepIndex) return chapters;
+  // Passing through a step in under a second is a slip, not a chapter.
+  if (last && atMs - last.atMs < 1000) return [...chapters.slice(0, -1), { atMs: last.atMs, stepIndex }];
+  return [...chapters, { atMs, stepIndex }];
+}
 
 export const passageSpans = ({ book, chapter, from, to, translationId }: Passage, first = from, last = to): VerseSpan[] =>
   Array.from({ length: last - first + 1 }, (_, i) => ({ ref: { book, chapter, verse: first + i }, translationId }));

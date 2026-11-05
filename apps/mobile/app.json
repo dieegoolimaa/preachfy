@@ -37,7 +37,15 @@
       ],
       "expo-asset",
       "expo-localization",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "O Preachfy usa o microfone para gravar a sua pregação.",
+          "enableBackgroundRecording": true
+        }
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

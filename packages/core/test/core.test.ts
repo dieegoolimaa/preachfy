@@ -4,7 +4,7 @@ import {
   BOOKS, bookName, marksToPush, mergeMarks, parseReference, searchBook,
   canUse, captureSnapshot, elapsed, goTo, isReadyForPulpit, pace, pause, remaining, resolveSpan, resume,
   selectionSpans, spentInSection, startSession, stepsMissingBaseText, timerState, visibleMarks, wordsOf,
-  TEMPLATES, buildStudy, mergeItems, parsePassage, splitRange, stepBody, stepSuggestions, toLiveSteps, upcoming,
+  BOOKS as ALL_BOOKS, addChapter, planChapters, planDayOf, planProgress, PLAN_DAYS, TEMPLATES, buildStudy, mergeItems, parsePassage, splitRange, stepBody, stepSuggestions, toLiveSteps, upcoming,
 } from '../src/index.ts';
 import type { Mark, Study, VerseSpan } from '../src/index.ts';
 
@@ -293,4 +293,30 @@ test('passages accept a verse range', () => {
   assert.deepEqual(parsePassage('sl 23'), { book: 'PSA', chapter: 23 });
   assert.equal(parsePassage('sl 23:6-1'), null);
   assert.equal(parsePassage('nada aqui 1'), null);
+});
+
+test('recording chapters follow the steps and ignore slips', () => {
+  let chapters = addChapter([], 0, 0);
+  chapters = addChapter(chapters, 60_000, 1);
+  chapters = addChapter(chapters, 60_000, 1);
+  assert.deepEqual(chapters.map((c) => c.stepIndex), [0, 1]);
+  chapters = addChapter(chapters, 60_400, 2);
+  assert.deepEqual(chapters, [{ atMs: 0, stepIndex: 0 }, { atMs: 60_000, stepIndex: 2 }]);
+});
+
+test('the year plan covers every chapter once, in order', () => {
+  const all = Array.from({ length: PLAN_DAYS }, (_, day) => planChapters(day)).flat();
+  assert.equal(all.length, ALL_BOOKS.reduce((sum, book) => sum + book.chapters, 0));
+  assert.equal(new Set(all.map((c) => `${c.book} ${c.chapter}`)).size, all.length);
+  assert.deepEqual(all[0], { book: 'GEN', chapter: 1 });
+  assert.equal(all[all.length - 1]!.book, 'REV');
+  for (let day = 0; day < PLAN_DAYS; day++) assert.ok(planChapters(day).length >= 3 && planChapters(day).length <= 4, String(day));
+});
+
+test('the plan follows the calendar and never leaves its range', () => {
+  const start = new Date(2026, 0, 1, 22).getTime();
+  assert.equal(planDayOf(start, new Date(2026, 0, 1, 23).getTime()), 0);
+  assert.equal(planDayOf(start, new Date(2026, 0, 2, 1).getTime()), 1);
+  assert.equal(planDayOf(start, new Date(2030, 0, 1).getTime()), PLAN_DAYS - 1);
+  assert.equal(planProgress([0, 1, 1, 2]), 3 / PLAN_DAYS);
 });

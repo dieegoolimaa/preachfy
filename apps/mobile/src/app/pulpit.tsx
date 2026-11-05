@@ -17,6 +17,7 @@ import { newId } from '@/lib/ids';
 import { backgrounds, classLink, openLive, pushHighlight, pushScreen, pushStep, screenLink } from '@/lib/live';
 import { resolvePassage } from '@/lib/passage';
 import { goBack } from '@/lib/navigation';
+import { canRecord, useSermonRecorder } from '@/lib/recording';
 import { demoStudy } from '@/lib/sample';
 import { getReader, isPro, updateReader, useReader } from '@/lib/store';
 import { renderStudy, renderText, type Rendered } from '@/lib/studyText';
@@ -36,10 +37,10 @@ const saveSession = (id: string, session: PulpitSession | null) => {
 type Texts = { steps: (Rendered | null)[]; context: Rendered | null };
 type Answer = { id: string; nickname: string; text: string };
 
-type RoundProps = { icon: IconName; label: string; onPress: () => void; onLongPress?: () => void; t: Theme; testID: string; big?: boolean; disabled?: boolean };
+type RoundProps = { icon: IconName; label: string; onPress: () => void; onLongPress?: () => void; t: Theme; testID: string; big?: boolean; disabled?: boolean; active?: boolean };
 
 /** Round controls leave the screen to the text, and stay easy to hit with a thumb. */
-function Round({ icon, label, onPress, onLongPress, t, testID, big, disabled }: RoundProps) {
+function Round({ icon, label, onPress, onLongPress, t, testID, big, disabled, active }: RoundProps) {
   const size = big ? 54 : 44;
   return (
     <Pressable
@@ -47,7 +48,7 @@ function Round({ icon, label, onPress, onLongPress, t, testID, big, disabled }: 
       accessibilityRole="button"
       accessibilityLabel={label}
       disabled={disabled}
-      style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: t.soft, opacity: disabled ? 0.4 : 1 }}
+      style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? t.over : t.soft, opacity: disabled ? 0.4 : 1 }}
       delayLongPress={800}
       onLongPress={onLongPress}
       onPress={onPress}>
@@ -183,6 +184,7 @@ export default function Pulpit() {
   const move = useCallback((delta: number) => change((c) => goTo(c, c.currentIndex + delta, Date.now())), [change]);
 
   const index = session?.currentIndex ?? 0;
+  const recording = useSermonRecorder(index, session ? isPaused(session) : false);
 
   const changeScreen = useCallback(
     (next: (current: typeof screen) => typeof screen) => {
@@ -258,10 +260,12 @@ export default function Pulpit() {
     return <Prepare study={study} texts={texts} resumable={Boolean(saved)} onStart={() => begin()} onResume={() => begin(saved)} />;
   }
 
-  const finish = () => {
+  const finish = async () => {
     const at = Date.now();
+    const runId = newId();
+    const audio = await recording.stop(runId).catch(() => undefined);
     setFinished({
-      id: newId(), studyId: id, title: study.title, startedAt: at - (totalPlanned(session) - remaining(session, at)), endedAt: at,
+      id: runId, studyId: id, ...(audio ? { audio } : {}), title: study.title, startedAt: at - (totalPlanned(session) - remaining(session, at)), endedAt: at,
       plannedMs: totalPlanned(session), spentMs: study.steps.map((_, i) => spentInSection(session, i, at)),
     });
     saveSession(id, null);
@@ -304,6 +308,9 @@ export default function Pulpit() {
     <>
       <Round testID="context" icon="book" label={tr('context')} t={t} onPress={() => setContextOpen((o) => !o)} />
       <Round testID="detail" icon="text-size" label={tr(detailKey[detail])} t={t} onPress={() => setDetail(nextDetail[detail])} />
+      {canRecord && id !== 'demo' ? (
+        <Round testID="record" icon="mic" label={tr('record')} t={t} active={recording.active} onPress={() => (recording.active ? undefined : recording.start().catch(() => {}))} />
+      ) : null}
       <Round testID="detour" icon="verse" label={tr('verseOutside')} t={t} onPress={() => setDetourOpen(true)} />
       {id !== 'demo' ? <Round testID="live" icon="tv" label={tr('screenSheet')} t={t} onPress={() => setLiveOpen(true)} /> : null}
       <Round testID="theme" icon={dark ? 'sun' : 'moon'} label={tr(dark ? 'light' : 'stage')} t={t} onPress={() => setDark((d) => !d)} />
@@ -324,6 +331,8 @@ export default function Pulpit() {
           <Text testID="timer" style={[s.timer, { color: timeColor }]}>{clock(remaining(session, now))}</Text>
           <Text testID="pace" style={s.pace}>
             {paceText} · {tr('inStep', { time: clock(spentInSection(session, index, now)) })}
+            {recording.active ? ` · ● ${clock(recording.elapsed)}` : ''}
+            {recording.denied ? ` · ${tr('micDenied')}` : ''}
           </Text>
         </View>
         {locked ? <View style={s.roundSpace} /> : <Round

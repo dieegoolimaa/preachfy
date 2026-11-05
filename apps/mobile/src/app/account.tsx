@@ -1,9 +1,11 @@
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Text } from 'react-native';
 
 import { Field, Group, Hint, Pill, Row, Screen, ui } from '@/components/ui';
 import { apiFetch, authClient } from '@/lib/auth';
 import { useT } from '@/lib/i18n';
+import { WEB_URL } from '@/lib/live';
 import { updateReader } from '@/lib/store';
 
 export default function Account() {
@@ -17,6 +19,7 @@ export default function Account() {
   const [busy, setBusy] = useState(false);
   const [pro, setPro] = useState<boolean | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [resent, setResent] = useState(false);
 
   const user = session?.user;
 
@@ -52,9 +55,15 @@ export default function Account() {
     return result;
   };
 
+  const resend = async () => {
+    if (!user) return;
+    await authClient.sendVerificationEmail({ email: user.email, callbackURL: `${WEB_URL}/account` }).catch(() => {});
+    setResent(true);
+  };
+
   const submit = () =>
     creating
-      ? run(() => authClient.signUp.email({ name: name.trim() || email, email: email.trim(), password }), t('signUpFailed'))
+      ? run(() => authClient.signUp.email({ name: name.trim() || email, email: email.trim(), password, callbackURL: `${WEB_URL}/account` }), t('signUpFailed'))
       : run(() => authClient.signIn.email({ email: email.trim(), password }), t('signInFailed'));
 
   const input = (testID: string, value: string, onChange: (v: string) => void, label: string, secret = false) => (
@@ -65,6 +74,11 @@ export default function Account() {
     <Screen title={t('account')} close testID="account">
       {isPending ? null : user ? (
         <>
+          {user.emailVerified ? null : (
+            <Group testID="verify-banner" footer={resent ? t('verifySent') : t('verifyHint')}>
+              <Row testID="verify-resend" tint label={t('verifyResend')} onPress={resend} />
+            </Group>
+          )}
           <Group footer={t('syncNote')}>
             <Row icon="person" label={user.email} labelTestID="account-email" />
             <Row label={pro === null ? ' ' : t(pro ? 'planPro' : 'planFree')} labelTestID="account-plan" />
@@ -90,6 +104,7 @@ export default function Account() {
           {input('password', password, setPassword, t('password'), true)}
           {creating ? <Hint testID="consent">{t('consent')}</Hint> : null}
           <Pill testID="submit" big primary disabled={busy} label={t(creating ? 'signUp' : 'signIn')} onPress={submit} />
+          {creating ? null : <Pill testID="forgot" plain label={t('forgotPassword')} onPress={() => router.push('/forgot')} />}
           <Pill testID="toggle-mode" plain label={t(creating ? 'haveAccount' : 'noAccount')} onPress={() => setCreating(!creating)} />
         </>
       )}

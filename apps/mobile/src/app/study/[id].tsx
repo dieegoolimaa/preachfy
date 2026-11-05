@@ -8,13 +8,16 @@ import { useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
 import { LivePanel } from '@/components/LivePanel';
+import { RunAudio } from '@/components/RunAudio';
 import { Card, Field, Group, Hint, IconButton, Pill, Screen, Segmented, ui } from '@/components/ui';
 import { fromInput, dateTime, toInput } from '@/lib/dates';
+import { shareHandout } from '@/lib/handout';
 import { useT } from '@/lib/i18n';
 import { newId } from '@/lib/ids';
 import { goBack } from '@/lib/navigation';
 import { resolvePassage } from '@/lib/passage';
 import { requirePro, usePro } from '@/lib/pro';
+import { canRecord } from '@/lib/recording';
 import { saveStudy, useReader } from '@/lib/store';
 import { renderStudy, useRendered } from '@/lib/studyText';
 import { categoryColor, paper, serif, serifBold } from '@/lib/theme';
@@ -263,6 +266,7 @@ export default function StudyEditor() {
         label={template?.role[locale] ?? t('pulpit')}
         onPress={() => requirePro('pulpit') && router.push(`/pulpit?id=${study.id}`)}
       />
+      <Pill testID="handout" plain icon="document" label={t('handout')} onPress={() => requirePro('pdf') && shareHandout(study, locale, t('madeWith'))} />
       <LivePanel study={study} />
 
       {delivered.length ? <Group title={t('history')} /> : null}
@@ -271,6 +275,7 @@ export default function StudyEditor() {
           <Text style={s.runTitle}>{dateTime(run.startedAt, locale)}{run.place ? ` · ${run.place}` : ''}</Text>
           <Hint>{t('runSummary', { real: Math.round((run.endedAt - run.startedAt) / 60_000), planned: Math.round(run.plannedMs / 60_000) })}</Hint>
           {run.note ? <Hint>{run.note}</Hint> : null}
+          {run.audio && canRecord ? <RunAudio run={run} study={study} /> : null}
         </Card>
       ))}
 

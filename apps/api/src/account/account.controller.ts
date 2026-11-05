@@ -7,6 +7,6 @@ export class AccountController {
   @Get()
   @UseGuards(SessionGuard)
   async me(@Req() { user }: AuthedRequest) {
-    return { user: { id: user.id, email: user.email, name: user.name }, ...(await readEntitlement(user.id)) };
+    return { user: { id: user.id, email: user.email, name: user.name, emailVerified: user.emailVerified }, ...(await readEntitlement(user.id)) };
   }
 }

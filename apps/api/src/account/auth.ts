@@ -4,6 +4,7 @@ import { betterAuth } from 'better-auth';
 import { deleteSubscriber } from '../billing/entitlements';
 import { deleteCommunityData } from '../community/community.service';
 import { db, mongo } from '../database';
+import { sendMail } from './email';
 import { deleteLiveData } from '../live/live.service';
 
 export const allowedOrigins = (): string[] =>
@@ -40,7 +41,18 @@ function createAuth() {
     database: mongodbAdapter(db(), { client: mongo() }),
     // Expo Go identifies itself with exp://, which only exists in development.
     trustedOrigins: ['preachfy://', ...(process.env.NODE_ENV === 'production' ? [] : ['exp://']), ...allowedOrigins()],
-    emailAndPassword: { enabled: true, minPasswordLength: 8 },
+    emailAndPassword: {
+      enabled: true,
+      minPasswordLength: 8,
+      revokeSessionsOnPasswordReset: true,
+      sendResetPassword: async ({ user, url }, request) => sendMail(user.email, 'reset', url, request),
+    },
+    // Reading and studying never wait for this, so an unconfirmed account keeps working.
+    emailVerification: {
+      sendOnSignUp: true,
+      autoSignInAfterVerification: true,
+      sendVerificationEmail: async ({ user, url }, request) => sendMail(user.email, 'verify', url, request),
+    },
     socialProviders: socialProviders(),
     plugins: [expo()],
     user: {

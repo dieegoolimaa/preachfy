@@ -15,7 +15,8 @@ export default function Picker() {
   const [book, setBook] = useState<Book | null>(null);
 
   const open = (chapter: number) => {
-    updateReader({ book: book!.id, chapter, verse: undefined });
+    if (!book) return;
+    updateReader({ book: book.id, chapter, verse: undefined });
     goBack();
   };
 

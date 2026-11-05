@@ -16,9 +16,10 @@ export const authClient = createAuthClient({
 });
 
 /** Calls our API with the session: a cookie on web, the stored one on native. */
-export function apiFetch(path: string, init: RequestInit = {}) {
-  const client = authClient as unknown as { getCookie?: () => string };
-  const cookie = native ? client.getCookie?.() : undefined;
+export async function apiFetch(path: string, init: RequestInit = {}) {
+  const client = authClient as unknown as { getCookie?: () => Promise<string> | string };
+  // The stored cookie is read asynchronously on native, so it must be awaited before it is sent.
+  const cookie = native ? await client.getCookie?.() : undefined;
   return fetch(`${API_URL}${path}`, {
     ...init,
     credentials: native ? 'omit' : 'include',

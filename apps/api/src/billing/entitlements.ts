@@ -38,3 +38,8 @@ export async function deleteSubscriber(userId: string): Promise<void> {
   if (!process.env.REVENUECAT_SECRET_KEY) return;
   await fetch(subscriberUrl(userId), { method: 'DELETE', headers: headers() });
 }
+
+/** For local work only. Real plans always come from RevenueCat. */
+export async function grantEntitlement(userId: string): Promise<void> {
+  await db().collection<Stored>('entitlements').updateOne({ userId }, { $set: { active: true, expiresAt: null } }, { upsert: true });
+}

@@ -132,6 +132,12 @@ const mailTo = async (email, subject) => {
 };
 const linkIn = (mail) => mail.htmlContent.match(/href="([^"]+)"/)[1].replaceAll('&amp;', '&');
 
+test('the development Pro route does not exist unless it is turned on', async () => {
+  const user = await signUp('devpro@example.com');
+  assert.equal((await call('/dev/pro', { cookie: user.cookie, method: 'POST' })).status, 404);
+  assert.equal((await (await call('/me', { cookie: user.cookie })).json()).pro, false);
+});
+
 test('a new account gets a confirmation email through Brevo, and the link confirms it', async () => {
   const user = await signUp('confirm@example.com');
   const mail = await mailTo('confirm@example.com', /Confirme/);

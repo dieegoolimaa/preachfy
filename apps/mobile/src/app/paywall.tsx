@@ -7,7 +7,7 @@ import { Group, Hint, Pill, Row, Screen, Title, ui } from '@/components/ui';
 import { apiFetch, authClient } from '@/lib/auth';
 import { useT } from '@/lib/i18n';
 import { goBack } from '@/lib/navigation';
-import { buy, isCancelled, loadPackages, restore } from '@/lib/purchases';
+import { buy, inExpoGo, isCancelled, loadPackages, restore } from '@/lib/purchases';
 import { updateReader } from '@/lib/store';
 import { paper } from '@/lib/theme';
 
@@ -22,7 +22,7 @@ export default function Paywall() {
   const [failure, setFailure] = useState<'storeUnavailable' | 'purchasePending' | 'purchaseFailed' | null>(null);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || inExpoGo) return;
     loadPackages(userId)
       // The yearly plan comes first: it is the best value.
       .then((found) => setPackages([...found].sort((a, b) => Number(b.packageType === 'ANNUAL') - Number(a.packageType === 'ANNUAL'))))
@@ -79,11 +79,17 @@ export default function Paywall() {
               </Pressable>
             ))}
           </View>
-          <Pill testID="subscribe" primary big disabled={!item || busy} label={t('subscribe')} onPress={() => run(() => buy(userId, item!))} />
-          <Pill testID="restore" plain disabled={busy} label={t('restore')} onPress={() => run(() => restore(userId))} />
+          {inExpoGo ? null : <Pill testID="subscribe" primary big disabled={!item || busy} label={t('subscribe')} onPress={() => item && run(() => buy(userId, item))} />}
+          {inExpoGo ? null : <Pill testID="restore" plain disabled={busy} label={t('restore')} onPress={() => run(() => restore(userId))} />}
         </>
       )}
       {failure ? <Text testID="paywall-message" style={ui.error}>{t(failure)}</Text> : null}
+      {__DEV__ && userId ? (
+        <>
+          {inExpoGo ? <Hint testID="expo-go-note">{t('expoGoNote')}</Hint> : null}
+          <Pill testID="dev-pro" big label={t('devUnlock')} onPress={() => run(async () => { const ok = await apiFetch('/dev/pro', { method: 'POST' }); if (!ok.ok) throw new Error('dev'); })} />
+        </>
+      ) : null}
       <Hint>{t('renewalTerms')}</Hint>
       <View style={ui.row}>
         <Pill plain label={t('terms')} onPress={() => router.push('/legal?doc=terms')} />

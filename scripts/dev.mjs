@@ -11,7 +11,7 @@ const WEB = 8081;
 
 const root = path.resolve(import.meta.dirname, '..');
 const address = Object.values(networkInterfaces()).flat().find((item) => item.family === 'IPv4' && !item.internal)?.address;
-const env = { ...process.env, ...(address ? { DEV_ORIGINS: `http://${address}:${WEB}` } : {}) };
+const env = { ...process.env, ALLOW_DEV_PRO: '1', ...(address ? { DEV_ORIGINS: `http://${address}:${WEB}` } : {}) };
 const children = [];
 const run = (command, args, cwd) => children.push(spawn(command, args, { cwd: path.join(root, cwd), stdio: 'inherit', env }));
 

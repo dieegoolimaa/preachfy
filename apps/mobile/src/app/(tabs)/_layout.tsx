@@ -37,7 +37,7 @@ export default function Shell() {
         onPress={() => router.navigate(tab.href as Href)}>
         <View style={s.label}>
           {on && !wide ? <View style={s.mark} /> : null}
-          <Text numberOfLines={1} style={wide ? [s.railText, on && s.railTextOn] : [s.barText, { color }, on && s.barTextOn]}>{t(tab.key)}</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={wide ? [s.railText, on && s.railTextOn] : [s.barText, { color }, on && s.barTextOn]}>{t(tab.key)}</Text>
         </View>
       </Pressable>
     );
@@ -69,9 +69,9 @@ const s = StyleSheet.create({
   railTextOn: { color: paper.fg, fontWeight: '600' },
   bar: { flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: paper.line, backgroundColor: 'rgba(252,252,251,0.94)' },
   glass: { backdropFilter: 'blur(20px)' } as object,
-  barItem: { flex: 1, minHeight: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  barItem: { flex: 1, minHeight: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 0 },
   label: { alignItems: 'center', justifyContent: 'center' },
   mark: { position: 'absolute', left: -2, right: -2, bottom: 0, height: 7, backgroundColor: paper.mark },
-  barText: { fontSize: 12.5, fontWeight: '500' },
+  barText: { fontSize: 12, fontWeight: '500' },
   barTextOn: { fontWeight: '700' },
 });

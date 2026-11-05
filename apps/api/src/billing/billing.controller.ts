@@ -1,7 +1,7 @@
-import { Body, Controller, Headers, HttpCode, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { Body, Controller, Headers, HttpCode, NotFoundException, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { SessionGuard, type AuthedRequest } from '../account/guards';
-import { readEntitlement, refreshEntitlement } from './entitlements';
+import { grantEntitlement, readEntitlement, refreshEntitlement } from './entitlements';
 
 const digest = (value: string) => createHash('sha256').update(value).digest();
 
@@ -20,6 +20,16 @@ export class BillingController {
   @UseGuards(SessionGuard)
   async refresh(@Req() { user }: AuthedRequest) {
     await refreshEntitlement(user.id);
+    return readEntitlement(user.id);
+  }
+
+  /** Local development only: `npm run dev` turns it on. In production the route does not exist. */
+  @Post('dev/pro')
+  @HttpCode(200)
+  @UseGuards(SessionGuard)
+  async devPro(@Req() { user }: AuthedRequest) {
+    if (process.env.ALLOW_DEV_PRO !== '1') throw new NotFoundException();
+    await grantEntitlement(user.id);
     return readEntitlement(user.id);
   }
 

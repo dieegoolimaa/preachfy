@@ -31,8 +31,20 @@ npm run pro -- email@exemplo.com
 
 Para testar em um iPhone na mesma rede Wi-Fi, abra no app Expo Go o endereço `exp://` que o `npm run dev` mostra. Compras reais não funcionam no Expo Go; use `npm run pro` para liberar o Pro.
 
+## Simulador de iOS
+
+Com o Xcode instalado, o app abre no simulador sem Apple Developer:
+
+```sh
+npm run dev                      # banco, API e web, na raiz
+cd apps/mobile && npx expo start --go --ios --port 8082
+```
+
+No simulador, abra `exp://SEU_IP:8082/--/dev` (o IP aparece no `npm run dev`). Esse atalho, só em desenvolvimento, entra em uma conta de teste, libera o Pro e abre um estudo pronto. Na tela de planos, o botão "Liberar Pro (teste local)" faz o mesmo. Compra real não funciona no Expo Go.
+
 ## Testes
 
 ```sh
-npm test
+npm test                          # regras e API
+npm run e2e -w @preachfy/mobile   # navegador, com o npm run dev rodando
 ```

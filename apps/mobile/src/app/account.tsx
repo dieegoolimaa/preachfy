@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { apiFetch, authClient } from '@/lib/auth';
 import { useT } from '@/lib/i18n';
 import { goBack } from '@/lib/navigation';
+import { updateReader } from '@/lib/store';
 import { paper, serifBold } from '@/lib/theme';
 
 export default function Account() {
@@ -46,6 +47,13 @@ export default function Account() {
     setBusy(false);
   };
 
+  /** The plan belongs to the account, so it goes when the account leaves this device. */
+  const leave = (action: () => Promise<{ error: unknown }>) => async () => {
+    const result = await action();
+    if (!result.error) updateReader({ pro: false, proUntil: null });
+    return result;
+  };
+
   const submit = () =>
     creating
       ? run(() => authClient.signUp.email({ name: name.trim() || email, email: email.trim(), password }), t('signUpFailed'))
@@ -81,7 +89,7 @@ export default function Account() {
               {pro === null ? ' ' : t(pro ? 'planPro' : 'planFree')}
             </Text>
             <Text style={styles.hint}>{t('syncNote')}</Text>
-            <Pressable testID="sign-out" style={styles.pill} onPress={() => run(() => authClient.signOut(), t('offline'))}>
+            <Pressable testID="sign-out" style={styles.pill} onPress={() => run(leave(() => authClient.signOut()), t('offline'))}>
               <Text style={styles.pillText}>{t('signOut')}</Text>
             </Pressable>
             {deleting ? (
@@ -92,7 +100,7 @@ export default function Account() {
                   testID="confirm-delete"
                   disabled={busy}
                   style={[styles.pill, styles.pillDanger]}
-                  onPress={() => run(() => authClient.deleteUser({ password }), t('deleteFailed'))}>
+                  onPress={() => run(leave(() => authClient.deleteUser({ password })), t('deleteFailed'))}>
                   <Text style={styles.pillDangerText}>{t('confirmDelete')}</Text>
                 </Pressable>
                 <Pressable style={styles.pill} onPress={() => setDeleting(false)}>
@@ -109,6 +117,7 @@ export default function Account() {
           <>
             <Text style={styles.hint}>{t('accountHint')}</Text>
             {creating ? input('name', name, setName, t('name')) : null}
+            {creating ? <Text testID="consent" style={styles.hint}>{t('consent')}</Text> : null}
             {input('email', email, setEmail, t('email'))}
             {input('password', password, setPassword, t('password'), true)}
             <Pressable testID="submit" disabled={busy} style={[styles.pill, styles.pillOn]} onPress={submit}>

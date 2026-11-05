@@ -25,19 +25,19 @@ Riscos a validar primeiro:
 - **Assinatura:** Compra pela App Store no iOS e outro meio no web, com um único estado de Pro.
 
 ## O sistema anterior
-A API e o web foram reformulados. O código antigo continua na branch `main`, e os dados antigos do banco não foram tocados.
+A API e o web foram reformulados. O projeto recomeça do zero: os dados antigos não serão migrados. O código antigo continua na branch `main` até o merge.
 
 | Antes | Agora |
 |---|---|
 | Next.js em `apps/web` | Removido. O web sai do Expo, com o mesmo visual do app |
-| Painel (`DashboardView`) | Vira Hoje e Biblioteca (a fazer) |
-| Canvas do sermão (`SermonCanvas`) | Vira Criar (a fazer) |
-| Bíblia (`BibleExplorer`, por API externa) | Leitor com textos embutidos. Comparar versões a fazer |
+| Painel (`DashboardView`) | Vira Hoje |
+| Canvas do sermão (`SermonCanvas`) | Vira Criar: biblioteca, modelos e editor |
+| Bíblia (`BibleExplorer`, por API externa) | Leitor com textos embutidos e comparação de versões |
 | Púlpito (`PulpitView`) | Modo Púlpito por passos |
 | Púlpito em tempo real por socket | Removido: transmitia para todos, sem login. A ideia volta no telão por link e na aula ao vivo |
 | Insights (`GlobalInsight`) | Marcações e notas |
-| Histórico de ministração | Sessões de pregação (a fazer) |
-| Comunidade: membros, mural, agenda, avisos | Removida do v1. Fase futura, se fizer sentido |
+| Histórico de ministração | Histórico por conteúdo, com tempo real, local e nota |
+| Comunidade: membros, mural, agenda, avisos | Reconstruída no v1, com convite, moderação, denúncia e bloqueio |
 | Página de entrada (`LandingView`) | Removida. Site de divulgação a fazer antes do lançamento |
 | NextAuth e Prisma | Better Auth e driver do MongoDB |
 
@@ -126,7 +126,7 @@ Alternativas descartadas como base: MultipeerConnectivity (limite de 8 aparelhos
 | `apps/mobile` (Expo) | App e web, com as mesmas telas |
 | `apps/api` (NestJS + MongoDB) | Login, sincronização, aula ao vivo, telão por link, webhook de assinatura |
 | Better Auth, dentro da API | Conta única. Adaptador oficial para MongoDB e plugin para Expo |
-| RevenueCat | Fonte única do estado Pro. Produto `pro`, para App Store e web |
+| RevenueCat | Fonte única do estado Pro. Entitlement `preachfy_pro`, com pacotes mensal e anual |
 | App Store (compra no app) | Cobrança no iPhone e no iPad |
 | Stripe Billing com Managed Payments, via RevenueCat | Cobrança no web, só cartão |
 
@@ -140,14 +140,17 @@ Como pessoa física residente em Portugal, no web e na App Store. Só cartão.
 - **Consumidor:** verificar direito de livre resolução, termos de venda e Livro de Reclamações para o web.
 
 ### Estado
-Pronto e testado no web: conta por e-mail, sessão, plano, sincronização de marcações, webhook do RevenueCat e exclusão de conta.
+Pronto e testado no web: conta por e-mail, assinatura pela loja de testes do RevenueCat, sincronização de marcações, estudos e histórico, Criar, Púlpito, aula ao vivo, telão por link, Comunidade e exclusão de conta.
 
 Falta, antes de publicar:
-- Compra no app e paywall (`react-native-purchases`). Depende das chaves do RevenueCat.
+- Testar em iPhone e iPad reais, com build de desenvolvimento (`eas.json`). Compra real não funciona no Expo Go.
+- Chaves reais do RevenueCat: App Store e Web Billing, mais a chave secreta `sk_` na API. A chave de teste faz o build de produção travar de propósito, por isso só é usada em desenvolvimento.
 - Sign in with Apple e Google. O código liga sozinho com as credenciais, mas falta o botão e o teste real.
 - Revogar o token da Apple ao excluir a conta.
 - Recuperar senha e confirmar e-mail. Depende de um serviço de envio de e-mail.
+- Nome legal, morada e contato na Política de Privacidade e nos Termos (`apps/mobile/src/lib/legal.ts`), com revisão jurídica.
 - Implantar a API. A versão do Node precisa ser 22.12 ou maior, porque o `better-auth` é um pacote ESM.
+- Gravação de áudio, tela externa, Apple Watch: dependem de aparelho real.
 
 ### Regras
 - O `id` do usuário no Better Auth é o `appUserID` no RevenueCat. Sem isso, a assinatura feita em um lugar não aparece no outro.
@@ -181,6 +184,15 @@ Decidido: entra depois de Criar e Púlpito, como recurso Pro e pacote opcional.
 - **Idiomas:** as definições são em inglês. Não achei versão aberta em português ou espanhol confirmada. Traduzir cerca de 14 mil verbetes exige revisão teológica.
 - **Numeração:** versículos em hebraico podem não bater com as traduções, sobretudo nos Salmos. Exige tabela de correspondência.
 - **Tamanho:** baixar como pacote opcional, para não pesar no app.
+
+## Comunidade
+Grupo fechado por convite: igreja, célula ou equipe. Só quem cria precisa do Pro; os membros entram de graça, com conta.
+
+- **Mural:** publicações e avisos. Só líderes publicam avisos, e os membros marcam "ciente".
+- **Agenda:** líderes marcam encontros, membros confirmam presença.
+- **Membros:** nome e papel, sem e-mail. O dono promove líderes; o convite pode ser trocado.
+- **Estudos:** anexar ao mural envia o material, sem as marcações pessoais. Copiar para os próprios conteúdos é Pro.
+- **Moderação (exigência da App Store para conteúdo de usuários):** denunciar publicação, bloquear pessoa, líderes removem. Termos com tolerância zero. Falta um canal do desenvolvedor para agir em 24 horas.
 
 ## Serviço de compartilhamento
 Faz parte da `apps/api`, e a página do aluno faz parte do web em Expo. Guarda só o que o professor publicou e expira. O plano gratuito do Render hiberna, então a aula ao vivo exige um plano sempre ligado.

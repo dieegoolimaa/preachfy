@@ -1,51 +1,53 @@
-import type { Study, VerseSpan, VerseText } from '@preachfy/core';
+import type { Locale, Study, StudyText } from '@preachfy/core';
 
-export const TRANSLATION = 'kjv';
-export const PASSAGE = 'Salmos 23';
+import { defaultTranslation } from './store';
 
-const texts = [
-  'The LORD is my shepherd; I shall not want.',
-  'He maketh me to lie down in green pastures: he leadeth me beside the still waters.',
-  'He restoreth my soul: he leadeth me in the paths of righteousness for his name’s sake.',
-  'Yea, though I walk through the valley of the shadow of death, I will fear no evil: for thou art with me; thy rod and thy staff they comfort me.',
-  'Thou preparest a table before me in the presence of mine enemies: thou anointest my head with oil; my cup runneth over.',
-  'Surely goodness and mercy shall follow me all the days of my life: and I will dwell in the house of the LORD for ever.',
-];
-
-export const verses: VerseText[] = texts.map((text, i) => ({ ref: { book: 'sl', chapter: 23, verse: i + 1 }, text }));
-
-const scripture = (from: number, to: number) => ({
-  kind: 'scripture' as const,
-  spans: verses.slice(from - 1, to).map((v): VerseSpan => ({ ref: v.ref, translationId: TRANSLATION })),
-});
-
-export const sampleStudy: Study = {
-  id: 'sample',
-  title: 'O Senhor é o meu pastor',
-  context: scripture(1, 6),
-  steps: [
-    { id: '1', title: 'Quando parece que falta algo', plannedMs: 300_000,
-      baseText: { kind: 'authored', text: 'O que você mais teme que falte nesta semana?' },
-      notes: 'Deixe a pessoa pensar. Conte uma história curta de alguém que passou por falta e, mesmo assim, foi cuidado.' },
-    { id: '2', title: 'Ele cuida de mim', plannedMs: 600_000, baseText: scripture(1, 3),
-      notes: 'O pastor provê (v. 1), faz descansar (v. 2) e restaura (v. 3). Repare nos verbos: tudo o que o pastor faz, ele faz por mim.' },
-    { id: '3', title: 'Ele está comigo no vale', plannedMs: 600_000, baseText: scripture(4, 4),
-      notes: 'O salmista não diz que evita o vale. Diz que passa por ele, e que não está sozinho. A vara e o cajado: proteção e direção.' },
-    { id: '4', title: 'Ele me recebe e me guarda', plannedMs: 600_000, baseText: scripture(5, 6),
-      notes: 'Uma mesa preparada à vista dos inimigos: honra pública. Bondade e misericórdia me seguem.' },
-    { id: '5', title: 'Confie no Pastor', plannedMs: 300_000,
-      baseText: { kind: 'authored', text: 'Entregue isso ao Pastor hoje.' },
-      notes: 'Volte à pergunta do início. Convide a uma resposta e termine com oração.' },
+const steps: Record<Locale, [string, string, string?][]> = {
+  pt: [
+    ['Quando parece que falta algo', 'Deixe a pessoa pensar. Conte uma história curta de alguém que passou por falta e, mesmo assim, foi cuidado.', 'O que você mais teme que falte nesta semana?'],
+    ['Ele cuida de mim', 'O pastor provê (v. 1), faz descansar (v. 2) e restaura (v. 3). Repare nos verbos: tudo o que o pastor faz, ele faz por mim.'],
+    ['Ele está comigo no vale', 'O salmista não diz que evita o vale. Diz que passa por ele, e que não está sozinho. A vara e o cajado: proteção e direção.'],
+    ['Ele me recebe e me guarda', 'Uma mesa preparada à vista dos inimigos: honra pública. Bondade e misericórdia me seguem.'],
+    ['Confie no Pastor', 'Volte à pergunta do início. Convide a uma resposta e termine com oração.', 'Entregue isso ao Pastor hoje.'],
+  ],
+  en: [
+    ['When something seems to be missing', 'Let people think. Tell a short story of someone who went through lack and was still cared for.', 'What do you most fear will be missing this week?'],
+    ['He takes care of me', 'The shepherd provides (v. 1), gives rest (v. 2) and restores (v. 3). Notice the verbs: all the shepherd does, he does for me.'],
+    ['He is with me in the valley', 'The psalmist does not say he avoids the valley. He says he walks through it, and is not alone. Rod and staff: protection and direction.'],
+    ['He welcomes and keeps me', 'A table prepared before enemies: public honor. Goodness and mercy follow me.'],
+    ['Trust the Shepherd', 'Return to the opening question. Invite a response and end in prayer.', 'Give this to the Shepherd today.'],
+  ],
+  es: [
+    ['Cuando parece que algo falta', 'Deja que la persona piense. Cuenta una historia breve de alguien que pasó necesidad y aun así fue cuidado.', '¿Qué es lo que más temes que falte esta semana?'],
+    ['Él cuida de mí', 'El pastor provee (v. 1), hace descansar (v. 2) y restaura (v. 3). Fíjate en los verbos: todo lo que hace el pastor, lo hace por mí.'],
+    ['Él está conmigo en el valle', 'El salmista no dice que evita el valle. Dice que pasa por él y que no está solo. La vara y el cayado: protección y dirección.'],
+    ['Él me recibe y me guarda', 'Una mesa preparada ante los enemigos: honra pública. El bien y la misericordia me siguen.'],
+    ['Confía en el Pastor', 'Vuelve a la pregunta del inicio. Invita a una respuesta y termina con oración.', 'Entrégale esto al Pastor hoy.'],
   ],
 };
 
-export function studyText(text: Study['context']): { label: string; body: string } | null {
-  if (!text) return null;
-  if (text.kind === 'authored') return { label: '', body: text.text };
-  const numbers = text.spans.map((s) => s.ref.verse);
-  const first = numbers[0];
-  const last = numbers[numbers.length - 1];
-  const range = first === last ? `${first}` : `${first}–${last}`;
-  const body = text.spans.map((s) => verses[s.ref.verse - 1]?.text ?? '').join(' ');
-  return { label: `${PASSAGE}:${range} · KJV`, body };
+const titles: Record<Locale, string> = { pt: 'O Senhor é o meu pastor', en: 'The Lord is my shepherd', es: 'El Señor es mi pastor' };
+const ranges: ([number, number] | null)[] = [null, [1, 3], [4, 4], [5, 6], null];
+const minutes = [5, 10, 10, 10, 5];
+
+/** A finished example, open to everyone, so people can try the Pulpit before subscribing. */
+export function demoStudy(locale: Locale): Study {
+  const translationId = defaultTranslation[locale];
+  const scripture = (from: number, to: number): StudyText => ({
+    kind: 'scripture',
+    spans: Array.from({ length: to - from + 1 }, (_, i) => ({ ref: { book: 'PSA', chapter: 23, verse: from + i }, translationId })),
+  });
+  return {
+    id: 'demo',
+    title: titles[locale],
+    kind: 'outline',
+    context: scripture(1, 6),
+    steps: steps[locale].map(([title, notes, key], i) => {
+      const range = ranges[i];
+      return {
+        id: String(i + 1), title, notes, plannedMs: minutes[i]! * 60_000,
+        baseText: range ? scripture(range[0], range[1]) : { kind: 'authored', text: key! },
+      };
+    }),
+  };
 }

@@ -11,6 +11,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Verse } from '@/components/Verse';
 import { loadBook } from '@/lib/bible';
 import { useT } from '@/lib/i18n';
+import { newId } from '@/lib/ids';
+import { requirePro } from '@/lib/pro';
 import { updateReader, useReader } from '@/lib/store';
 import { categories, paper, serifBold } from '@/lib/theme';
 import { translationById, translations } from '@/lib/translations';
@@ -109,7 +111,7 @@ export default function Reader() {
 
   const mark = (categoryKey: string) => {
     if (!canUse('simpleMark', false)) return;
-    const created: Mark = { id: `${Date.now()}-${marks.length}`, scope: { kind: 'bible' }, spans, categoryKey, note: '', updatedAt: Date.now() };
+    const created: Mark = { id: newId(), scope: { kind: 'bible' }, spans, categoryKey, note: '', updatedAt: Date.now() };
     updateReader({ marks: [...marks, created] });
     setNotice(t('markSaved'));
     clear();
@@ -128,6 +130,13 @@ export default function Reader() {
       return;
     }
     await Share.share({ message });
+  };
+
+  const createFromSelection = () => {
+    if (!requirePro('create')) return;
+    const first = spans[0]?.ref.verse;
+    const last = spans[spans.length - 1]?.ref.verse;
+    router.push({ pathname: '/new', params: { passage: `${title} ${chapter}:${first}-${last}` } });
   };
 
   const nextVersion = () => {
@@ -153,12 +162,9 @@ export default function Reader() {
           <Pressable testID="open-search" style={styles.pill} onPress={() => router.push('/search')}>
             <Text style={styles.pillText}>{t('search')}</Text>
           </Pressable>
-          <Pressable testID="open-pulpit" style={[styles.pill, styles.pillOn]} onPress={() => router.push('/pulpit')}>
-            <Text style={[styles.pillText, styles.pillTextOn]}>{t('pulpit')}</Text>
-          </Pressable>
         </View>
       </View>
-      <View style={styles.tools}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.toolsBar} contentContainerStyle={styles.tools}>
         <Pressable testID="translation" style={styles.pill} onPress={nextVersion}>
           <Text style={styles.pillText}>{version.short}</Text>
         </Pressable>
@@ -168,13 +174,13 @@ export default function Reader() {
           onPress={() => setLayer(clean ? { kind: 'personal' } : { kind: 'clean' })}>
           <Text style={[styles.pillText, clean && styles.pillTextOn]}>{t('clean')}</Text>
         </Pressable>
-        <Pressable testID="open-account" style={styles.pill} onPress={() => router.push('/account')}>
-          <Text style={styles.pillText}>{t('account')}</Text>
+        <Pressable testID="open-compare" style={styles.pill} onPress={() => requirePro('compareTranslations') && router.push('/compare')}>
+          <Text style={styles.pillText}>{t('compare')}</Text>
         </Pressable>
-        <Pressable testID="open-about" style={styles.pill} onPress={() => router.push('/about')}>
-          <Text style={styles.pillText}>{t('about')}</Text>
+        <Pressable testID="open-marks" style={styles.pill} onPress={() => router.push('/marks')}>
+          <Text style={styles.pillText}>{t('myMarks')}</Text>
         </Pressable>
-      </View>
+      </ScrollView>
 
       {failed ? <Text style={styles.message}>{t('openFailed')}</Text> : null}
       {!chapters && !failed ? <Text style={styles.message}>{t('opening')}</Text> : null}
@@ -229,6 +235,9 @@ export default function Reader() {
           <View style={styles.row}>
             <Pressable testID="copy" style={styles.pill} onPress={copy}><Text style={styles.pillText}>{t('copy')}</Text></Pressable>
             <Pressable testID="share" style={styles.pill} onPress={share}><Text style={styles.pillText}>{t('share')}</Text></Pressable>
+            <Pressable testID="create-from-selection" style={[styles.pill, styles.pillOn]} onPress={createFromSelection}>
+              <Text style={[styles.pillText, styles.pillTextOn]}>{t('create')}</Text>
+            </Pressable>
             <Pressable style={styles.pill} onPress={clear}><Text style={styles.pillText}>{t('cancel')}</Text></Pressable>
           </View>
         </View>
@@ -250,7 +259,8 @@ const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: paper.bg },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingTop: 12 },
   title: { fontFamily: serifBold, fontSize: 26, color: paper.fg },
-  tools: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: paper.line },
+  toolsBar: { flexGrow: 0, borderBottomWidth: 1, borderBottomColor: paper.line },
+  tools: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingVertical: 10 },
   row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   list: { flex: 1 },
   text: { padding: 20, maxWidth: 720, width: '100%', alignSelf: 'center' },

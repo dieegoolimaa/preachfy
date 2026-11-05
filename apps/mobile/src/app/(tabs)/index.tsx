@@ -1,0 +1,81 @@
+import { bookName, upcoming } from '@preachfy/core';
+import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { StyleSheet, Text } from 'react-native';
+
+import { Card, Heading, Hint, Pill, Screen, ui } from '@/components/ui';
+import { loadBook } from '@/lib/bible';
+import { dateTime } from '@/lib/dates';
+import { useT } from '@/lib/i18n';
+import { updateReader, useReader } from '@/lib/store';
+import { paper, serif } from '@/lib/theme';
+import { translationById } from '@/lib/translations';
+
+const DAILY: [string, number, number][] = [
+  ['PSA', 23, 1], ['JOH', 3, 16], ['ROM', 8, 28], ['PHP', 4, 13], ['ISA', 41, 10], ['PSA', 46, 1], ['PRO', 3, 5],
+  ['MAT', 11, 28], ['JER', 29, 11], ['ROM', 12, 2], ['PSA', 119, 105], ['2CO', 5, 17], ['GAL', 2, 20], ['HEB', 11, 1],
+  ['JOS', 1, 9], ['MAT', 6, 33], ['PSA', 27, 1], ['1JN', 4, 19], ['ISA', 40, 31], ['EPH', 2, 8], ['1PE', 5, 7],
+  ['LAM', 3, 22], ['PSA', 37, 5], ['COL', 3, 23], ['JAS', 1, 5], ['ROM', 5, 8], ['JOH', 14, 6], ['MIC', 6, 8],
+  ['PSA', 91, 1], ['HEB', 12, 2], ['1CO', 13, 13],
+];
+
+export default function Today() {
+  const { t, locale } = useT();
+  const { book, chapter, translation, studies } = useReader();
+  const [daily, setDaily] = useState('');
+  const dayOfYear = Math.floor(Date.now() / 86_400_000);
+  const [dailyBook, dailyChapter, dailyVerse] = DAILY[dayOfYear % DAILY.length]!;
+  const next = upcoming(studies, Date.now())[0];
+  const recent = studies.filter((s) => !s.deletedAt).slice(0, 3);
+
+  useEffect(() => {
+    let live = true;
+    loadBook(translation, dailyBook)
+      .then((chapters) => live && setDaily(chapters[dailyChapter - 1]?.[dailyVerse - 1] ?? ''))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [translation, dailyBook, dailyChapter, dailyVerse]);
+
+  const openDaily = () => {
+    updateReader({ book: dailyBook, chapter: dailyChapter, verse: dailyVerse });
+    router.navigate('/bible');
+  };
+
+  return (
+    <Screen title={t('today')} testID="today">
+      <Card testID="daily" onPress={openDaily}>
+        <Text style={ui.label}>{t('verseOfDay')}</Text>
+        <Text style={s.verse}>{daily}</Text>
+        <Hint>{bookName(dailyBook, locale)} {dailyChapter}:{dailyVerse} · {translationById(translation).short}</Hint>
+      </Card>
+
+      <Card testID="continue" onPress={() => router.navigate('/bible')}>
+        <Text style={ui.label}>{t('continueReading')}</Text>
+        <Text style={ui.cardTitle}>{bookName(book, locale)} {chapter}</Text>
+      </Card>
+
+      {next ? (
+        <Card testID="next-content" onPress={() => router.push(`/study/${next.id}`)}>
+          <Text style={ui.label}>{t('nextUp')}</Text>
+          <Text style={ui.cardTitle}>{next.title}</Text>
+          <Hint>{dateTime(next.scheduledFor!, locale)}</Hint>
+        </Card>
+      ) : null}
+
+      {recent.length ? <Heading>{t('recent')}</Heading> : null}
+      {recent.map((study) => (
+        <Card key={study.id} onPress={() => router.push(`/study/${study.id}`)}>
+          <Text style={ui.cardTitle}>{study.title}</Text>
+        </Card>
+      ))}
+
+      <Heading>{t('tryPulpit')}</Heading>
+      <Hint>{t('tryPulpitHint')}</Hint>
+      <Pill testID="open-demo" label={t('openDemo')} onPress={() => router.push('/pulpit?id=demo')} />
+    </Screen>
+  );
+}
+
+const s = StyleSheet.create({ verse: { fontFamily: serif, fontSize: 22, lineHeight: 31, color: paper.fg } });

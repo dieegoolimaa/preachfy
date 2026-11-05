@@ -32,13 +32,54 @@ try {
   ok('study is ready to deliver', await T('ready').isVisible());
   ok('steps show their base text', /Salmo|Psalm/i.test(await T('step-1').innerText()));
 
+  // Time: a target, a bar and an estimate from the words written.
+  const target = async () => Number(await T('target').innerText());
+  const before0 = await target();
+  await T('target-more').click();
+  await page.waitForTimeout(200);
+  ok('the target can be raised', (await target()) === before0 + 5, `${before0} -> ${await target()}`);
+  ok('the plan is compared with the target', /min planejados/.test(await T('budget-note').innerText()), await T('budget-note').innerText());
+
+  // Blocks: each step is a sequence of things to say.
   await T('step-1-toggle').click();
-  await T('step-1-notes').fill('Nota editada');
-  await page.waitForTimeout(400);
+  await T('step-1-block-0-text').fill('Nota editada');
+  await T('step-1-add-idea').click();
+  await T('step-1-block-1-text').waitFor();
+  await T('step-1-block-1-text').fill(Array.from({ length: 260 }, () => 'palavra').join(' '));
+  await page.waitForTimeout(300);
+  ok('blocks can be added', (await page.getByTestId(/^step-1-block-\d+$/).count()) === 2);
+  ok('the speech time comes from the words', /260 palavras/.test(await T('step-1-block-1-estimate').innerText()) && /2 min/.test(await T('step-1-block-1-estimate').innerText()), await T('step-1-block-1-estimate').innerText());
+  await T('step-1-add-activity').click();
+  await T('step-1-block-2-minutes').waitFor();
+  ok('an activity has its own minutes', (await T('step-1-block-2-minutes').inputValue()) === '5');
+  await T('step-1-block-2-remove').click();
+  await T('step-1-block-1-up').click();
+  await page.waitForTimeout(200);
+  ok('blocks reorder', (await T('step-1-block-0-text').inputValue()).split(' ').length === 260);
+  await page.waitForTimeout(300);
   await page.reload();
   await T('study').waitFor();
   await T('step-1-toggle').click();
-  ok('an edit survives a reload', (await T('step-1-notes').inputValue()) === 'Nota editada');
+  ok('an edit survives a reload', (await T('step-1-block-1-text').inputValue()) === 'Nota editada');
+
+  // The Pulpit leads block by block.
+  await T('open-pulpit').click();
+  await T('prepare').waitFor();
+  await T('start').click();
+  await T('step-title').waitFor();
+  const firstTitle = await T('step-title').innerText();
+  ok('the Pulpit shows the base text first, with the block rail', (await T('base-text').isVisible()) && (await T('rail-1').isVisible()));
+  await T('next').click();
+  await page.waitForTimeout(250);
+  ok('next moves to the next block of the same step', (await T('step-title').innerText()) === firstTitle && (await T('block-text').isVisible()));
+  await T('next').click();
+  await page.waitForTimeout(250);
+  ok('after the last block it moves to the next step', (await T('step-title').innerText()) !== firstTitle);
+  await T('prev').click();
+  await page.waitForTimeout(250);
+  ok('going back returns to the last block of the previous step', (await T('step-title').innerText()) === firstTitle && (await T('block-text').isVisible()));
+  await page.goBack();
+  await T('study').waitFor().catch(() => {});
 
   // Prepare: three stages, one at a time.
   await page.goto(`${WEB}/new`);

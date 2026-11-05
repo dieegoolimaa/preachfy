@@ -1,5 +1,5 @@
 import type { Locale } from './books.ts';
-import { marksInPassage, passageText, captureSnapshot, type Mark, type Passage, type Step, type Study, type StudyKind } from './study.ts';
+import { marksInPassage, passageText, captureSnapshot, type BlockKind, type Mark, type Passage, type Step, type Study, type StudyKind } from './study.ts';
 
 type Text = Record<Locale, string>;
 /** Which part of the passage a section starts with. `part` splits it among those sections. */
@@ -193,6 +193,16 @@ export const TEMPLATES: Template[] = [
   },
 ];
 
+/** The blocks each section starts with. The author adds, removes and reorders them freely. */
+const DEFAULT_BLOCKS: Record<string, BlockKind[]> = {
+  Introduction: ['question', 'idea'], 'Point 1': ['idea', 'illustration'], 'Point 2': ['idea', 'illustration'], 'Point 3': ['idea', 'illustration'],
+  'Conclusion and appeal': ['application', 'prayer'],
+  Context: ['idea'], Observation: ['idea'], Interpretation: ['idea'], 'Cross-references': ['idea'], Application: ['application'], 'Questions for reflection': ['question'],
+  Verse: [], Reflection: ['idea'], Prayer: ['prayer'], 'Question of the day': ['question'],
+  Icebreaker: ['question'], 'Group reading': ['cue'], Activity: ['activity'], 'Application and challenge': ['application', 'prayer'],
+  Opening: ['idea'], 'Idea 1': ['idea'], 'Idea 2': ['idea'], Story: ['illustration'], 'Supporting text': [], Closing: ['application'],
+};
+
 export const templateFor = (kind: StudyKind) => TEMPLATES.find((t) => t.kind === kind)!;
 
 /** Splits verses from..to into `parts` runs, as evenly as possible. */
@@ -224,6 +234,7 @@ export function buildStudy({ id, kind, title, passage, marks, locale, now, newId
       title: section.title[locale],
       guidance: section.guidance[locale],
       notes: '',
+      blocks: (DEFAULT_BLOCKS[section.title.en] ?? []).map((kind) => ({ id: newId(), kind, text: '' })),
       plannedMs: section.minutes * 60_000,
       ...(section.feeds ? { feeds: section.feeds } : {}),
     };

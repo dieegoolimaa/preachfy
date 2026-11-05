@@ -1,6 +1,7 @@
 import {
-  bookName, hasBaseText, isReadyForPulpit, passageText, stepsMissingBaseText, stepSuggestions, templateFor,
-  type Step, type StepDetail, type Study, type StudyText,
+  BLOCK_KINDS, blockSpeechMs, bookName, countWords, estimateSpeechMs, hasBaseText, isReadyForPulpit, passageText, plannedMinutes,
+  stepBlocks, stepsMissingBaseText, stepSuggestions, templateFor, visibleBlocks,
+  type Block, type BlockKind, type Step, type StepDetail, type Study, type StudyText,
 } from '@preachfy/core';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -9,8 +10,9 @@ import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-nativ
 import { Icon } from '@/components/Icon';
 import { LivePanel } from '@/components/LivePanel';
 import { RunAudio } from '@/components/RunAudio';
-import { Field, Group, Hint, IconButton, Pill, Screen, Segmented, Segments, ui } from '@/components/ui';
+import { Chip, Field, Group, Hint, IconButton, Pill, Screen, Segmented, Segments, ui } from '@/components/ui';
 import { dateTime, fromInput, toInput } from '@/lib/dates';
+import { blockColor, blockKey } from '@/lib/blocks';
 import { shareHandout } from '@/lib/handout';
 import { useT } from '@/lib/i18n';
 import { newId } from '@/lib/ids';
@@ -89,6 +91,106 @@ const verseLabel = (mark: { spans: { ref: { chapter: number; verse: number } }[]
   return ref ? `${ref.chapter}:${ref.verse}` : '';
 };
 
+
+type BlockCardProps = {
+  block: Block; stepIndex: number; index: number; count: number; editable: boolean; first: boolean;
+  placeholder: string; onChange: (patch: Partial<Block>) => void; onMove: (delta: number) => void; onRemove: () => void;
+};
+
+/** One thing to say: its own kind, its own words, its own place in the order. */
+function BlockCard({ block, stepIndex, index, count, editable, first, placeholder, onChange, onMove, onRemove }: BlockCardProps) {
+  const { t } = useT();
+  const [level, setLevel] = useState<StepDetail>('manuscript');
+  const id = `step-${stepIndex}-block-${index}`;
+  const field = block.kind === 'idea' && level === 'outline' ? 'outline' : block.kind === 'idea' && level === 'keywords' ? 'keywords' : 'text';
+  const value = field === 'text' ? block.text : (block[field] ?? '');
+  const words = countWords(block.text);
+
+  return (
+    <View style={s.block} testID={id}>
+      <View style={s.blockHead}>
+        <View style={s.kindRow}>
+          <View style={[s.kindDot, { backgroundColor: blockColor(block.kind) }]} />
+          <Text style={s.kindLabel}>{t(blockKey[block.kind]).toUpperCase()}</Text>
+        </View>
+        {editable ? (
+          <View style={s.blockControls}>
+            <IconButton testID={`${id}-up`} icon="arrow-up" label={t('previous')} disabled={index === 0} onPress={() => onMove(-1)} />
+            <IconButton testID={`${id}-down`} icon="arrow-down" label={t('next')} disabled={index === count - 1} onPress={() => onMove(1)} />
+            <IconButton testID={`${id}-remove`} icon="close" color={paper.muted} label={t('remove')} onPress={onRemove} />
+          </View>
+        ) : null}
+      </View>
+      {block.kind === 'idea' ? (
+        <Segmented
+          value={level}
+          onChange={setLevel}
+          options={[
+            { key: 'manuscript', label: t('manuscript'), testID: `${id}-level-manuscript` },
+            { key: 'outline', label: t('outlineLevel'), testID: `${id}-level-outline` },
+            { key: 'keywords', label: t('keywordsLevel'), testID: `${id}-level-keywords` },
+          ]}
+        />
+      ) : null}
+      <Field
+        testID={`${id}-${field}`}
+        multiline
+        editable={editable}
+        value={value}
+        onChangeText={(text) => onChange({ [field]: text })}
+        placeholder={first ? placeholder : t('writeHere')}
+      />
+      {block.kind === 'question' ? (
+        <Field testID={`${id}-expected`} label={t('expectedAnswer')} editable={editable} value={block.expectedAnswer ?? ''} onChangeText={(expectedAnswer) => onChange({ expectedAnswer })} />
+      ) : null}
+      {block.kind === 'activity' ? (
+        <Field
+          testID={`${id}-minutes`}
+          label={t('activityMinutes')}
+          editable={editable}
+          keyboardType="number-pad"
+          value={String(block.minutes ?? 5)}
+          onChangeText={(text) => onChange({ minutes: Number(text.replace(/\D/g, '')) || 0 })}
+        />
+      ) : null}
+      {block.kind !== 'activity' && words > 0 ? (
+        <Text style={s.estimate} testID={`${id}-estimate`}>{t('speechEstimate', { n: Math.round(blockSpeechMs(block) / 6000) / 10, w: words })}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+/** The whole message against the time it has. The bar is one piece per step. */
+function Budget({ study, selectedId, editable, onTarget }: { study: Study; selectedId: string | null; editable: boolean; onTarget: (minutes: number) => void }) {
+  const { t } = useT();
+  const planned = plannedMinutes(study);
+  const target = study.targetMinutes ?? Math.max(5, Math.round(planned / 5) * 5);
+  const diff = planned - target;
+  const speech = Math.round(study.steps.reduce((sum, step) => sum + estimateSpeechMs(step), 0) / 60_000);
+  return (
+    <View style={s.budget} testID="budget">
+      <View style={s.budgetRow}>
+        <Text style={s.budgetLabel}>{t('targetLabel')} <Text style={s.budgetValue} testID="target">{target}</Text> min</Text>
+        {editable ? (
+          <View style={ui.row}>
+            <IconButton testID="target-less" icon="arrow-down" label={t('previous')} onPress={() => onTarget(Math.max(5, target - 5))} />
+            <IconButton testID="target-more" icon="arrow-up" label={t('next')} onPress={() => onTarget(Math.min(180, target + 5))} />
+          </View>
+        ) : null}
+      </View>
+      <View style={s.budgetBar}>
+        {study.steps.map((step) => (
+          <View key={step.id} style={[s.budgetPiece, { flex: Math.max(step.plannedMs, 60_000) }, step.id === selectedId && s.budgetOn]} />
+        ))}
+      </View>
+      <Text style={[s.budgetNote, diff > 0 && s.budgetOver]} testID="budget-note">
+        {t('plannedTotal', { n: planned })} · {diff > 0 ? t('overTarget', { n: diff }) : diff < 0 ? t('underTarget', { n: -diff }) : t('onTarget')}
+      </Text>
+      {speech > 0 ? <Text style={s.budgetNote} testID="speech-total">{t('speechTotal', { n: speech })}</Text> : null}
+    </View>
+  );
+}
+
 type StepProps = {
   study: Study; step: Step; index: number; last: boolean; open: boolean; editable: boolean;
   onToggle: () => void; onChange: (patch: Partial<Step>) => void; onMove: (delta: number) => void; onRemove: () => void;
@@ -96,8 +198,19 @@ type StepProps = {
 
 function StepCard({ study, step, index, last, open, editable, onToggle, onChange, onMove, onRemove }: StepProps) {
   const { t } = useT();
-  const [level, setLevel] = useState<StepDetail>('manuscript');
   const suggestions = stepSuggestions(study, step);
+  const blocks = stepBlocks(step);
+  const speech = Math.round(estimateSpeechMs(step) / 60_000);
+  const setBlocks = (next: Block[]) => onChange({ blocks: next });
+  const addBlock = (kind: BlockKind) => setBlocks([...blocks, { id: newId(), kind, text: '', ...(kind === 'activity' ? { minutes: 5 } : {}) }]);
+  const moveBlock = (at: number, delta: number) => {
+    const to = at + delta;
+    if (to < 0 || to >= blocks.length) return;
+    const next = [...blocks];
+    [next[at], next[to]] = [next[to]!, next[at]!];
+    setBlocks(next);
+  };
+  const firstText = visibleBlocks(step).find((b) => b.kind !== 'activity')?.text;
   const translationId = study.passage?.translationId ?? 'blivre';
   const missing = !hasBaseText(step);
   const levels = [
@@ -116,7 +229,11 @@ function StepCard({ study, step, index, last, open, editable, onToggle, onChange
         <Pressable testID={`step-${index}-toggle`} accessibilityRole="button" accessibilityLabel={t('showStep')} style={s.stepHead} onPress={onToggle}>
           <View style={s.stepTitle}>
             <Text style={s.stepName}>{step.title}</Text>
-            <Text style={[s.stepMeta, missing && s.stepMissing]}>{t('minutes', { n: Math.round(step.plannedMs / 60_000) })}{missing ? ` · ${t('noBaseText')}` : ''}</Text>
+            <Text style={[s.stepMeta, missing && s.stepMissing]}>
+              {t('minutes', { n: Math.round(step.plannedMs / 60_000) })}
+              {speech > 0 ? ` · ${t('speechVsPlan', { n: speech })}` : ''}
+              {missing ? ` · ${t('noBaseText')}` : ''}
+            </Text>
           </View>
           <Icon name={open ? 'chevron-up' : 'chevron-down'} size={18} color={paper.muted} />
         </Pressable>
@@ -124,7 +241,13 @@ function StepCard({ study, step, index, last, open, editable, onToggle, onChange
         {open ? null : (
           <>
             <BasePreview text={step.baseText} />
-            {step.notes ? <Text style={s.snippet} numberOfLines={2}>{step.notes}</Text> : null}
+            {blocks.length ? (
+              <View style={s.kindRow}>
+                {blocks.map((b) => <View key={b.id} style={[s.kindDot, { backgroundColor: blockColor(b.kind) }]} />)}
+                <Text style={s.snippet} numberOfLines={1}>{blocks.map((b) => t(blockKey[b.kind])).join(' · ')}</Text>
+              </View>
+            ) : null}
+            {firstText ? <Text style={s.snippet} numberOfLines={2}>{firstText}</Text> : null}
           </>
         )}
 
@@ -159,15 +282,30 @@ function StepCard({ study, step, index, last, open, editable, onToggle, onChange
               </>
             ) : null}
 
-            <Text style={ui.fieldLabel}>{t('stepLevels')}</Text>
-            <Segmented value={level} onChange={setLevel} options={levels} />
-            {level === 'manuscript' ? <Field testID={`step-${index}-notes`} multiline editable={editable} value={step.notes} onChangeText={(notes) => onChange({ notes })} placeholder={step.guidance ?? t('notesHint')} /> : null}
-            {level === 'outline' ? <Field testID={`step-${index}-outline`} multiline editable={editable} value={step.outline ?? ''} onChangeText={(outline) => onChange({ outline })} /> : null}
-            {level === 'keywords' ? <Field testID={`step-${index}-keywords`} editable={editable} value={step.keywords ?? ''} onChangeText={(keywords) => onChange({ keywords })} /> : null}
-
-            <Text style={ui.fieldLabel}>{t('forTheClass')}</Text>
-            <Field testID={`step-${index}-question`} label={t('questionLabel')} editable={editable} value={step.question ?? ''} onChangeText={(question) => onChange({ question })} />
-            <Field testID={`step-${index}-expected`} label={t('expectedAnswer')} editable={editable} value={step.expectedAnswer ?? ''} onChangeText={(expectedAnswer) => onChange({ expectedAnswer })} />
+            <Text style={ui.fieldLabel}>{t('blocksTitle')}</Text>
+            {blocks.map((block, j) => (
+              <BlockCard
+                key={block.id}
+                block={block}
+                stepIndex={index}
+                index={j}
+                count={blocks.length}
+                first={j === 0}
+                editable={editable}
+                placeholder={step.guidance ?? t('writeHere')}
+                onChange={(patch) => setBlocks(blocks.map((x, k) => (k === j ? { ...x, ...patch } : x)))}
+                onMove={(delta) => moveBlock(j, delta)}
+                onRemove={() => setBlocks(blocks.filter((_, k) => k !== j))}
+              />
+            ))}
+            {editable ? (
+              <View style={s.addRow}>
+                {BLOCK_KINDS.map((kind) => (
+                  <Chip key={kind} testID={`step-${index}-add-${kind}`} label={`+ ${t(blockKey[kind])}`} onPress={() => addBlock(kind)} />
+                ))}
+              </View>
+            ) : null}
+            <Field testID={`step-${index}-bridge`} label={t('bridgeLabel')} editable={editable} value={step.bridge ?? ''} onChangeText={(bridge) => onChange({ bridge })} />
 
             {editable ? (
               <View style={ui.row}>
@@ -260,6 +398,8 @@ export default function StudyEditor() {
           onPress={() => requirePro('pulpit') && router.push(`/pulpit?id=${study.id}`)}
         />
       </View>
+
+      <Budget study={study} selectedId={openStep} editable={pro} onTarget={(targetMinutes) => change({ targetMinutes })} />
 
       {template?.goal ? (
         <Field testID="study-goal" label={template.goal[locale]} multiline editable={pro} value={study.goal ?? ''} onChangeText={(goal) => change({ goal })} />
@@ -361,7 +501,24 @@ const s = StyleSheet.create({
   stepMissing: { color: paper.warn },
   base: { gap: 3, paddingLeft: 12, borderLeftWidth: 4, borderLeftColor: paper.mark },
   baseText: { fontFamily: serif, fontSize: 17, lineHeight: 24, color: paper.fg },
-  snippet: { fontSize: 14, lineHeight: 20, color: paper.muted },
+  snippet: { flex: 1, fontSize: 14, lineHeight: 20, color: paper.muted },
+  block: { gap: 10, padding: 12, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: paper.line },
+  blockHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  blockControls: { flexDirection: 'row', marginRight: -8 },
+  kindRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  kindDot: { width: 8, height: 8, borderRadius: 4 },
+  kindLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1.2, color: paper.fg },
+  estimate: { fontSize: 12, color: paper.muted },
+  addRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  budget: { gap: 8 },
+  budgetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  budgetLabel: { fontSize: 14, color: paper.muted },
+  budgetValue: { fontWeight: '700', color: paper.fg },
+  budgetBar: { flexDirection: 'row', gap: 3, height: 10 },
+  budgetPiece: { borderRadius: 3, backgroundColor: paper.fg, opacity: 0.85 },
+  budgetOn: { backgroundColor: paper.mark, opacity: 1, borderWidth: 1.5, borderColor: paper.fg },
+  budgetNote: { fontSize: 13, color: paper.muted },
+  budgetOver: { color: paper.warn, fontWeight: '600' },
   edit: { gap: 12, paddingTop: 4 },
   suggestion: { gap: 4, padding: 12, borderLeftWidth: 4, backgroundColor: paper.soft },
   suggestionText: { fontFamily: serif, fontSize: 16, color: paper.fg },

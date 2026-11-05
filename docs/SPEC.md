@@ -9,7 +9,7 @@ O app é um caminho de quatro passos: **Ler, Marcar, Preparar e Pregar**. As aba
 - **Hoje** abre no que fazer agora: um cartão com o próximo conteúdo (o de data mais próxima, ou o editado por último), o progresso por passo e um botão principal. Sem conteúdo, convida a preparar o primeiro.
 - **Marcar** na Bíblia termina em "Preparar uma mensagem daqui", que já leva o trecho.
 - **Preparar** tem três etapas: trecho, tipo e passos. O cabeçalho mostra onde se está. Vindo da Bíblia, começa no tipo. Os passos são livres: liga, desliga, renomeia, reordena, adiciona e remove.
-- **Pregar** abre em um checklist escuro e segue passo a passo.
+- **Pregar** abre em um checklist escuro e conduz bloco a bloco: um trilho mostra o que já passou e o que vem, e o botão principal avança para o próximo bloco e, no fim, para o próximo passo. Atividade tem cronômetro grande.
 - Uma ação principal por tela, em botão grande. Aprovado em 2026-11-05 pelo protótipo de jornada.
 
 ## Escopo
@@ -115,6 +115,18 @@ Alternativas descartadas como base: MultipeerConnectivity (limite de 8 aparelhos
 - Transforma as seleções ativas e notas imediatas na base fixa de um estudo, aula ou sermão.
 - É uma cópia: o que muda no estudo não polui a Bíblia pessoal, e vice-versa.
 - Abrir o estudo reativa a camada exata daquele snapshot.
+
+### Blocos e tempo
+Cada passo tem o **texto base** (obrigatório) e depois uma sequência livre de **blocos**: ideia, ilustração, pergunta, aplicação, oração, nota de palco e atividade.
+
+- **Quantidade livre:** o autor adiciona, remove e reordena blocos, e também passos. Cada seção do modelo já vem com blocos iniciais, que podem ser trocados.
+- **Ideia em três níveis:** manuscrito, tópicos e palavras-chave. O Púlpito mostra o nível escolhido, com o texto escrito como reserva.
+- **Meta de tempo:** a mensagem tem uma meta em minutos. Uma barra mostra um pedaço por passo e diz quanto está acima ou abaixo da meta.
+- **Estimativa de fala:** vem das palavras escritas, a 130 por minuto, mais 30 segundos para ler o texto base. Uma atividade conta o próprio cronômetro.
+- **Ponte:** cada passo pode ter uma frase que leva ao próximo. Fica à vista durante o Púlpito.
+- **Privacidade:** só o texto base e a pergunta saem para a aula ao vivo e para o folheto. Ideias, ilustrações, notas e a resposta esperada nunca saem.
+- **Sem corte automático:** o app não sugere o que pular quando o pregador atrasa. Decisão de 2026-11-05.
+- Estudos antigos continuam funcionando: as notas e a pergunta viram blocos.
 
 ### Estrutura de um estudo
 - **Texto de contexto (opcional, global):** passagem longa, versículo isolado ou texto autoral.

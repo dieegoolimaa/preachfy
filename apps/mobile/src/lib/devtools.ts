@@ -23,16 +23,19 @@ export async function devLogin(): Promise<boolean> {
 
 /** A class on Psalm 23 with base texts and a question, ready to open. */
 export function seedStudy(locale: 'pt' | 'en' | 'es'): string {
-  const existing = getReader().studies.find((x) => x.title === 'Salmo 23 (teste)' && !x.deletedAt);
+  const existing = getReader().studies.find((x) => x.title === 'Salmo 23 (teste)' && !x.deletedAt && x.steps.every((step) => step.blocks));
   if (existing) return existing.id;
+  // Older test studies, from before blocks, are retired instead of piling up.
+  for (const old of getReader().studies.filter((x) => x.title === 'Salmo 23 (teste)' && !x.deletedAt)) saveStudy({ ...old, deletedAt: Date.now() });
   const passage = { book: 'PSA', chapter: 23, from: 1, to: 6, translationId: getReader().translation };
   const id = newId();
   const base = buildStudy({ id, kind: 'class', title: 'Salmo 23 (teste)', passage, marks: getReader().marks, locale, now: Date.now(), newId });
   const steps = base.steps.map((step, i) => ({
     ...step,
     baseText: step.baseText ?? passageText(passage, 1 + (i % 6), 1 + (i % 6)),
-    notes: step.notes || `Notas do passo ${i + 1}.`,
-    ...(step.question ? { expectedAnswer: 'Resposta esperada' } : {}),
+    blocks: (step.blocks ?? []).map((block) =>
+      block.kind === 'activity' ? block : { ...block, text: block.text || `Texto de ${block.kind} do passo ${i + 1}.`, ...(block.kind === 'question' ? { expectedAnswer: 'Resposta esperada' } : {}) },
+    ),
   }));
   const study: Study = { ...base, steps, goal: 'Entender o cuidado do Pastor' };
   saveStudy(study);

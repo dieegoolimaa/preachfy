@@ -1,6 +1,7 @@
 import {
-  goTo, isPaused, isReadyForPulpit, pace, pause, pulpitSections, remaining, resume, spentInSection, startSession,
-  passageText, stepBody, timerState, totalPlanned, type PulpitRun, type PulpitSession, type StepDetail, type Study,
+  ACTIVITY_DEFAULT_MINUTES, blockBody, goTo, isPaused, isReadyForPulpit, pace, pause, pulpitSections, remaining, resume, spentInSection,
+  startSession, passageText, timerState, totalPlanned, visibleBlocks,
+  type PulpitRun, type PulpitSession, type StepDetail, type Study,
 } from '@preachfy/core';
 import { Icon } from '@/components/Icon';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
@@ -12,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Qr } from '@/components/Qr';
 import type { IconName } from '@/components/ui';
 import { apiFetch } from '@/lib/auth';
+import { blockColor, blockKey } from '@/lib/blocks';
 import { useT } from '@/lib/i18n';
 import { newId } from '@/lib/ids';
 import { backgrounds, classLink, openLive, pushHighlight, pushScreen, pushStep, screenLink } from '@/lib/live';
@@ -54,6 +56,35 @@ function Round({ icon, label, onPress, onLongPress, t, testID, big, disabled, ac
       onPress={onPress}>
       <Icon name={icon} size={big ? 26 : 22} color={t.fg} />
     </Pressable>
+  );
+}
+
+/** A countdown the group can see while it works. It restarts for each activity. */
+function ActivityTimer({ minutes, t, s }: { minutes: number; t: Theme; s: ReturnType<typeof themed> }) {
+  const { t: tr } = useT();
+  const [left, setLeft] = useState(minutes * 60);
+  const [running, setRunning] = useState(false);
+  useEffect(() => {
+    if (!running) return;
+    const timer = setInterval(() => {
+      setLeft((value) => {
+        if (value <= 1) {
+          setRunning(false);
+          return 0;
+        }
+        return value - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [running]);
+  const label = left === 0 ? tr('resetTimer') : running ? tr('pauseTimer') : tr('startTimer');
+  return (
+    <View style={s.activity}>
+      <Text testID="activity-clock" style={[s.activityClock, left === 0 && { color: t.over }]}>{clock(left * 1000)}</Text>
+      <Pressable testID="activity-toggle" accessibilityRole="button" style={s.tool} onPress={() => (left === 0 ? (setLeft(minutes * 60), setRunning(false)) : setRunning(!running))}>
+        <Text style={s.toolText}>{label}</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -124,7 +155,7 @@ function After({ run, onDone }: { run: PulpitRun; onDone: (place: string, note: 
 }
 
 export default function Pulpit() {
-  const { id = 'demo' } = useLocalSearchParams<{ id?: string }>();
+  const { id = 'demo', autostart, block } = useLocalSearchParams<{ id?: string; autostart?: string; block?: string }>();
   const { t: tr, locale } = useT();
   const reader = useReader();
   const { studies, sessions, liveCodes } = reader;
@@ -139,6 +170,7 @@ export default function Pulpit() {
   const [now, setNow] = useState(() => Date.now());
   const [dark, setDark] = useState(true);
   const [detail, setDetail] = useState<StepDetail>('manuscript');
+  const [blockIndex, setBlockIndex] = useState(0);
   const [contextOpen, setContextOpen] = useState(false);
   const [liveOpen, setLiveOpen] = useState(false);
   const [answers, setAnswers] = useState<Answer[]>([]);
@@ -169,6 +201,15 @@ export default function Pulpit() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, locale]);
 
+  // Development shortcut: `?autostart=1&block=2` opens the Pulpit already running.
+  useEffect(() => {
+    if (!__DEV__ || !autostart || session || !texts || !study || !isReadyForPulpit(study)) return;
+    const started = startSession(pulpitSections(study), Date.now());
+    setSession(started);
+    saveSession(id, started);
+    if (block) setBlockIndex(Number(block) || 0);
+  }, [autostart, block, session, texts, study, id]);
+
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     activateKeepAwakeAsync('pulpit').catch(() => {});
@@ -193,6 +234,22 @@ export default function Pulpit() {
   const move = useCallback((delta: number) => change((c) => goTo(c, c.currentIndex + delta, Date.now())), [change]);
 
   const index = session?.currentIndex ?? 0;
+
+  /** The base text first, then each block that has something in it. */
+  const lengthOf = (i: number) => 1 + (study?.steps[i] ? visibleBlocks(study.steps[i]!).length : 0);
+  const advance = (direction: 1 | -1) => {
+    if (direction === 1) {
+      if (blockIndex < lengthOf(index) - 1) setBlockIndex(blockIndex + 1);
+      else if (study && index < study.steps.length - 1) {
+        move(1);
+        setBlockIndex(0);
+      }
+    } else if (blockIndex > 0) setBlockIndex(blockIndex - 1);
+    else if (index > 0) {
+      move(-1);
+      setBlockIndex(lengthOf(index - 1) - 1);
+    }
+  };
   const recording = useSermonRecorder(index, session ? isPaused(session) : false);
 
   const changeScreen = useCallback(
@@ -227,8 +284,8 @@ export default function Pulpit() {
     if (Platform.OS !== 'web' || !session) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); move(1); }
-      if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); move(-1); }
+      if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); advance(1); }
+      if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); advance(-1); }
       const key = e.key.toLowerCase();
       if (key === 't') setContextOpen((open) => !open);
       if (key === 'v') setDetourOpen(true);
@@ -237,7 +294,7 @@ export default function Pulpit() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [move, session === null]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [advance, session === null]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!study || !isReadyForPulpit(study) || !allowed) return null;
 
@@ -308,6 +365,11 @@ export default function Pulpit() {
   const step = study.steps[index]!;
   const next = study.steps[index + 1];
   const base = texts?.steps[index];
+  const blocks = visibleBlocks(step);
+  const position = Math.min(blockIndex, blocks.length);
+  const current = position === 0 ? null : blocks[position - 1]!;
+  const hasMore = position < blocks.length || Boolean(next);
+  const accent = blockColor(current?.kind ?? 'scripture', dark);
   const context = texts?.context;
   const state = timerState(session, now);
   const timeColor = state === 'over' ? t.over : state === 'warning' ? t.warn : t.fg;
@@ -370,7 +432,10 @@ export default function Pulpit() {
             {i > 0 ? <View style={[s.link, i <= index && s.linkDone]} /> : null}
             <Pressable
               testID={`node-${i}`}
-              onPress={() => change((c) => goTo(c, i, Date.now()))}
+              onPress={() => {
+                change((c) => goTo(c, i, Date.now()));
+                setBlockIndex(0);
+              }}
               style={[s.node, i < index && s.nodeDone, i === index && s.nodeNow]}>
               <Text style={[s.nodeText, i === index && s.nodeTextNow]}>{i + 1}</Text>
             </Pressable>
@@ -378,7 +443,8 @@ export default function Pulpit() {
         ))}
       </View>
 
-      {study.passage ? (
+      {/* The verse map earns its place only in a long passage; a short one is already clear from the rail. */}
+      {study.passage && study.passage.to - study.passage.from >= 8 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.mapBar} contentContainerStyle={s.map} testID="verse-map">
           {Array.from({ length: study.passage.to - study.passage.from + 1 }, (_, i) => study.passage!.from + i).map((verse) => {
             const inStep = step.baseText?.kind === 'scripture' && step.baseText.spans.some((x) => x.ref.verse === verse);
@@ -392,29 +458,51 @@ export default function Pulpit() {
       ) : null}
 
       <View style={s.body}>
-        <Pressable testID="zone-prev" accessibilityLabel={tr('previous')} style={[s.zone, s.zoneLeft]} onPress={() => move(-1)} />
-        <Pressable testID="zone-next" accessibilityLabel={tr('next')} style={[s.zone, s.zoneRight]} onPress={() => move(1)} />
+        <Pressable testID="zone-prev" accessibilityLabel={tr('previous')} style={[s.zone, s.zoneLeft]} onPress={() => advance(-1)} />
+        <Pressable testID="zone-next" accessibilityLabel={tr('next')} style={[s.zone, s.zoneRight]} onPress={() => advance(1)} />
         <ScrollView style={s.main} contentContainerStyle={s.mainInner}>
-          <Text style={s.label}>{tr('stepOf', { i: index + 1, n: study.steps.length })} · {tr(detailKey[detail])}</Text>
+          <Text style={s.label}>{tr('stepOf', { i: index + 1, n: study.steps.length })}</Text>
           <Text testID="step-title" style={s.title}>{step.title}</Text>
-          <View style={s.base}>
-            {base?.label ? <Text style={s.label}>{base.label}</Text> : null}
-            <Text testID="base-text" style={s.baseText}>{base?.body}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.railBar} contentContainerStyle={s.rail} testID="block-rail">
+            {[{ kind: 'scripture' as const, id: 'base' }, ...blocks].map((item, i) => (
+              <Pressable key={item.id} testID={`rail-${i}`} accessibilityRole="button" style={[s.railChip, i < position && s.railDone, i === position && s.railNow]} onPress={() => setBlockIndex(i)}>
+                <Text style={[s.railText, i === position && s.railTextNow]}>{tr(blockKey[item.kind])}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+          <View style={[s.base, { borderLeftColor: accent }]} testID="block-card">
+            {current === null ? (
+              <>
+                {base?.label ? <Text style={s.label}>{base.label}</Text> : null}
+                <Text testID="base-text" style={s.baseText}>{base?.body}</Text>
+              </>
+            ) : (
+              <>
+                <Text style={s.label}>{tr(blockKey[current.kind])}</Text>
+                {current.kind !== 'activity' || current.text ? (
+                  <Text testID="block-text" style={current.kind === 'idea' && detail === 'keywords' ? s.keywords : s.blockText}>{blockBody(current, detail)}</Text>
+                ) : null}
+                {current.kind === 'activity' ? <ActivityTimer key={current.id} minutes={current.minutes ?? ACTIVITY_DEFAULT_MINUTES} t={t} s={s} /> : null}
+                {current.kind === 'question' && current.expectedAnswer ? <Text testID="expected" style={s.expected}>{tr('expectedAnswer')}: {current.expectedAnswer}</Text> : null}
+              </>
+            )}
           </View>
-          <Text testID="notes" style={detail === 'keywords' ? s.keywords : s.notes}>{stepBody(step, detail)}</Text>
-          {step.expectedAnswer ? <Text testID="expected" style={s.pace}>{tr('expectedAnswer')}: {step.expectedAnswer}</Text> : null}
-          {next ? <Text style={s.nextHint}>{tr('upNext', { title: next.title })}</Text> : null}
+          {next ? (
+            <Text style={s.nextHint} testID="bridge">
+              {tr('bridgeNext')} → {next.title}{step.bridge ? ` · “${step.bridge}”` : ''}
+            </Text>
+          ) : null}
         </ScrollView>
         {wide && contextOpen ? <View testID="context-pane" style={s.pane}>{contextBody}</View> : null}
       </View>
 
       {!wide && !locked ? <View style={s.toolsRow}>{tools}</View> : null}
       <View style={s.bottom}>
-        <Round testID="prev" big icon="chevron-back" label={tr('previous')} t={t} disabled={index === 0} onPress={() => move(-1)} />
+        <Round testID="prev" big icon="chevron-back" label={tr('previous')} t={t} disabled={index === 0 && blockIndex === 0} onPress={() => advance(-1)} />
         {locked ? <Text testID="locked" style={s.lockedText}>{tr('lockedHint')}</Text> : wide ? tools : null}
         <Round testID="lock" icon="lock" label={tr('lockScreen')} t={t} onPress={() => !locked && setLocked(true)} onLongPress={() => setLocked(false)} />
-        <Pressable testID="next" accessibilityRole="button" disabled={!next} style={[s.nav, s.navMain, !next && s.off]} onPress={() => move(1)}>
-          <Text style={[s.navText, s.navTextMain]} numberOfLines={1}>{tr('next')}</Text>
+        <Pressable testID="next" accessibilityRole="button" disabled={!hasMore} style={[s.nav, s.navMain, !hasMore && s.off]} onPress={() => advance(1)}>
+          <Text style={[s.navText, s.navTextMain]} numberOfLines={1}>{position < blocks.length ? tr('nextBlock') : tr('nextStepGo')}</Text>
         </Pressable>
       </View>
 
@@ -567,6 +655,17 @@ const themed = (t: Theme, wide: boolean) =>
     prepareHint: { fontSize: 14, lineHeight: 20, color: t.muted },
     prepareActions: { gap: 10, paddingHorizontal: 20, paddingBottom: 16, maxWidth: 640, width: '100%', alignSelf: 'center' },
     exitLink: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+    expected: { fontSize: 14, lineHeight: 20, color: t.muted },
+    railBar: { flexGrow: 0, marginHorizontal: -4 },
+    rail: { flexDirection: 'row', gap: 6, paddingHorizontal: 4, paddingVertical: 2 },
+    railChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: t.line },
+    railDone: { backgroundColor: t.soft, opacity: 0.55 },
+    railNow: { backgroundColor: t.accent, borderColor: t.accent },
+    railText: { fontSize: 13, color: t.muted },
+    railTextNow: { color: t.accentFg, fontWeight: '700' },
+    blockText: { fontFamily: serif, fontSize: wide ? 32 : 26, lineHeight: wide ? 44 : 36, color: t.fg },
+    activity: { gap: 14, alignItems: 'flex-start', marginTop: 8 },
+    activityClock: { fontSize: wide ? 96 : 72, fontWeight: '600', fontVariant: ['tabular-nums'], letterSpacing: -2, color: t.fg },
     roundSpace: { width: 44, height: 44 },
     toolsRow: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 12, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.line },
     tools: { flexDirection: 'row', alignItems: 'center', gap: 8 },

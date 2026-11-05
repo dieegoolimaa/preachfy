@@ -4,7 +4,7 @@ import {
   BOOKS, bookName, marksToPush, mergeMarks, parseReference, searchBook,
   canUse, captureSnapshot, elapsed, goTo, isReadyForPulpit, pace, pause, remaining, resolveSpan, resume,
   selectionSpans, spentInSection, startSession, stepsMissingBaseText, timerState, visibleMarks, wordsOf,
-  BOOKS as ALL_BOOKS, addChapter, planChapters, planDayOf, planProgress, PLAN_DAYS, nextStudy, TEMPLATES, buildStudy, mergeItems, parsePassage, splitRange, stepBody, stepSuggestions, toLiveSteps, upcoming,
+  BOOKS as ALL_BOOKS, addChapter, planChapters, planDayOf, planProgress, PLAN_DAYS, blockBody, estimateSpeechMs, nextStudy, plannedMinutes, stepBlocks, visibleBlocks, TEMPLATES, buildStudy, mergeItems, parsePassage, splitRange, stepBody, stepSuggestions, toLiveSteps, upcoming,
 } from '../src/index.ts';
 import type { Mark, Study, VerseSpan } from '../src/index.ts';
 
@@ -330,4 +330,48 @@ test('the next content is the soonest dated one, else the latest edit', () => {
   assert.equal(nextStudy(items.filter((i) => !i.scheduledFor), 100)?.id, 'new');
   assert.equal(nextStudy([], 100), undefined);
   assert.equal(nextStudy([{ id: 'x', scheduledFor: 5, updatedAt: 1 }, { id: 'y', updatedAt: 7 }], 7_200_000)?.id, 'y');
+});
+
+test('steps saved before blocks keep their notes and question as blocks', () => {
+  const old = { id: 's', title: 't', notes: 'o que dizer', question: 'e você?', expectedAnswer: 'sim', plannedMs: 1 };
+  assert.deepEqual(stepBlocks(old).map((b) => b.kind), ['idea', 'question']);
+  assert.equal(stepBlocks(old)[1]!.expectedAnswer, 'sim');
+  assert.deepEqual(stepBlocks({ ...old, blocks: [] }), []);
+});
+
+test('empty blocks stay out of the Pulpit, except an activity with its timer', () => {
+  const step = { id: 's', title: 't', notes: '', plannedMs: 1, blocks: [
+    { id: 'a', kind: 'idea' as const, text: '  ' }, { id: 'b', kind: 'illustration' as const, text: 'uma história' }, { id: 'c', kind: 'activity' as const, text: '' },
+  ] };
+  assert.deepEqual(visibleBlocks(step).map((b) => b.id), ['b', 'c']);
+});
+
+test('an idea shows its shorter versions and falls back to what was written', () => {
+  const idea = { id: 'i', kind: 'idea' as const, text: 'texto longo', outline: 'tópicos', keywords: 'chave' };
+  assert.equal(blockBody(idea, 'manuscript'), 'texto longo');
+  assert.equal(blockBody(idea, 'outline'), 'tópicos');
+  assert.equal(blockBody(idea, 'keywords'), 'chave');
+  assert.equal(blockBody({ ...idea, outline: undefined, keywords: undefined }, 'keywords'), 'texto longo');
+  assert.equal(blockBody({ ...idea, kind: 'question', outline: 'x' }, 'outline'), 'texto longo');
+});
+
+test('the time to say a step comes from its words, and an activity counts its own timer', () => {
+  const words = (n: number) => Array.from({ length: n }, () => 'palavra').join(' ');
+  const step = { id: 's', title: 't', notes: '', plannedMs: 1, blocks: [{ id: 'a', kind: 'idea' as const, text: words(260) }, { id: 'b', kind: 'activity' as const, text: '', minutes: 4 }] };
+  assert.equal(estimateSpeechMs(step), 2 * 60_000 + 4 * 60_000);
+  assert.equal(estimateSpeechMs({ ...step, baseText: { kind: 'authored', text: 'frase' } }), 2 * 60_000 + 4 * 60_000 + 30_000);
+  assert.equal(plannedMinutes({ id: 'x', title: 'x', steps: [{ ...step, plannedMs: 600_000 }, { ...step, plannedMs: 300_000 }] }), 15);
+});
+
+test('templates start each section with its blocks, and nothing private goes to a live class', () => {
+  const study = buildStudy({ id: 'b1', kind: 'class', title: 'x', passage, marks: [], locale: 'pt', now: 1, newId });
+  assert.deepEqual(study.steps[0]!.blocks!.map((b) => b.kind), ['question']);
+  assert.deepEqual(study.steps[4]!.blocks!.map((b) => b.kind), ['activity']);
+  study.steps[2] = { ...study.steps[2]!, blocks: [
+    { id: 'i', kind: 'idea', text: 'IDEIA-SECRETA' }, { id: 'q', kind: 'question', text: 'Que verbos?', expectedAnswer: 'RESPOSTA-SECRETA' },
+    { id: 'l', kind: 'illustration', text: 'HISTORIA-SECRETA' },
+  ] };
+  const sent = JSON.stringify(toLiveSteps(study, () => ({ label: 'x', body: 'y' })));
+  assert.match(sent, /Que verbos/);
+  assert.doesNotMatch(sent, /SECRETA/);
 });

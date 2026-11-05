@@ -114,11 +114,30 @@ export type Step = {
   guidance?: string;
   /** Categories of the author's marks suggested for this step. */
   feeds?: string[];
+  /** The blocks after the base text: what to say, in order. When absent, `notes` and `question` stand in. */
+  blocks?: Block[];
+  /** A sentence that leads into the next step. */
+  bridge?: string;
   /** Sent to students in a live class. */
   question?: string;
   /** Private to the teacher. */
   expectedAnswer?: string;
 };
+export type BlockKind = 'idea' | 'illustration' | 'question' | 'application' | 'prayer' | 'cue' | 'activity';
+export const BLOCK_KINDS: BlockKind[] = ['idea', 'illustration', 'question', 'application', 'prayer', 'cue', 'activity'];
+export type Block = {
+  id: string;
+  kind: BlockKind;
+  text: string;
+  /** Shorter versions of an idea, for the Pulpit. */
+  outline?: string;
+  keywords?: string;
+  /** Private to the teacher. */
+  expectedAnswer?: string;
+  /** For an activity with a timer. */
+  minutes?: number;
+};
+
 export type StudyKind = 'outline' | 'study' | 'devotional' | 'class' | 'talk';
 export type Passage = { book: string; chapter: number; from: number; to: number; translationId: string };
 export type Study = {
@@ -128,6 +147,8 @@ export type Study = {
   passage?: Passage;
   /** Central idea or class goal, depending on the template. */
   goal?: string;
+  /** How long the whole message should last. */
+  targetMinutes?: number;
   context?: StudyText;
   snapshot?: Snapshot;
   steps: Step[];
@@ -196,13 +217,59 @@ export function stepBody(step: Step, detail: StepDetail): string {
   return step.notes;
 }
 
+/** Steps saved before blocks existed keep working: their notes and question become blocks. */
+export function stepBlocks(step: Step): Block[] {
+  if (step.blocks) return step.blocks;
+  const out: Block[] = [];
+  if (step.notes.trim() || step.outline?.trim() || step.keywords?.trim()) {
+    out.push({ id: `${step.id}-idea`, kind: 'idea', text: step.notes, ...(step.outline ? { outline: step.outline } : {}), ...(step.keywords ? { keywords: step.keywords } : {}) });
+  }
+  if (step.question?.trim()) {
+    out.push({ id: `${step.id}-question`, kind: 'question', text: step.question, ...(step.expectedAnswer ? { expectedAnswer: step.expectedAnswer } : {}) });
+  }
+  return out;
+}
+
+/** The Pulpit skips blocks with nothing in them, except an activity, which has its own timer. */
+export const visibleBlocks = (step: Step): Block[] => stepBlocks(step).filter((b) => b.kind === 'activity' || b.text.trim().length > 0);
+
+/** An idea shows its shorter versions when the Pulpit asks for them. */
+export function blockBody(block: Block, detail: StepDetail): string {
+  if (block.kind !== 'idea') return block.text;
+  const outline = block.outline?.trim();
+  const keywords = block.keywords?.trim();
+  if (detail === 'keywords') return keywords || outline || block.text;
+  if (detail === 'outline') return outline || block.text;
+  return block.text;
+}
+
+export const WORDS_PER_MINUTE = 130;
+export const ACTIVITY_DEFAULT_MINUTES = 5;
+const READING_MS = 30_000;
+
+export const countWords = (text: string) => (text.match(/\S+/g) ?? []).length;
+
+/** Speaking time of one block, from the words written. */
+export function blockSpeechMs(block: Block): number {
+  if (block.kind === 'activity') return (block.minutes ?? ACTIVITY_DEFAULT_MINUTES) * 60_000;
+  return Math.round((countWords(block.text) / WORDS_PER_MINUTE) * 60_000);
+}
+
+/** How long a step takes to say, so the plan can be checked against what was written. */
+export function estimateSpeechMs(step: Step): number {
+  const read = hasBaseText(step) ? READING_MS : 0;
+  return read + stepBlocks(step).reduce((sum, block) => sum + blockSpeechMs(block), 0);
+}
+
+export const plannedMinutes = (study: Study) => Math.round(study.steps.reduce((sum, step) => sum + step.plannedMs, 0) / 60_000);
+
 export type LiveStep = { id: string; title: string; label: string; body: string; question?: string };
 
 /** What leaves the teacher's device: never notes, outlines or expected answers. */
 export function toLiveSteps(study: Study, render: (text: StudyText | undefined, index: number) => { label: string; body: string } | null): LiveStep[] {
   return study.steps.map((step, index) => {
     const text = render(step.baseText, index);
-    const question = step.question?.trim();
+    const question = (stepBlocks(step).find((b) => b.kind === 'question' && b.text.trim())?.text ?? step.question ?? '').trim();
     return { id: step.id, title: step.title, label: text?.label ?? '', body: text?.body ?? '', ...(question ? { question } : {}) };
   });
 }

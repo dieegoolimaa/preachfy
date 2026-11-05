@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 import { Hint, Screen } from '@/components/ui';
@@ -8,6 +8,7 @@ import { useT } from '@/lib/i18n';
 /** Development shortcut: opens as exp://…/--/dev. Signs in, unlocks Pro and opens a ready study. */
 export default function Dev() {
   const { locale } = useT();
+  const { to } = useLocalSearchParams<{ to?: string }>();
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -17,9 +18,12 @@ export default function Dev() {
     }
     devLogin().then((ok) => {
       if (!ok) setFailed(true);
-      else router.replace(`/study/${seedStudy(locale)}`);
+      else {
+        const id = seedStudy(locale);
+        router.replace(to === 'pulpit' ? `/pulpit?id=${id}&autostart=1&block=1` : `/study/${id}`);
+      }
     });
-  }, [locale]);
+  }, [locale, to]);
 
   return (
     <Screen title="Dev" testID="dev">

@@ -23,7 +23,7 @@ import { canRecord, useSermonRecorder } from '@/lib/recording';
 import { demoStudy } from '@/lib/sample';
 import { getReader, isPro, updateReader, useReader } from '@/lib/store';
 import { renderStudy, renderText, type Rendered } from '@/lib/studyText';
-import { paper, serif, serifBold, stage, type Theme } from '@/lib/theme';
+import { categoryColor, paper, serif, serifBold, stage, type Theme } from '@/lib/theme';
 
 function clock(ms: number) {
   const seconds = Math.round(Math.abs(ms) / 1000);
@@ -186,7 +186,7 @@ export default function Pulpit() {
   const [fit, setFit] = useState(1);
   const [settled, setSettled] = useState(false);
   const [viewH, setViewH] = useState(0);
-  const search = useRef({ lo: 0.35, hi: 1.6, f: 1, n: 0, h: 0 });
+  const search = useRef({ lo: 0.48, hi: 1.6, f: 1, n: 0, h: 0 });
   const allowed = id === 'demo' || isPro(reader);
   const { width } = useWindowDimensions();
   const wide = width >= 768;
@@ -251,7 +251,7 @@ export default function Pulpit() {
 
   // The text is sized to fill the screen without scrolling. The reader can then make it bigger or smaller.
   useEffect(() => {
-    search.current = { lo: 0.35, hi: 1.6, f: 1, n: 0, h: search.current.h };
+    search.current = { lo: 0.48, hi: 1.6, f: 1, n: 0, h: search.current.h };
     setFit(1);
     setSettled(false);
   }, [index, detail, viewH, wide]);
@@ -419,7 +419,22 @@ export default function Pulpit() {
   const bigger = () => setZoom(sizes.find((x) => x > scale + 0.01) ?? sizes[sizes.length - 1]!);
   const nameOf = (i: number) => {
     const at = study.steps[i];
-    return at ? stepName(at, texts?.steps[i]?.label ?? '') || tr('stepN', { i: i + 1 }) : '';
+    return at ? stepName(at, (texts?.steps[i]?.label ?? '').split(' · ')[0] ?? '') || tr('stepN', { i: i + 1 }) : '';
+  };
+  /** What the reader wrote in the Bible about the verses of this step: it belongs on the Pulpit too. */
+  const notesFor = (i: number) => {
+    const base = study.steps[i]?.baseText;
+    if (base?.kind !== 'scripture') return [];
+    return reader.marks.filter(
+      (m) => !m.deletedAt && m.note.trim() && m.spans.some((a) => base.spans.some((b) => b.ref.book === a.ref.book && b.ref.chapter === a.ref.chapter && b.ref.verse === a.ref.verse)),
+    );
+  };
+  /** The start of what comes next, as much as fits. */
+  const previewOf = (i: number) => {
+    const at = study.steps[i];
+    if (!at) return '';
+    const parts = [...notesFor(i).map((m) => m.note.trim()), ...visibleBlocks(at).map((b) => blockBody(b, 'manuscript').trim()), texts?.steps[i]?.body ?? ''];
+    return parts.filter(Boolean).join('\n');
   };
   const jump = (i: number) => {
     change((c) => goTo(c, i, Date.now()));
@@ -527,16 +542,22 @@ export default function Pulpit() {
             contentContainerStyle={s.mainInner}
             onLayout={(e) => setViewH(Math.round(e.nativeEvent.layout.height))}
             onContentSizeChange={(_w, h) => evaluate(h)}>
-            {!hasBase && blocks.length === 0 ? <Text testID="step-empty" style={s.blockText}>{tr('stepEmpty')}</Text> : null}
+            {!hasBase && blocks.length === 0 && notesFor(index).length === 0 ? <Text testID="step-empty" style={s.blockText}>{tr('stepEmpty')}</Text> : null}
             {hasBase ? (
               <View style={[s.base, { borderLeftColor: blockColor('scripture', dark) }]} testID="block-card">
-                {base?.label ? <Text style={s.label}>{base.label}</Text> : null}
+                {base?.label ? <Text style={s.cardLabel}>{base.label}</Text> : null}
                 <Text testID="base-text" style={s.baseText}>{base?.body}</Text>
               </View>
             ) : null}
+            {notesFor(index).map((mark) => (
+              <View key={mark.id} style={[s.base, { borderLeftColor: categoryColor(mark.categoryKey) }]} testID="mark-card">
+                <Text style={s.cardLabel}>{tr('myNote')}</Text>
+                <Text testID="mark-text" style={s.blockText}>{mark.note.trim()}</Text>
+              </View>
+            ))}
             {blocks.map((item) => (
               <View key={item.id} style={[s.base, { borderLeftColor: blockColor(item.kind, dark) }]} testID="block-card">
-                <Text style={s.label}>{tr(blockKey[item.kind])}</Text>
+                <Text style={s.cardLabel}>{tr(blockKey[item.kind])}</Text>
                 {item.kind !== 'activity' || item.text ? (
                   <Text testID="block-text" style={item.kind === 'idea' && detail === 'keywords' ? s.keywords : s.blockText}>{blockBody(item, detail)}</Text>
                 ) : null}
@@ -546,10 +567,14 @@ export default function Pulpit() {
             ))}
           </ScrollView>
           {next ? (
-            <Pressable style={s.bridgeRow} testID="bridge" onPress={() => jump(index + 1)}>
-              <View style={s.bridgeLine} />
-              <Text style={s.bridgeText} numberOfLines={2}>{step.bridge ? `“${step.bridge}”` : `${tr('bridgeNext')} · ${nameOf(index + 1)}`}</Text>
-              <Icon name="chevron-forward" size={16} color={t.muted} />
+            <Pressable style={s.upNext} testID="bridge" onPress={() => jump(index + 1)}>
+              <View style={s.upHead}>
+                <Text style={s.jTag}>{tr('bridgeNext').toUpperCase()}</Text>
+                <Text style={s.upName} numberOfLines={1}>{nameOf(index + 1)}</Text>
+                <Icon name="chevron-forward" size={16} color={t.muted} />
+              </View>
+              {step.bridge ? <Text style={s.bridgeText} numberOfLines={2}>“{step.bridge}”</Text> : null}
+              {previewOf(index + 1) ? <Text style={s.upBody} numberOfLines={2}>{previewOf(index + 1)}</Text> : null}
             </Pressable>
           ) : null}
         </View>
@@ -707,7 +732,7 @@ const themed = (t: Theme, wide: boolean, scale = 1) =>
     main: { flex: 1 },
     fitView: { flex: 1 },
     railWrap: { paddingHorizontal: wide ? 32 : 20, paddingTop: 12, maxWidth: 860, width: '100%', alignSelf: 'center' },
-    mainInner: { paddingHorizontal: wide ? 32 : 20, paddingVertical: 14, gap: 16, maxWidth: 860, width: '100%', alignSelf: 'center' },
+    mainInner: { paddingHorizontal: wide ? 32 : 16, paddingVertical: 12, gap: Math.round(10 * Math.min(scale, 1)), maxWidth: 860, width: '100%', alignSelf: 'center' },
     journey: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingBottom: 8 },
     jSide: { flex: 1, minHeight: 48, justifyContent: 'center', gap: 2 },
     jNow: { flex: 1.5, alignItems: 'center', gap: 2 },
@@ -718,13 +743,18 @@ const themed = (t: Theme, wide: boolean, scale = 1) =>
     dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: t.line },
     dotDone: { backgroundColor: t.muted },
     dotNow: { width: 26, backgroundColor: t.accent },
+    upNext: { gap: 6, marginHorizontal: wide ? 32 : 16, marginBottom: 8, padding: 12, borderRadius: 14, backgroundColor: t.soft, maxWidth: 860, alignSelf: 'stretch' },
+    upHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    upName: { flex: 1, fontFamily: serifBold, fontSize: 16, color: t.fg },
+    upBody: { fontFamily: serif, fontSize: 15, lineHeight: 21, color: t.muted },
     bridgeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: wide ? 32 : 20, paddingVertical: 10, maxWidth: 860, width: '100%', alignSelf: 'center' },
     bridgeLine: { width: 3, alignSelf: 'stretch', borderRadius: 2, backgroundColor: t.accent, opacity: 0.6 },
     bridgeText: { flex: 1, fontFamily: serif, fontStyle: 'italic', fontSize: 16, lineHeight: 22, color: t.muted },
     displayPanel: { gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.line },
+    cardLabel: { fontSize: 12, fontWeight: '600', color: t.muted },
     label: { fontSize: 13, fontWeight: '600', color: t.muted },
     title: { fontFamily: serifBold, fontSize: wide ? 42 : 32, lineHeight: wide ? 46 : 36, color: t.fg },
-    base: { gap: 8, paddingLeft: 16, borderLeftWidth: 5, borderLeftColor: t.mark },
+    base: { gap: 4, padding: Math.round(14 * Math.min(scale, 1)), borderRadius: 16, backgroundColor: t.card, borderLeftWidth: 5, borderLeftColor: t.mark },
     baseText: { fontFamily: serif, fontSize: Math.round((wide ? 34 : 26) * scale), lineHeight: Math.round((wide ? 46 : 36) * scale), color: t.fg },
     notes: { fontSize: wide ? 24 : 20, lineHeight: wide ? 34 : 29, color: t.fg },
     nextHint: { fontSize: 15, color: t.muted },

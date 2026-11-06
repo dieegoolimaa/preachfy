@@ -50,21 +50,28 @@ function TextEditor({ value, onChange, translationId, editable, testID }: TextEd
       {value?.kind === 'scripture' ? <Text testID={`${testID}-preview`} style={s.scripture}>{rendered?.body}</Text> : null}
       {editable ? (
         <>
-          <Segmented
-            value={authored ? 'own' : 'bible'}
-            onChange={(key) => setAuthored(key === 'own')}
-            options={[
-              { key: 'bible', label: t('bibleText'), testID: `${testID}-bible` },
-              { key: 'own', label: t('ownText'), testID: `${testID}-authored` },
-            ]}
-          />
-          {authored ? (
-            <Field testID={`${testID}-own`} multiline value={value?.kind === 'authored' ? value.text : ''} onChangeText={(text) => onChange({ kind: 'authored', text })} placeholder={t('ownTextHint')} />
-          ) : (
-            <Field testID={`${testID}-ref`} value={reference} onChangeText={setReference} onBlur={apply} onSubmitEditing={apply} placeholder={t('passageHint')} autoCorrect={false} />
-          )}
+          {/* With a text already there, only that text is shown: no second box that could hold something else. */}
+          {value?.kind === 'authored' ? (
+            <Field testID={`${testID}-own`} multiline value={value.text} onChangeText={(text) => onChange({ kind: 'authored', text })} placeholder={t('ownTextHint')} />
+          ) : null}
+          {!value ? (
+            <Segmented
+              value={authored ? 'own' : 'bible'}
+              onChange={(key) => {
+                setAuthored(key === 'own');
+                if (key === 'own') onChange({ kind: 'authored', text: '' });
+              }}
+              options={[
+                { key: 'bible', label: t('bibleText'), testID: `${testID}-bible` },
+                { key: 'own', label: t('ownText'), testID: `${testID}-authored` },
+              ]}
+            />
+          ) : null}
+          {value?.kind !== 'authored' ? (
+            <Field testID={`${testID}-ref`} value={reference} onChangeText={setReference} onBlur={apply} onSubmitEditing={apply} placeholder={value ? t('changePassage') : t('passageHint')} autoCorrect={false} />
+          ) : null}
           {invalid ? <Text style={ui.error}>{t('passageInvalid')}</Text> : null}
-          {value ? <Pill plain danger testID={`${testID}-clear`} label={t('remove')} onPress={() => onChange(undefined)} /> : null}
+          {value ? <Pill plain danger testID={`${testID}-clear`} label={t('remove')} onPress={() => { onChange(undefined); setAuthored(false); }} /> : null}
         </>
       ) : value?.kind === 'authored' ? (
         <Text style={s.scripture}>{value.text}</Text>
@@ -203,6 +210,7 @@ type StepProps = {
 
 function StepCard({ study, step, index, last, open, editable, onToggle, onChange, onMove, onRemove }: StepProps) {
   const { t } = useT();
+  const [more, setMore] = useState(false);
   const suggestions = stepSuggestions(study, step);
   const blocks = stepBlocks(step);
   const speech = Math.round(estimateSpeechMs(step) / 60_000);
@@ -258,16 +266,6 @@ function StepCard({ study, step, index, last, open, editable, onToggle, onChange
 
         {open ? (
           <View style={s.edit}>
-            <Field testID={`step-${index}-title`} label={t('titleLabel')} placeholder={t('stepNamePh')} editable={editable} value={isGenericTitle(step.title) ? '' : step.title} onChangeText={(title) => onChange({ title })} />
-            <Field
-              testID={`step-${index}-minutes`}
-              label={t('minutesLabel')}
-              editable={editable}
-              keyboardType="number-pad"
-              value={String(Math.round(step.plannedMs / 60_000))}
-              onChangeText={(value) => onChange({ plannedMs: (Number(value.replace(/\D/g, '')) || 0) * 60_000 })}
-            />
-
             <Text style={ui.fieldLabel}>{t('baseText')}</Text>
             <TextEditor testID={`step-${index}-base`} value={step.baseText} onChange={(baseText) => onChange({ baseText })} translationId={translationId} editable={editable} />
             {missing && editable && study.passage ? (
@@ -291,6 +289,9 @@ function StepCard({ study, step, index, last, open, editable, onToggle, onChange
             ) : null}
 
             <Text style={ui.fieldLabel}>{t('blocksTitle')}</Text>
+            {blocks.length === 0 && editable ? (
+              <Field testID={`step-${index}-note`} multiline value="" onChangeText={(text) => setBlocks([{ id: newId(), kind: 'idea', text }])} placeholder={step.guidance ?? t('noteStart')} />
+            ) : null}
             {blocks.map((block, j) => (
               <BlockCard
                 key={block.id}
@@ -308,13 +309,29 @@ function StepCard({ study, step, index, last, open, editable, onToggle, onChange
             ))}
             {editable ? (
               <View style={s.addRow}>
+                <Text style={ui.fieldLabel}>{t('addMore')}</Text>
                 {BLOCK_KINDS.map((kind) => (
                   <Chip key={kind} testID={`step-${index}-add-${kind}`} label={`+ ${t(blockKey[kind])}`} onPress={() => addBlock(kind)} />
                 ))}
               </View>
             ) : null}
-            <Field testID={`step-${index}-bridge`} label={t('bridgeLabel')} editable={editable} value={step.bridge ?? ''} onChangeText={(bridge) => onChange({ bridge })} />
 
+            {editable ? <Pill plain testID={`step-${index}-more`} label={`${t('moreOptions')} ${more ? '▴' : '▾'}`} onPress={() => setMore(!more)} /> : null}
+            {more || !editable ? (
+              <>
+            <Field testID={`step-${index}-title`} label={t('titleLabel')} placeholder={t('stepNamePh')} editable={editable} value={isGenericTitle(step.title) ? '' : step.title} onChangeText={(title) => onChange({ title })} />
+            <Field
+              testID={`step-${index}-minutes`}
+              label={t('minutesLabel')}
+              editable={editable}
+              keyboardType="number-pad"
+              value={String(Math.round(step.plannedMs / 60_000))}
+              onChangeText={(value) => onChange({ plannedMs: (Number(value.replace(/\D/g, '')) || 0) * 60_000 })}
+            />
+
+            <Field testID={`step-${index}-bridge`} label={t('bridgeLabel')} editable={editable} value={step.bridge ?? ''} onChangeText={(bridge) => onChange({ bridge })} />
+              </>
+            ) : null}
             {editable ? (
               <View style={ui.row}>
                 <IconButton testID={`step-${index}-up`} icon="arrow-up" label={t('previous')} onPress={() => onMove(-1)} />

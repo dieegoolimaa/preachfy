@@ -150,6 +150,24 @@ try {
   await T('step-title').waitFor();
   ok('Pulpit starts on the first step', true);
 
+  // A leader shares a study; members follow it in the Pulpit without copying.
+  await page.goto(`${WEB}/community`);
+  await T('community-name').waitFor();
+  await T('community-name').fill(`Grupo ${Date.now()}`);
+  await T('create-community').click();
+  await T('community-detail').waitFor();
+  await T('post-attach').click();
+  await T('attach-option').first().click();
+  await T('post-send').click();
+  await T('week-study').waitFor();
+  ok('a shared study becomes the study of the week', true);
+  await T('week-follow').click();
+  await T('prepare').waitFor();
+  await T('start').click();
+  await T('step-title').waitFor();
+  ok('the shared study opens in the Pulpit', true);
+  await page.goBack();
+
   // The Bible version is chosen from a menu.
   await page.goto(`${WEB}/bible`);
   await T('word-1-1').waitFor();

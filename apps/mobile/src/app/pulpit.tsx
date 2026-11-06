@@ -21,6 +21,7 @@ import { resolvePassage } from '@/lib/passage';
 import { goBack } from '@/lib/navigation';
 import { canRecord, useSermonRecorder } from '@/lib/recording';
 import { demoStudy } from '@/lib/sample';
+import { getShared, isShared } from '@/lib/shared';
 import { getReader, isPro, updateReader, useReader } from '@/lib/store';
 import { renderStudy, renderText, type Rendered } from '@/lib/studyText';
 import { categoryColor, paper, serif, serifBold, stage, type Theme } from '@/lib/theme';
@@ -161,7 +162,7 @@ export default function Pulpit() {
   const reader = useReader();
   const { studies, sessions, liveCodes } = reader;
   const study = useMemo(
-    () => (id === 'demo' ? demoStudy(locale) : studies.find((s) => s.id === id && !s.deletedAt)),
+    () => (id === 'demo' ? demoStudy(locale) : isShared(id) ? getShared(id) : studies.find((s) => s.id === id && !s.deletedAt)),
     [id, locale, studies],
   );
   const code = liveCodes[id];
@@ -187,7 +188,9 @@ export default function Pulpit() {
   const [settled, setSettled] = useState(false);
   const [viewH, setViewH] = useState(0);
   const search = useRef({ lo: 0.48, hi: 1.6, f: 1, n: 0, h: 0 });
-  const allowed = id === 'demo' || Boolean(study?.example) || isPro(reader);
+  // The sample, a message shared in a community and the demo are open to everyone. Only the author's own needs Pro.
+  const own = id !== 'demo' && !isShared(id);
+  const allowed = !own || Boolean(study?.example) || isPro(reader);
   const { width } = useWindowDimensions();
   const wide = width >= 768;
   const t = dark ? stage : paper;
@@ -350,7 +353,7 @@ export default function Pulpit() {
       <After
         run={finished}
         onDone={(place, note) => {
-          if (id !== 'demo') {
+          if (own) {
             const run = { ...finished, updatedAt: Date.now(), ...(place ? { place } : {}), ...(note ? { note } : {}) };
             updateReader({ runs: [run, ...getReader().runs] });
             router.dismissTo(`/study/${id}`);
@@ -397,7 +400,7 @@ export default function Pulpit() {
   };
 
   const openScreen = () => {
-    if (id !== 'demo') openLive(study, locale).catch(() => setToast(tr('screenFailed')));
+    if (own) openLive(study, locale).catch(() => setToast(tr('screenFailed')));
   };
 
   const currentPace = pace(session);
@@ -443,11 +446,11 @@ export default function Pulpit() {
     <>
       <Round testID="context" icon="book" label={tr('context')} t={t} onPress={() => setContextOpen((o) => !o)} />
       <Round testID="detail" icon="text-size" label={tr('display')} t={t} active={displayOpen} onPress={() => setDisplayOpen((o) => !o)} />
-      {canRecord && id !== 'demo' ? (
+      {canRecord && own ? (
         <Round testID="record" icon="mic" label={tr('record')} t={t} active={recording.active} onPress={() => (recording.active ? setToast(`● ${tr('record')}`) : recording.start().catch(() => setToast(tr('micDenied'))))} />
       ) : null}
       <Round testID="detour" icon="verse" label={tr('verseOutside')} t={t} onPress={() => setDetourOpen(true)} />
-      {id !== 'demo' ? <Round testID="live" icon="tv" label={tr('screenSheet')} t={t} onPress={() => setLiveOpen(true)} /> : null}
+      {own ? <Round testID="live" icon="tv" label={tr('screenSheet')} t={t} onPress={() => setLiveOpen(true)} /> : null}
       <Round testID="theme" icon={dark ? 'sun' : 'moon'} label={tr(dark ? 'light' : 'stage')} t={t} onPress={() => setDark((d) => !d)} />
     </>
   );

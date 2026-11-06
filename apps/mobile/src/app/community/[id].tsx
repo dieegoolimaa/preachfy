@@ -14,6 +14,7 @@ import { useT } from '@/lib/i18n';
 import { newId } from '@/lib/ids';
 import { goBack } from '@/lib/navigation';
 import { requirePro } from '@/lib/pro';
+import { setShared, sharedId } from '@/lib/shared';
 import { saveStudy, useReader } from '@/lib/store';
 import { WEB_URL } from '@/lib/live';
 
@@ -135,6 +136,28 @@ export default function CommunityDetail() {
           onPress={() => act(`${base}/events/${nextEvent.id}/rsvp`, 'POST', { going: !nextEvent.goingByMe })}
         />
         {nextEvent.meetLink ? <Pill plain label={t('openLink')} onPress={() => Linking.openURL(nextEvent.meetLink!)} /> : null}
+      </View>
+    </View>
+  ) : null;
+
+  // The latest study a leader shared. Members follow it in the Pulpit for free; copying it is Pro.
+  const weekPost = posts.find((post) => post.attachment);
+  const weekCard = weekPost?.attachment ? (
+    <View style={c.week} testID="week-study">
+      <Text style={c.nextTag}>{t('weekStudy').toUpperCase()}</Text>
+      <Text style={c.nextTitle}>{weekPost.attachment.title}</Text>
+      <View style={ui.row}>
+        <Pill
+          primary
+          testID="week-follow"
+          label={t('followInPulpit')}
+          onPress={() => {
+            const id = sharedId(weekPost.id);
+            setShared(id, { ...(weekPost.attachment!.study as Study), id });
+            router.push(`/pulpit?id=${id}`);
+          }}
+        />
+        <Pill plain testID="week-copy" label={t('copyToMine')} onPress={() => copyStudy(weekPost)} />
       </View>
     </View>
   ) : null;
@@ -309,7 +332,7 @@ export default function CommunityDetail() {
       {feedback ? <Text testID="community-feedback" style={ui.error}>{feedback}</Text> : null}
       {wide ? (
         <View style={c.columns}>
-          <View style={c.main}>{tabs}{content}</View>
+          <View style={c.main}>{weekCard}{tabs}{content}</View>
           <View style={c.side}>
             {meeting}
             <Text style={c.nextTag}>{t('members').toUpperCase()} · {detail.members.length}</Text>
@@ -324,6 +347,7 @@ export default function CommunityDetail() {
       ) : (
         <>
           {meeting}
+          {weekCard}
           {tabs}
           {content}
         </>
@@ -352,6 +376,7 @@ const c = StyleSheet.create({
   side: { flex: 1, gap: 12 },
   sideMember: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   sideName: { fontSize: 15, color: paper.fg },
+  week: { gap: 8, padding: 18, borderRadius: 20, backgroundColor: paper.soft },
   next: { gap: 6, padding: 18, borderRadius: 20, backgroundColor: '#FFE485' },
   nextTag: { fontSize: 12, fontWeight: '700', letterSpacing: 1.2, color: paper.muted },
   nextTitle: { fontFamily: serifBold, fontSize: 24, lineHeight: 28, color: paper.fg },

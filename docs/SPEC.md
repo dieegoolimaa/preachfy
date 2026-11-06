@@ -221,7 +221,8 @@ Grupo fechado por convite: igreja, célula ou equipe. Só quem cria precisa do P
 - **Mural:** publicações e avisos. Só líderes publicam avisos, e os membros marcam "ciente".
 - **Agenda:** líderes marcam encontros, membros confirmam presença.
 - **Membros:** nome e papel, sem e-mail. O dono promove líderes; o convite pode ser trocado.
-- **Estudos:** anexar ao mural envia o material, sem as marcações pessoais. Copiar para os próprios conteúdos é Pro.
+- **Estudo da semana:** o último estudo que o líder anexou aparece em destaque no alto da comunidade. Os membros acompanham no Púlpito sem pagar e sem copiar; copiar para os próprios conteúdos é Pro. Anexar ao mural envia o material, sem as marcações pessoais.
+- **Mensagem de exemplo:** toda conta nova começa com uma mensagem de exemplo, que mostra como se monta (texto bíblico, introdução, passos, conclusão) e como o Púlpito conduz. Pode ser apagada, e o Púlpito dela abre para todos.
 - **Moderação (exigência da App Store para conteúdo de usuários):** denunciar publicação, bloquear pessoa, líderes removem. Termos com tolerância zero. Falta um canal do desenvolvedor para agir em 24 horas.
 
 ## Serviço de compartilhamento

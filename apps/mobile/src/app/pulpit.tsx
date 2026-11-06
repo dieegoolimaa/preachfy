@@ -588,14 +588,6 @@ export default function Pulpit() {
             <Pressable testID="size-auto" accessibilityLabel={tr('sizeAuto')} style={[s.tool, zoom === null && s.toolOn]} onPress={() => setZoom(null)}><Text style={[s.toolText, zoom === null && s.toolTextOn]}>{tr('sizeAuto')}</Text></Pressable>
             <Pressable testID="size-up" accessibilityLabel={tr('sizeBigger')} style={s.tool} onPress={bigger}><Text style={s.toolText}>A+</Text></Pressable>
           </View>
-          <View style={s.tools}>
-            {(['manuscript', 'outline', 'keywords'] as const).map((level) => (
-              <Pressable key={level} testID={`detail-${level}`} style={[s.tool, detail === level && s.toolOn]} onPress={() => setDetail(level)}>
-                <Text style={[s.toolText, detail === level && s.toolTextOn]}>{tr(detailKey[level])}</Text>
-              </Pressable>
-            ))}
-          </View>
-          <Text style={s.pace}>{tr('detailHint')}</Text>
         </View>
       ) : null}
       {!wide && !locked ? <View style={s.toolsRow}>{tools}</View> : null}

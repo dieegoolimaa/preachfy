@@ -120,7 +120,6 @@ Alternativas descartadas como base: MultipeerConnectivity (limite de 8 aparelhos
 Cada passo tem o **texto base** (obrigatório) e depois uma sequência livre de **blocos**: ideia, ilustração, pergunta, aplicação, oração, nota de palco e atividade.
 
 - **Quantidade livre:** o autor adiciona, remove e reordena blocos, e também passos. Cada seção do modelo já vem com blocos iniciais, que podem ser trocados.
-- **Ideia em três níveis:** manuscrito, tópicos e palavras-chave. O Púlpito mostra o nível escolhido, com o texto escrito como reserva.
 - **Meta de tempo:** a mensagem tem uma meta em minutos. Uma barra mostra um pedaço por passo e diz quanto está acima ou abaixo da meta.
 - **Estimativa de fala:** vem das palavras escritas, a 130 por minuto, mais 30 segundos para ler o texto base. Uma atividade conta o próprio cronômetro.
 - **Ponte:** cada passo pode ter uma frase que leva ao próximo. Fica à vista durante o Púlpito.
@@ -129,9 +128,10 @@ Cada passo tem o **texto base** (obrigatório) e depois uma sequência livre de 
 - Estudos antigos continuam funcionando: as notas e a pergunta viram blocos.
 
 ### Começar a criar
-- Escrever vem primeiro: depois de escolher o trecho, "Começar em branco" abre um único passo já com o texto base e o cursor na anotação. A estrutura cresce do que se escreve, com quantos passos o autor quiser.
-- Modelos (Esboço, Estudo, Devocional, Aula, Palestra) são um atalho opcional.
-- Cada passo tem dois campos: **texto base** (bíblico ou autoral) e a **anotação** do que será ministrado. Nome, minutos e ponte ficam em "Mais opções".
+- Dois passos: escolher o trecho e escolher o que será preparado (Esboço, Estudo, Devocional, Aula, Palestra ou Cartão).
+- Depois disso a criação abre vazia: só o trecho como texto base e um campo para a anotação do que será ministrado. O autor faz o resto do seu jeito e acrescenta passos e blocos quando quiser.
+- Sem níveis de detalhe (texto completo, tópicos, palavras-chave): cada bloco é um texto só.
+- Nome, minutos e ponte ficam em "Mais opções".
 
 ### Estrutura de um estudo
 - **Passos:** cada um tem **texto base** (seleção bíblica ou texto de referência) e **anotações da ministração**.
@@ -142,7 +142,7 @@ Cada passo tem o **texto base** (obrigatório) e depois uma sequência livre de 
 - Um passo é uma tela: o texto base e tudo o que foi escrito sobre ele (anotações do estudo e as notas pessoais feitas na Bíblia nesses versículos) aparecem juntos, sem alternar. O texto se ajusta para caber, sem rolar; o orador aumenta ou diminui (A−, A+).
 - Faixa de processo no topo: Antes, passo atual e Depois, com pontos tocáveis. Passos sem nome mostram a referência do texto, nunca "Ponto 1".
 - Cartão "A seguir" com a frase de ponte e o começo do que vem depois. Nenhum botão fica desabilitado; no último passo "Próximo" vira "Terminar".
-- Detalhe do texto (completo, tópicos, palavras-chave) e tema claro ou escuro ficam em um painel, não em botões de alternância.
+- O tamanho da letra fica em um painel com A−, Ajustar e A+.
 
 ## Conta, cobrança e integração
 

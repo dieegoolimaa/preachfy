@@ -91,35 +91,22 @@ try {
   ok('whole chapter restores it', /1–6/.test(await T('passage-ok').innerText()));
   await T('wiz-continue').click();
   await T('kind-outline').waitFor();
-  ok('stage 2 asks for the type', await T('kind-class').isVisible());
-  await T('kind-outline').click();
-  await T('sections-count').waitFor();
-  const before = await page.getByTestId(/^draft-\d+$/).count();
-  ok('stage 3 shows the steps', before >= 5);
-  ok('steps show no boilerplate description', !/Uma afirmação curta/.test(await T('draft-1').innerText()));
-  await T('draft-add').click();
-  await T('draft-add').click();
-  await page.waitForTimeout(300);
-  ok('points can be added freely', (await page.getByTestId(/^draft-\d+$/).count()) === before + 2);
-  ok('a new point continues the numbering', (await T(`draft-title-${before}`).inputValue()) === 'Ponto 4', await T(`draft-title-${before}`).inputValue());
-  await T(`draft-remove-${before}`).click();
-  await T(`draft-remove-${before}`).click();
-  await page.waitForTimeout(300);
-  ok('points can be removed', (await page.getByTestId(/^draft-\d+$/).count()) === before);
-  await T('wiz-2').click();
+  ok('stage 2 asks what will be prepared', await T('kind-class').isVisible());
   await T('kind-class').click();
-  await T('create-study').click();
   await T('study').waitFor();
-  ok('Create builds a class from the passage', true);
+  ok('choosing the type opens an empty creation with the passage', (await page.getByTestId(/^step-\d+-toggle$/).count()) === 1 && (await T('step-0-block-0-text').inputValue()) === '');
+  await T('step-0-block-0-text').fill('Primeira ideia');
+  await page.waitForTimeout(300);
+  ok('what is written becomes the first note', (await T('step-0-block-0-text').inputValue()) === 'Primeira ideia');
+  ok('there is no Full, Outline or Keys choice', (await page.getByText('Outline').count()) === 0 && (await page.getByText('Tópicos').count()) === 0);
 
   // A sermon is not a class, and Pregar is never locked.
   await page.goto(`${WEB}/new`);
   await T('passage-ok').waitFor();
   await T('wiz-continue').click();
   await T('kind-outline').click();
-  await T('create-study').click();
   await T('study').waitFor();
-  ok('Pregar is available even with steps still empty', await T('open-pulpit').isEnabled());
+  ok('Pregar is available even with the step still empty', await T('open-pulpit').isEnabled());
   ok('a sermon offers the screen, not a class', /telão/i.test(await T('open-live').innerText()) && !/aula/i.test(await T('open-live').innerText()), await T('open-live').innerText());
   await T('open-pulpit').click();
   await T('prepare').waitFor();
@@ -144,17 +131,6 @@ try {
   await T('start').click();
   await T('step-title').waitFor();
   ok('Pulpit starts on the first step', true);
-
-  // Writing comes first: a blank start opens the only step, ready for notes.
-  await page.goto(`${WEB}/new`);
-  await T('passage-ok').waitFor();
-  await T('wiz-continue').click();
-  await T('kind-blank').click();
-  await T('step-0-block-0-text').waitFor();
-  ok('a blank start opens a single step ready to write', (await page.getByTestId(/^step-\d+-toggle$/).count()) === 1);
-  await T('step-0-block-0-text').fill('Primeira ideia');
-  await page.waitForTimeout(300);
-  ok('what is written becomes the first note', (await T('step-0-block-0-text').inputValue()) === 'Primeira ideia');
 
   // The Bible version is chosen from a menu.
   await page.goto(`${WEB}/bible`);

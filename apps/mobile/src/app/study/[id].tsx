@@ -133,17 +133,6 @@ function BlockCard({ block, stepIndex, index, count, editable, first, placeholde
           </View>
         ) : null}
       </View>
-      {block.kind === 'idea' ? (
-        <Segmented
-          value={level}
-          onChange={setLevel}
-          options={[
-            { key: 'manuscript', label: t('manuscript'), testID: `${id}-level-manuscript` },
-            { key: 'outline', label: t('outlineLevel'), testID: `${id}-level-outline` },
-            { key: 'keywords', label: t('keywordsShort'), testID: `${id}-level-keywords` },
-          ]}
-        />
-      ) : null}
       <Field
         testID={`${id}-${field}`}
         multiline

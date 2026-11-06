@@ -128,7 +128,7 @@ const pt = {
   stepsCountOne: '1 passo',
   deliveredCount: '{n}× ministrado',
   step1Passage: '1 · Trecho',
-  step2Type: "Como você quer começar?",
+  step2Type: "O que você vai preparar?",
   startBlank: "Começar em branco", startBlankHint: "Escreva primeiro. A estrutura aparece depois, do seu jeito.", orTemplate: "Ou parta de um modelo",
   step3Title: '3 · Título',
   passageHint: 'Salmos 23:1-6',
@@ -305,7 +305,7 @@ const pt = {
   endScreen: "Desligar telão",
   checkStepsMissing: "{n} passos sem texto base. Você pode seguir assim mesmo.",
   stepEmpty: "Nada escrito neste passo.",
-  stepN: "Passo {i}", stepNamePh: "Nome (opcional)", sizeSmaller: "Letra menor", sizeBigger: "Letra maior", sizeAuto: "Ajustar à tela", detailFull: "Texto completo", detailHint: "Tópicos e palavras valem para as ideias.", screenFailed: "Não foi possível abrir a tela. Verifique sua conexão.", noPassageText: "Esta mensagem não tem uma passagem para mostrar.", before: "Antes", now: "Agora", after: "Depois", display: "Letra e detalhe",
+  stepN: "Passo {i}", stepNamePh: "Nome (opcional)", sizeSmaller: "Letra menor", sizeBigger: "Letra maior", sizeAuto: "Ajustar à tela", detailFull: "Texto completo", detailHint: "Tópicos e palavras valem para as ideias.", screenFailed: "Não foi possível abrir a tela. Verifique sua conexão.", noPassageText: "Esta mensagem não tem uma passagem para mostrar.", before: "Antes", now: "Agora", after: "Depois", display: "Tamanho da letra",
   noStepsYet: "Esta mensagem ainda não tem passos. Volte e adicione o que vai dizer.",
 };
 
@@ -436,7 +436,7 @@ const en: Record<Key, string> = {
   stepsCountOne: '1 step',
   deliveredCount: 'delivered {n}×',
   step1Passage: '1 · Passage',
-  step2Type: "How do you want to start?",
+  step2Type: "What are you preparing?",
   startBlank: "Start blank", startBlankHint: "Write first. The structure comes later, your way.", orTemplate: "Or start from a template",
   step3Title: '3 · Title',
   passageHint: 'Psalms 23:1-6',
@@ -613,7 +613,7 @@ const en: Record<Key, string> = {
   endScreen: "Turn the screen off",
   checkStepsMissing: "{n} steps without base text. You can go ahead anyway.",
   stepEmpty: "Nothing written in this step.",
-  stepN: "Step {i}", stepNamePh: "Name (optional)", sizeSmaller: "Smaller text", sizeBigger: "Larger text", sizeAuto: "Fit to screen", detailFull: "Full text", detailHint: "Outline and keywords apply to ideas.", screenFailed: "Could not open the screen. Check your connection.", noPassageText: "This message has no passage to show.", before: "Before", now: "Now", after: "After", display: "Text and detail",
+  stepN: "Step {i}", stepNamePh: "Name (optional)", sizeSmaller: "Smaller text", sizeBigger: "Larger text", sizeAuto: "Fit to screen", detailFull: "Full text", detailHint: "Outline and keywords apply to ideas.", screenFailed: "Could not open the screen. Check your connection.", noPassageText: "This message has no passage to show.", before: "Before", now: "Now", after: "After", display: "Text size",
   noStepsYet: "This message has no steps yet. Go back and add what you will say.",
 };
 
@@ -742,7 +742,7 @@ const es: Record<Key, string> = {
   stepsCountOne: '1 paso',
   deliveredCount: '{n}× ministrado',
   step1Passage: '1 · Pasaje',
-  step2Type: "¿Cómo quieres empezar?",
+  step2Type: "¿Qué vas a preparar?",
   startBlank: "Empezar en blanco", startBlankHint: "Escribe primero. La estructura llega después, a tu manera.", orTemplate: "O parte de una plantilla",
   step3Title: '3 · Título',
   passageHint: 'Salmos 23:1-6',
@@ -920,7 +920,7 @@ const es: Record<Key, string> = {
   endScreen: "Apagar la pantalla",
   checkStepsMissing: "{n} pasos sin texto base. Puedes seguir así.",
   stepEmpty: "Nada escrito en este paso.",
-  stepN: "Paso {i}", stepNamePh: "Nombre (opcional)", sizeSmaller: "Letra menor", sizeBigger: "Letra mayor", sizeAuto: "Ajustar a la pantalla", detailFull: "Texto completo", detailHint: "Esquema y palabras valen para las ideas.", screenFailed: "No se pudo abrir la pantalla. Revisa tu conexión.", noPassageText: "Este mensaje no tiene un pasaje que mostrar.", before: "Antes", now: "Ahora", after: "Después", display: "Letra y detalle",
+  stepN: "Paso {i}", stepNamePh: "Nombre (opcional)", sizeSmaller: "Letra menor", sizeBigger: "Letra mayor", sizeAuto: "Ajustar a la pantalla", detailFull: "Texto completo", detailHint: "Esquema y palabras valen para las ideas.", screenFailed: "No se pudo abrir la pantalla. Revisa tu conexión.", noPassageText: "Este mensaje no tiene un pasaje que mostrar.", before: "Antes", now: "Ahora", after: "Después", display: "Tamaño de letra",
   noStepsYet: "Este mensaje aún no tiene pasos. Vuelve y añade lo que dirás.",
 };
 

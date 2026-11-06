@@ -5,6 +5,7 @@ import { AppState, Platform } from 'react-native';
 
 import { apiFetch, authClient } from '@/lib/auth';
 import { deviceLocale } from '@/lib/i18n';
+import { seedExample } from '@/lib/example';
 import { flushReader, loadReader, updateReader, useReader } from '@/lib/store';
 import { syncAll } from '@/lib/sync';
 import { paper } from '@/lib/theme';
@@ -42,6 +43,9 @@ function useSync(ready: boolean) {
 export default function RootLayout() {
   const [loaded] = useFonts({ Newsreader_400Regular, Newsreader_600SemiBold });
   const { ready } = useReader();
+  useEffect(() => {
+    if (ready) seedExample();
+  }, [ready]);
   useEffect(() => {
     loadReader(deviceLocale());
     const state = AppState.addEventListener('change', (next) => next !== 'active' && flushReader());

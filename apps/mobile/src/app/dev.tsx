@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 
 import { Hint, Screen } from '@/components/ui';
 import { call, type Community } from '@/lib/community';
-import { devLogin, seedStudy } from '@/lib/devtools';
+import { devLogin, resetStudies, seedStudy } from '@/lib/devtools';
 import { useT } from '@/lib/i18n';
 
 /** Development shortcut: opens as exp://…/--/dev. Signs in, unlocks Pro and opens a ready study. */
@@ -20,6 +20,11 @@ export default function Dev() {
     devLogin().then((ok) => {
       if (!ok) setFailed(true);
       else {
+        if (to === 'reset') {
+          resetStudies();
+          router.replace('/');
+          return;
+        }
         if (to === 'today') {
           seedStudy(locale);
           router.replace('/');

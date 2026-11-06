@@ -1,4 +1,4 @@
-import { bookName, DAILY_VERSES, hasBaseText, isReadyForPulpit, nextStudy, planChapters, planDayOf, templateFor } from '@preachfy/core';
+import { bookName, DAILY_VERSES, isReadyForPulpit, nextStudy, planChapters, planDayOf, stepsMissingBaseText, templateFor } from '@preachfy/core';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -26,7 +26,7 @@ export default function Today() {
   const next = nextStudy(studies, Date.now());
   const template = next?.kind ? templateFor(next.kind) : null;
   const ready = next ? isReadyForPulpit(next) : false;
-  const done = next ? next.steps.filter(hasBaseText).length : 0;
+  const done = next ? next.steps.length - stepsMissingBaseText(next).length : 0;
   const planFirst = plan ? planChapters(planDayOf(plan.startedAt, Date.now()))[0] : undefined;
 
   useEffect(() => {
@@ -47,7 +47,7 @@ export default function Today() {
   const act = () => {
     if (!next) {
       if (requirePro('create')) router.push('/new');
-    } else if (requirePro('pulpit')) {
+    } else if (next.example || requirePro('pulpit')) {
       router.push(`/pulpit?id=${next.id}`);
     }
   };

@@ -155,6 +155,8 @@ export type Study = {
   snapshot?: Snapshot;
   steps: Step[];
   scheduledFor?: number;
+  /** The sample message every new account starts with. It can be deleted. */
+  example?: boolean;
   createdAt?: number;
   updatedAt?: number;
   /** Kept as a tombstone so a removal reaches the other devices. */

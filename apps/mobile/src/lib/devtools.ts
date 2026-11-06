@@ -2,6 +2,7 @@ import { buildStudy, passageText, type Study } from '@preachfy/core';
 
 import { apiFetch, authClient } from './auth';
 import { newId } from './ids';
+import { seedExample } from './example';
 import { getReader, saveStudy, updateReader } from './store';
 
 const EMAIL = 'dev@preachfy.test';
@@ -40,4 +41,12 @@ export function seedStudy(locale: 'pt' | 'en' | 'es'): string {
   const study: Study = { ...base, steps, goal: 'Entender o cuidado do Pastor' };
   saveStudy(study);
   return id;
+}
+
+/** Development: deletes every message and starts again from the sample one. */
+export function resetStudies() {
+  const at = Date.now();
+  for (const study of getReader().studies.filter((x) => !x.deletedAt)) saveStudy({ ...study, deletedAt: at });
+  updateReader({ runs: getReader().runs.map((run) => ({ ...run, deletedAt: run.deletedAt ?? at, updatedAt: at })), sessions: {}, liveCodes: {}, exampleSeeded: false });
+  seedExample(true);
 }

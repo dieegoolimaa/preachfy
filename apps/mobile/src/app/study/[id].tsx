@@ -409,7 +409,7 @@ export default function StudyEditor() {
       {!pro ? <Hint testID="read-only">{t('readOnlyHint')}</Hint> : null}
 
       <View style={s.deliver}>
-        {ready ? null : <Segments done={study.steps.filter(hasBaseText).length} total={Math.max(study.steps.length, 1)} />}
+        {ready ? null : <Segments done={study.steps.length - missing.length} total={Math.max(study.steps.length, 1)} />}
         <Pressable testID={ready ? 'ready' : 'missing-base'} disabled={ready} accessibilityRole="button" onPress={() => missing[0] && setOpenStep(missing[0].id)}>
           <Text style={[s.status, ready ? s.statusReady : s.statusMissing]}>
             {ready ? t('ready') : `${t('missingBase', { list: missing.map((step) => stepName(step) || t('stepN', { i: stepNumber(study.steps, study.steps.indexOf(step)) })).join(', ') })} ${t('fixNext')}`}
@@ -420,7 +420,7 @@ export default function StudyEditor() {
           primary
           big
           label={template?.role[locale] ?? t('pulpit')}
-          onPress={() => requirePro('pulpit') && router.push(`/pulpit?id=${study.id}`)}
+          onPress={() => (study.example || requirePro('pulpit')) && router.push(`/pulpit?id=${study.id}`)}
         />
       </View>
 

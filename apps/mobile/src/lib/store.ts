@@ -25,6 +25,8 @@ export type ReaderState = {
   /** Last known plan. Lets the Pulpit open offline, until `proUntil`. */
   pro: boolean | null;
   proUntil: number | null;
+  /** The sample message is created once per install, and only on an empty account. */
+  exampleSeeded?: boolean;
   syncUser?: string;
   syncCursor: number;
   syncPushedAt: number;

@@ -187,7 +187,7 @@ export default function Pulpit() {
   const [settled, setSettled] = useState(false);
   const [viewH, setViewH] = useState(0);
   const search = useRef({ lo: 0.48, hi: 1.6, f: 1, n: 0, h: 0 });
-  const allowed = id === 'demo' || isPro(reader);
+  const allowed = id === 'demo' || Boolean(study?.example) || isPro(reader);
   const { width } = useWindowDimensions();
   const wide = width >= 768;
   const t = dark ? stage : paper;

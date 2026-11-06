@@ -20,6 +20,19 @@ try {
   await T('today').waitFor({ timeout: 120000 });
   ok('Today opens', true);
 
+  // Every new install starts with a sample message, and its Pulpit is open to everyone.
+  await T('next-card').waitFor();
+  ok('a new install has the sample message', /Exemplo/.test(await T('next-title').innerText()), await T('next-title').innerText());
+  await T('next-cta').click();
+  await page.waitForURL(/pulpit/);
+  await T('prepare').waitFor();
+  ok('the sample Pulpit opens without a subscription', true);
+  await T('start').click();
+  await T('step-title').waitFor();
+  ok('the sample starts at the introduction', /Introdu/.test(await T('step-title').innerText()), await T('step-title').innerText());
+  await page.goto(WEB);
+  await T('today').waitFor();
+
   // A new visitor reaches the paywall from a Pro feature, and the dev shortcut signs in, unlocks Pro and opens a study.
   await page.goto(`${WEB}/create`);
   await T('new-study').click();

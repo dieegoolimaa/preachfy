@@ -20,6 +20,11 @@ export default function Dev() {
     devLogin().then((ok) => {
       if (!ok) setFailed(true);
       else {
+        if (to === 'today') {
+          seedStudy(locale);
+          router.replace('/');
+          return;
+        }
         if (to === 'community') {
           call<Community[]>('/communities').then((list) => router.replace(list?.[0] ? `/community/${list[0].id}` : '/community'));
           return;

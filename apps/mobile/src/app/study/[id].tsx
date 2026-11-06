@@ -352,7 +352,11 @@ export default function StudyEditor() {
   const { studies, runs } = useReader();
   const pro = usePro();
   const study = studies.find((x) => x.id === id && !x.deletedAt);
-  const [openStep, setOpenStep] = useState<string | null>(null);
+  // A study that was just started blank opens its only step, so writing can begin at once.
+  const [openStep, setOpenStep] = useState<string | null>(() => {
+    const only = studies.find((x) => x.id === id && !x.deletedAt)?.steps;
+    return only?.length === 1 && !only[0]!.blocks?.some((b) => b.text.trim()) ? only[0]!.id : null;
+  });
   const [date, setDate] = useState(toInput(study?.scheduledFor));
   const [confirming, setConfirming] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
@@ -405,7 +409,7 @@ export default function StudyEditor() {
       right={<IconButton testID="share-study" icon="share" label={t('share')} onPress={shareText} />}>
       <View style={s.head}>
         <TextInput testID="study-title" style={[s.title, { height: titleHeight }]} editable={pro} multiline scrollEnabled={false} onContentSizeChange={(e) => setTitleHeight(Math.max(e.nativeEvent.contentSize.height, 40))} value={study.title} onChangeText={(title) => change({ title })} placeholder={t('titleLabel')} placeholderTextColor={paper.muted} />
-        <Text style={s.meta}>{[passageLabel, t('stepsCount', { n: study.steps.length }), t('minutes', { n: totalMinutes })].filter(Boolean).join(' · ')}</Text>
+        <Text style={s.meta}>{[passageLabel, (study.steps.length === 1 ? t('stepsCountOne') : t('stepsCount', { n: study.steps.length })), t('minutes', { n: totalMinutes })].filter(Boolean).join(' · ')}</Text>
       </View>
       {!pro ? <Hint testID="read-only">{t('readOnlyHint')}</Hint> : null}
 
@@ -463,6 +467,7 @@ export default function StudyEditor() {
         }}
       />
 
+      {study.context ? (
       <View>
         <Pressable testID="context-toggle" accessibilityRole="button" style={s.contextHead} onPress={() => setContextOpen(!contextOpen)}>
           <View style={s.stepTitle}>
@@ -473,6 +478,7 @@ export default function StudyEditor() {
         </Pressable>
         {contextOpen || study.context ? <TextEditor testID="context" value={study.context} onChange={(context) => change({ context })} translationId={study.passage?.translationId ?? 'blivre'} editable={pro} /> : null}
       </View>
+      ) : null}
 
 
       <Group title={t('deliver')} />

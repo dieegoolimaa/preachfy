@@ -145,6 +145,17 @@ try {
   await T('step-title').waitFor();
   ok('Pulpit starts on the first step', true);
 
+  // Writing comes first: a blank start opens the only step, ready for notes.
+  await page.goto(`${WEB}/new`);
+  await T('passage-ok').waitFor();
+  await T('wiz-continue').click();
+  await T('kind-blank').click();
+  await T('step-0-block-0-text').waitFor();
+  ok('a blank start opens a single step ready to write', (await page.getByTestId(/^step-\d+-toggle$/).count()) === 1);
+  await T('step-0-block-0-text').fill('Primeira ideia');
+  await page.waitForTimeout(300);
+  ok('what is written becomes the first note', (await T('step-0-block-0-text').inputValue()) === 'Primeira ideia');
+
   // The Bible version is chosen from a menu.
   await page.goto(`${WEB}/bible`);
   await T('word-1-1').waitFor();

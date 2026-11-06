@@ -1,5 +1,5 @@
 import {
-  bookName, buildStudy, marksInPassage, parsePassage, TEMPLATES, templateFor,
+  bookName, buildStudy, marksInPassage, parsePassage, passageText, TEMPLATES, templateFor,
   type Mark, type Passage, type Step, type StudyKind,
 } from '@preachfy/core';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -124,6 +124,16 @@ export default function NewContent() {
     router.replace(`/study/${id}`);
   };
 
+  /** Writing comes first: one step with the passage and an empty note. The structure grows from what is written. */
+  const createBlank = () => {
+    if (!passage) return;
+    const id = newId();
+    const base = buildStudy({ id, kind: 'outline', title: title.trim() || label, passage, marks, locale, now: Date.now(), newId });
+    const step: Step = { id: newId(), title: '', notes: '', plannedMs: 10 * 60_000, baseText: passageText(passage), blocks: [{ id: newId(), kind: 'idea', text: '' }] };
+    saveStudy({ ...base, steps: [step] });
+    router.replace(`/study/${id}`);
+  };
+
   const dotsFor = (step: Step) => {
     const verseList = step.baseText?.kind === 'scripture' ? step.baseText.spans.map((x) => x.ref.verse) : null;
     return own.filter((m) => step.feeds?.includes(m.categoryKey) && (!verseList || verseList.includes(verseOf(m))));
@@ -203,6 +213,11 @@ export default function NewContent() {
           <View style={s.column}>
             {summary}
             <Text style={s.question}>{t('step2Type')}</Text>
+            <Pressable testID="kind-blank" accessibilityRole="button" disabled={!passage} style={[s.kind, s.kindOn, !passage && ui.off]} onPress={createBlank}>
+              <Text style={[s.kindName, s.kindNameOn]}>{t('startBlank')}</Text>
+              <Text style={[s.kindMeta, s.kindMetaOn]}>{t('startBlankHint')}</Text>
+            </Pressable>
+            <Text style={s.orTemplate}>{t('orTemplate')}</Text>
             <View style={s.kinds}>
               {TEMPLATES.map((item) => {
                 const total = Math.round(item.sections.reduce((sum, x) => sum + x.minutes, 0));
@@ -211,14 +226,13 @@ export default function NewContent() {
                     key={item.kind}
                     testID={`kind-${item.kind}`}
                     accessibilityRole="button"
-                    accessibilityState={{ selected: kind === item.kind }}
-                    style={[s.kind, kind === item.kind && s.kindOn]}
+                    style={s.kind}
                     onPress={() => {
                       setKind(item.kind);
                       setStage(3);
                     }}>
-                    <Text style={[s.kindName, kind === item.kind && s.kindNameOn]}>{item.name[locale]}</Text>
-                    <Text style={[s.kindMeta, kind === item.kind && s.kindMetaOn]}>{t('kindMeta', { role: item.role[locale], n: total })}</Text>
+                    <Text style={s.kindName}>{item.name[locale]}</Text>
+                    <Text style={s.kindMeta}>{t('kindMeta', { role: item.role[locale], n: total })}</Text>
                   </Pressable>
                 );
               })}
@@ -300,6 +314,7 @@ const s = StyleSheet.create({
   verseOn: { backgroundColor: paper.soft, borderLeftColor: paper.mark },
   number: { width: 22, fontSize: 12, fontWeight: '600', color: paper.muted, paddingTop: 5 },
   verseText: { flex: 1, fontFamily: serif, fontSize: 18, lineHeight: 26, color: paper.fg },
+  orTemplate: { fontSize: 13, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', color: paper.muted, marginTop: 8 },
   kinds: { gap: 10 },
   kind: { gap: 2, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: paper.line },
   kindOn: { backgroundColor: paper.accent, borderColor: paper.accent },

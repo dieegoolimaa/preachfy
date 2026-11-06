@@ -22,7 +22,8 @@ const words = (text = '') => text.split(/\s+/).filter(Boolean);
 const clean = (word: string) => word.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 
 /** The words the other version does not have, so the difference shows without reading both. */
-function Diff({ text, other }: { text: string; other: string }) {
+function Diff({ text, other, compare }: { text: string; other: string; compare: boolean }) {
+  if (!compare) return <Text style={s.text}>{text}</Text>;
   const known = new Set(words(other).map(clean));
   return (
     <Text style={s.text}>
@@ -61,11 +62,13 @@ export default function Compare() {
     const swapped = id === other ? ids[side] : other;
     setIds(side === 0 ? [id, swapped] : [swapped, id]);
   };
+  const tongue = (id: string) => translationById(id).language.split(',')[0];
+  const sameLanguage = tongue(ids[0]) === tongue(ids[1]);
   const rows = Array.from({ length: Math.max(texts[0].length, texts[1].length) }, (_, i) => i);
 
   return (
     <Screen title={`${bookName(book, locale)} ${chapter}`} close testID="compare">
-      <Text style={s.explain}>{t('compareHint')}</Text>
+      <Text style={s.explain}>{sameLanguage ? t('compareHint') : t('compareHintLanguages')}</Text>
       <View style={s.pickers}>
         {([0, 1] as const).map((side) => (
           <Pressable
@@ -87,7 +90,7 @@ export default function Compare() {
             {([0, 1] as const).map((side) => (
               <View key={side} style={[s.cell, { backgroundColor: sides[side].tint, borderLeftColor: sides[side].edge }]}>
                 <Text style={[s.tag, { color: sides[side].ink }]}>{translationById(ids[side]).short}</Text>
-                <Diff text={texts[side][i] ?? ''} other={texts[side === 0 ? 1 : 0][i] ?? ''} />
+                <Diff text={texts[side][i] ?? ''} other={texts[side === 0 ? 1 : 0][i] ?? ''} compare={sameLanguage} />
               </View>
             ))}
           </View>

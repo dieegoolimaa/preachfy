@@ -33,7 +33,7 @@ export function Screen({ title, right, close, wide, footer, children, testID }: 
         {close ? null : <Title>{title}</Title>}
         {children}
       </ScrollView>
-      {footer ? <View style={ui.footer}>{footer}</View> : null}
+      {footer ? <View style={ui.footer}><View style={[ui.footerInner, wide && { maxWidth: 1080 }]}>{footer}</View></View> : null}
     </SafeAreaView>
   );
 }
@@ -213,8 +213,9 @@ export const ui = StyleSheet.create({
   titleWrap: { alignSelf: 'flex-start', paddingHorizontal: 2 },
   titleMark: { position: 'absolute', left: 0, right: 0, bottom: 7, height: 14, backgroundColor: paper.mark },
   largeTitle: { fontFamily: serifBold, fontSize: 38, lineHeight: 46, letterSpacing: -0.6, color: paper.fg },
-  body: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 32, gap: 20, maxWidth: 720, width: '100%', alignSelf: 'center' },
+  body: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32, gap: 20, maxWidth: 720, width: '100%', alignSelf: 'center' },
   bodyWide: { maxWidth: 1080 },
+  footerInner: { width: '100%', maxWidth: 720, alignSelf: 'center', gap: 8 },
   footer: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8, gap: 8, borderTopWidth: hairline, borderTopColor: paper.line, backgroundColor: paper.bg },
   segments: { flexDirection: 'row', gap: 4 },
   segment2: { flex: 1, height: 5, borderRadius: 3 },

@@ -43,7 +43,7 @@ export default function Marks() {
               <Text style={s.quote}>{mark.spans.map((x) => x.quote).filter(Boolean).join(' ')}</Text>
               {ref ? <Hint>{bookName(ref.book, locale)} {ref.chapter}:{ref.verse}</Hint> : null}
             </Pressable>
-            {mark.note && editing !== mark.id ? <Text testID="mark-note" style={ui.pillText}>{mark.note}</Text> : null}
+            {mark.note && editing !== mark.id ? <Text testID="mark-note" style={s.note}>{mark.note}</Text> : null}
             {editing === mark.id ? (
               <Field testID="note-input" multiline value={mark.note} onChangeText={(note) => change(mark.id, { note })} placeholder={t('noteLabel')} />
             ) : null}
@@ -65,5 +65,6 @@ export default function Marks() {
 
 const s = StyleSheet.create({
   mark: { gap: 4, paddingLeft: 10, borderLeftWidth: 4 },
+  note: { fontSize: 16, lineHeight: 23, color: paper.fg, textAlign: 'left', paddingLeft: 14 },
   quote: { fontFamily: serif, fontSize: 18, lineHeight: 25, color: paper.fg },
 });

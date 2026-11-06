@@ -142,7 +142,7 @@ export default function CommunityDetail() {
   const feed = (
     <>
       <View style={c.composer}>
-        <Avatar name={session?.user.name ?? '?'} />
+        {wide ? <Avatar name={session?.user.name ?? '?'} /> : null}
         <View style={c.composerBody}>
           <Field testID="post-text" multiline value={text} onChangeText={setText} placeholder={t('postHint')} />
           <View style={ui.row}>

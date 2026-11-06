@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
   footer: { gap: 4, marginTop: 12 },
   hint: { color: paper.muted, fontSize: 13 },
   message: { color: paper.muted, fontSize: 15, padding: 20 },
-  toolbar: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingHorizontal: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: paper.line, backgroundColor: paper.bg },
+  toolbar: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingHorizontal: 8, width: '100%', maxWidth: 720, alignSelf: 'center', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: paper.line, backgroundColor: paper.bg },
   sheet: { gap: 12, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopLeftRadius: 18, borderTopRightRadius: 18, backgroundColor: paper.card, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 16, shadowOffset: { width: 0, height: -2 } },
   lookRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16 },
   swatch: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: paper.line },

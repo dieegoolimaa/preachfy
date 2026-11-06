@@ -251,7 +251,7 @@ export default function Pulpit() {
 
   // The text is sized to fill the screen without scrolling. The reader can then make it bigger or smaller.
   useEffect(() => {
-    search.current = { lo: 0.48, hi: 1.6, f: 1, n: 0, h: search.current.h };
+    search.current = { lo: 0.48, hi: wide ? 2.4 : 1.6, f: 1, n: 0, h: search.current.h };
     setFit(1);
     setSettled(false);
   }, [index, detail, viewH, wide]);
@@ -567,7 +567,7 @@ export default function Pulpit() {
             ))}
           </ScrollView>
           {next ? (
-            <Pressable style={s.upNext} testID="bridge" onPress={() => jump(index + 1)}>
+            <View style={s.upWrap}><Pressable style={s.upNext} testID="bridge" onPress={() => jump(index + 1)}>
               <View style={s.upHead}>
                 <Text style={s.jTag}>{tr('bridgeNext').toUpperCase()}</Text>
                 <Text style={s.upName} numberOfLines={1}>{nameOf(index + 1)}</Text>
@@ -575,7 +575,7 @@ export default function Pulpit() {
               </View>
               {step.bridge ? <Text style={s.bridgeText} numberOfLines={2}>“{step.bridge}”</Text> : null}
               {previewOf(index + 1) ? <Text style={s.upBody} numberOfLines={2}>{previewOf(index + 1)}</Text> : null}
-            </Pressable>
+            </Pressable></View>
           ) : null}
         </View>
         {wide && contextOpen ? <View testID="context-pane" style={s.pane}>{contextBody}</View> : null}
@@ -743,7 +743,8 @@ const themed = (t: Theme, wide: boolean, scale = 1) =>
     dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: t.line },
     dotDone: { backgroundColor: t.muted },
     dotNow: { width: 26, backgroundColor: t.accent },
-    upNext: { gap: 6, marginHorizontal: wide ? 32 : 16, marginBottom: 8, padding: 12, borderRadius: 14, backgroundColor: t.soft, maxWidth: 860, alignSelf: 'stretch' },
+    upWrap: { paddingHorizontal: wide ? 32 : 16, marginBottom: 8, width: '100%', maxWidth: 892, alignSelf: 'center' },
+    upNext: { gap: 6, padding: 12, borderRadius: 14, backgroundColor: t.soft },
     upHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     upName: { flex: 1, fontFamily: serifBold, fontSize: 16, color: t.fg },
     upBody: { fontFamily: serif, fontSize: 15, lineHeight: 21, color: t.muted },

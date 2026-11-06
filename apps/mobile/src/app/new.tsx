@@ -73,8 +73,10 @@ export default function NewContent() {
     if (!passage) return;
     const id = newId();
     const base = buildStudy({ id, kind, title: label, passage, marks, locale, now: Date.now(), newId });
-    const step: Step = { id: newId(), title: '', notes: '', plannedMs: 10 * 60_000, baseText: passageText(passage), blocks: [{ id: newId(), kind: 'idea', text: '' }] };
-    saveStudy({ ...base, steps: [step] });
+    // The message is always: the Bible text, an introduction, the steps the author adds, and a conclusion.
+    const intro: Step = { id: newId(), title: t('introTitle'), role: 'intro', notes: '', plannedMs: 5 * 60_000, baseText: passageText(passage), blocks: [{ id: newId(), kind: 'idea', text: '' }] };
+    const end: Step = { id: newId(), title: t('conclusionTitle'), role: 'conclusion', notes: '', plannedMs: 5 * 60_000, blocks: [{ id: newId(), kind: 'idea', text: '' }] };
+    saveStudy({ ...base, steps: [intro, end] });
     router.replace(`/study/${id}`);
   };
 

@@ -24,3 +24,6 @@ export function stepName(step: Named, fallback = '') {
   const words = text.split(' ').slice(0, 5).join(' ');
   return words ? `${words}${text.split(' ').length > 5 ? '…' : ''}` : '';
 }
+
+/** The number of a step among the author's own steps: the introduction and conclusion do not count. */
+export const stepNumber = (steps: { role?: string }[], index: number) => steps.slice(0, index + 1).filter((step) => !step.role).length;

@@ -94,7 +94,12 @@ try {
   ok('stage 2 asks what will be prepared', await T('kind-class').isVisible());
   await T('kind-class').click();
   await T('study').waitFor();
-  ok('choosing the type opens an empty creation with the passage', (await page.getByTestId(/^step-\d+-toggle$/).count()) === 1 && (await T('step-0-block-0-text').inputValue()) === '');
+  ok('the message starts with an introduction and a conclusion', (await page.getByTestId(/^step-\d+-toggle$/).count()) === 2 && (await T('step-0-block-0-text').inputValue()) === '');
+  ok('the theme is called theme of the message', /tema da mensagem|objetivo da aula/i.test(await page.locator('body').innerText()));
+  await T('add-step').click();
+  await page.waitForTimeout(300);
+  ok('a new step goes before the conclusion', (await page.getByTestId(/^step-\d+-toggle$/).count()) === 3 && /Conclus/.test(await T('step-2-toggle').innerText()));
+  await T('step-0-toggle').click();
   await T('step-0-block-0-text').fill('Primeira ideia');
   await page.waitForTimeout(300);
   ok('what is written becomes the first note', (await T('step-0-block-0-text').inputValue()) === 'Primeira ideia');

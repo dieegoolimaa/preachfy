@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Qr } from '@/components/Qr';
 import type { IconName } from '@/components/ui';
 import { apiFetch } from '@/lib/auth';
-import { blockColor, blockKey, stepName } from '@/lib/blocks';
+import { blockColor, blockKey, stepName, stepNumber } from '@/lib/blocks';
 import { useT } from '@/lib/i18n';
 import { newId } from '@/lib/ids';
 import { backgrounds, classLink, openLive, pushHighlight, pushScreen, pushStep, screenLink } from '@/lib/live';
@@ -419,7 +419,7 @@ export default function Pulpit() {
   const bigger = () => setZoom(sizes.find((x) => x > scale + 0.01) ?? sizes[sizes.length - 1]!);
   const nameOf = (i: number) => {
     const at = study.steps[i];
-    return at ? stepName(at, (texts?.steps[i]?.label ?? '').split(' · ')[0] ?? '') || tr('stepN', { i: i + 1 }) : '';
+    return at ? stepName(at, (texts?.steps[i]?.label ?? '').split(' · ')[0] ?? '') || tr('stepN', { i: stepNumber(study.steps, i) }) : '';
   };
   /** What the reader wrote in the Bible about the verses of this step: it belongs on the Pulpit too. */
   const notesFor = (i: number) => {

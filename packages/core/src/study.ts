@@ -114,6 +114,8 @@ export type Step = {
   guidance?: string;
   /** Categories of the author's marks suggested for this step. */
   feeds?: string[];
+  /** Introduction opens the message and conclusion closes it; the steps between are the author's. */
+  role?: 'intro' | 'conclusion';
   /** The blocks after the base text: what to say, in order. When absent, `notes` and `question` stand in. */
   blocks?: Block[];
   /** A sentence that leads into the next step. */
@@ -287,7 +289,7 @@ export function hasBaseText({ baseText }: Step): boolean {
 }
 
 /** Drafts may have gaps; the Pulpit only opens with a base text on every step. */
-export const stepsMissingBaseText = (study: Study) => study.steps.filter((s) => !hasBaseText(s));
+export const stepsMissingBaseText = (study: Study) => study.steps.filter((s) => s.role !== 'conclusion' && !hasBaseText(s));
 export const isReadyForPulpit = (study: Study) => study.steps.length > 0 && stepsMissingBaseText(study).length === 0;
 export const pulpitSections = (study: Study): PulpitSection[] =>
   study.steps.map(({ title, plannedMs }) => ({ title, plannedMs }));

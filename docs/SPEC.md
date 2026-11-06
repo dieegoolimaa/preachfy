@@ -133,8 +133,11 @@ Cada passo tem o **texto base** (obrigatório) e depois uma sequência livre de 
 - Sem níveis de detalhe (texto completo, tópicos, palavras-chave): cada bloco é um texto só.
 - Nome, minutos e ponte ficam em "Mais opções".
 
-### Estrutura de um estudo
-- **Passos:** cada um tem **texto base** (seleção bíblica ou texto de referência) e **anotações da ministração**.
+### Estrutura de uma mensagem
+Sempre a mesma, em quatro partes: **texto bíblico** (em que a mensagem consiste), **introdução**, **passos** (quantos o autor definir) e **conclusão**.
+- A criação abre com a introdução e a conclusão prontas; "Adicionar passo" coloca o passo entre elas. A introdução fica sempre primeiro e a conclusão sempre por último.
+- A introdução começa com o texto bíblico inteiro. Cada passo pode ter o seu trecho (basta digitar, por exemplo, "3-4") e a anotação do que será ministrado. A conclusão só tem anotação.
+- O campo de tema chama-se **Tema da mensagem**. Não existe seção de texto de contexto.
 - O rascunho pode ter lacunas, para os modelos continuarem funcionando. O Púlpito só abre quando todo passo tem texto base, e o app aponta quais faltam.
 - Em Palestra, o texto base pode ser a frase-chave, sem Bíblia.
 

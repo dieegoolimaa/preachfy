@@ -32,7 +32,7 @@ export const TEMPLATES: Template[] = [
     kind: 'outline',
     name: { pt: 'Esboço', en: 'Outline', es: 'Bosquejo' },
     role: { pt: 'Pregar', en: 'Preach', es: 'Predicar' },
-    goal: { pt: 'Ideia central: a mensagem inteira em uma frase.', en: 'Central idea: the whole message in one sentence.', es: 'Idea central: todo el mensaje en una frase.' },
+    goal: { pt: 'Tema da mensagem', en: 'Theme of the message', es: 'Tema del mensaje' },
     sections: [
       {
         title: { pt: 'Introdução', en: 'Introduction', es: 'Introducción' },
@@ -166,7 +166,7 @@ export const TEMPLATES: Template[] = [
     kind: 'talk',
     name: { pt: 'Palestra', en: 'Talk', es: 'Charla' },
     role: { pt: 'Falar', en: 'Speak', es: 'Hablar' },
-    goal: { pt: 'Ideia central: a mensagem inteira em uma frase.', en: 'Central idea: the whole message in one sentence.', es: 'Idea central: todo el mensaje en una frase.' },
+    goal: { pt: 'Tema da mensagem', en: 'Theme of the message', es: 'Tema del mensaje' },
     sections: [
       {
         title: { pt: 'Abertura', en: 'Opening', es: 'Apertura' },

@@ -12,7 +12,7 @@ import { LivePanel } from '@/components/LivePanel';
 import { RunAudio } from '@/components/RunAudio';
 import { Chip, Field, Group, Hint, IconButton, Pill, Screen, Segmented, Segments, ui } from '@/components/ui';
 import { dateTime, fromInput, toInput } from '@/lib/dates';
-import { blockColor, blockKey, isGenericTitle, stepName } from '@/lib/blocks';
+import { blockColor, blockKey, isGenericTitle, stepName, stepNumber } from '@/lib/blocks';
 import { shareHandout } from '@/lib/handout';
 import { useT } from '@/lib/i18n';
 import { newId } from '@/lib/ids';
@@ -24,10 +24,10 @@ import { saveStudy, useReader } from '@/lib/store';
 import { renderStudy, useRendered } from '@/lib/studyText';
 import { categoryColor, paper, serif, serifBold } from '@/lib/theme';
 
-type TextEditorProps = { value: StudyText | undefined; onChange: (text: StudyText | undefined) => void; translationId: string; editable: boolean; testID: string };
+type TextEditorProps = { chapterRef?: string; value: StudyText | undefined; onChange: (text: StudyText | undefined) => void; translationId: string; editable: boolean; testID: string };
 
 /** A text is a Bible reference or free text, such as the key sentence of a talk. */
-function TextEditor({ value, onChange, translationId, editable, testID }: TextEditorProps) {
+function TextEditor({ chapterRef, value, onChange, translationId, editable, testID }: TextEditorProps) {
   const { t, locale } = useT();
   const rendered = useRendered(value, locale);
   const [authored, setAuthored] = useState(value?.kind === 'authored');
@@ -36,7 +36,9 @@ function TextEditor({ value, onChange, translationId, editable, testID }: TextEd
 
   const apply = async () => {
     if (!reference.trim()) return;
-    const passage = await resolvePassage(reference, locale, translationId);
+    // Inside a passage, "3-4" is enough: the book and chapter are the study's.
+    const typed = chapterRef && /^\d+(\s*[-–]\s*\d+)?$/.test(reference.trim()) ? `${chapterRef}:${reference.trim()}` : reference;
+    const passage = await resolvePassage(typed, locale, translationId);
     setInvalid(!passage);
     if (passage) {
       onChange(passageText(passage));
@@ -198,7 +200,7 @@ type StepProps = {
 };
 
 function StepCard({ study, step, index, last, open, editable, onToggle, onChange, onMove, onRemove }: StepProps) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const [more, setMore] = useState(false);
   const suggestions = stepSuggestions(study, step);
   const blocks = stepBlocks(step);
@@ -230,7 +232,7 @@ function StepCard({ study, step, index, last, open, editable, onToggle, onChange
       <View style={s.stepBody}>
         <Pressable testID={`step-${index}-toggle`} accessibilityRole="button" accessibilityLabel={t('showStep')} style={s.stepHead} onPress={onToggle}>
           <View style={s.stepTitle}>
-            <Text style={s.stepName}>{stepName(step) || t('stepN', { i: index + 1 })}</Text>
+            <Text style={s.stepName}>{stepName(step) || t('stepN', { i: stepNumber(study.steps, index) })}</Text>
             <Text style={[s.stepMeta, missing && s.stepMissing]}>
               {t('minutes', { n: Math.round(step.plannedMs / 60_000) })}
               {speech > 0 ? ` · ${t('speechVsPlan', { n: speech })}` : ''}
@@ -256,7 +258,7 @@ function StepCard({ study, step, index, last, open, editable, onToggle, onChange
         {open ? (
           <View style={s.edit}>
             <Text style={ui.fieldLabel}>{t('baseText')}</Text>
-            <TextEditor testID={`step-${index}-base`} value={step.baseText} onChange={(baseText) => onChange({ baseText })} translationId={translationId} editable={editable} />
+            <TextEditor testID={`step-${index}-base`} chapterRef={study.passage ? `${bookName(study.passage.book, locale)} ${study.passage.chapter}` : undefined} value={step.baseText} onChange={(baseText) => onChange({ baseText })} translationId={translationId} editable={editable} />
             {missing && editable && study.passage ? (
               <Pill plain testID={`step-${index}-whole-passage`} label={t('useWholePassage')} onPress={() => onChange({ baseText: passageText(study.passage!) })} />
             ) : null}
@@ -321,7 +323,7 @@ function StepCard({ study, step, index, last, open, editable, onToggle, onChange
             <Field testID={`step-${index}-bridge`} label={t('bridgeLabel')} editable={editable} value={step.bridge ?? ''} onChangeText={(bridge) => onChange({ bridge })} />
               </>
             ) : null}
-            {editable ? (
+            {editable && !step.role ? (
               <View style={ui.row}>
                 <IconButton testID={`step-${index}-up`} icon="arrow-up" label={t('previous')} onPress={() => onMove(-1)} />
                 <IconButton testID={`step-${index}-down`} icon="arrow-down" label={t('next')} onPress={() => onMove(1)} />
@@ -341,10 +343,10 @@ export default function StudyEditor() {
   const { studies, runs } = useReader();
   const pro = usePro();
   const study = studies.find((x) => x.id === id && !x.deletedAt);
-  // A study that was just started blank opens its only step, so writing can begin at once.
+  // A study just started blank opens its first step, so writing can begin at once.
   const [openStep, setOpenStep] = useState<string | null>(() => {
     const only = studies.find((x) => x.id === id && !x.deletedAt)?.steps;
-    return only?.length === 1 && !only[0]!.blocks?.some((b) => b.text.trim()) ? only[0]!.id : null;
+    return only?.length && !only.some((step) => step.blocks?.some((b) => b.text.trim())) ? only[0]!.id : null;
   });
   const [date, setDate] = useState(toInput(study?.scheduledFor));
   const [confirming, setConfirming] = useState(false);
@@ -364,14 +366,18 @@ export default function StudyEditor() {
     change({ steps: study.steps.map((step) => (step.id === stepId ? { ...step, ...patch } : step)) });
   const move = (index: number, delta: number) => {
     const target = index + delta;
-    if (target < 0 || target >= study.steps.length) return;
+    // The introduction stays first and the conclusion last.
+    if (target < 0 || target >= study.steps.length || study.steps[index]?.role || study.steps[target]?.role) return;
     const steps = [...study.steps];
     [steps[index], steps[target]] = [steps[target]!, steps[index]!];
     change({ steps });
   };
+  /** New steps go between the introduction and the conclusion. */
   const addStep = () => {
-    const step: Step = { id: newId(), title: t('newStep'), notes: '', plannedMs: 300_000 };
-    change({ steps: [...study.steps, step] });
+    const step: Step = { id: newId(), title: '', notes: '', plannedMs: 600_000, blocks: [{ id: newId(), kind: 'idea', text: '' }] };
+    const end = study.steps.findIndex((item) => item.role === 'conclusion');
+    const at = end < 0 ? study.steps.length : end;
+    change({ steps: [...study.steps.slice(0, at), step, ...study.steps.slice(at)] });
     setOpenStep(step.id);
   };
 
@@ -406,7 +412,7 @@ export default function StudyEditor() {
         {ready ? null : <Segments done={study.steps.filter(hasBaseText).length} total={Math.max(study.steps.length, 1)} />}
         <Pressable testID={ready ? 'ready' : 'missing-base'} disabled={ready} accessibilityRole="button" onPress={() => missing[0] && setOpenStep(missing[0].id)}>
           <Text style={[s.status, ready ? s.statusReady : s.statusMissing]}>
-            {ready ? t('ready') : `${t('missingBase', { list: missing.map((step) => stepName(step) || t('stepN', { i: study.steps.indexOf(step) + 1 })).join(', ') })} ${t('fixNext')}`}
+            {ready ? t('ready') : `${t('missingBase', { list: missing.map((step) => stepName(step) || t('stepN', { i: stepNumber(study.steps, study.steps.indexOf(step)) })).join(', ') })} ${t('fixNext')}`}
           </Text>
         </Pressable>
         <Pill
@@ -427,8 +433,9 @@ export default function StudyEditor() {
       <Text style={ui.fieldLabel}>{t('flowTitle')}</Text>
       <View>
         {study.steps.map((step, index) => (
+          <View key={step.id}>
+            {step.role === 'conclusion' && pro ? <Pill testID="add-step" plain label={t('addStep')} onPress={addStep} /> : null}
           <StepCard
-            key={step.id}
             study={study}
             step={step}
             index={index}
@@ -440,9 +447,10 @@ export default function StudyEditor() {
             onMove={(delta) => move(index, delta)}
             onRemove={() => change({ steps: study.steps.filter((item) => item.id !== step.id) })}
           />
+          </View>
         ))}
       </View>
-      {pro ? <Pill testID="add-step" plain label={t('addStep')} onPress={addStep} /> : null}
+      {pro && !study.steps.some((step) => step.role === 'conclusion') ? <Pill testID="add-step" plain label={t('addStep')} onPress={addStep} /> : null}
       <Field
         testID="study-date"
         label={t('dateLabel')}
@@ -455,19 +463,6 @@ export default function StudyEditor() {
           if (at !== undefined || !value.trim()) change({ scheduledFor: at });
         }}
       />
-
-      {study.context ? (
-      <View>
-        <Pressable testID="context-toggle" accessibilityRole="button" style={s.contextHead} onPress={() => setContextOpen(!contextOpen)}>
-          <View style={s.stepTitle}>
-            <Text style={ui.fieldLabel}>{t('contextText')}</Text>
-            <Hint>{t('contextHint')}</Hint>
-          </View>
-          <Icon name={contextOpen ? 'chevron-up' : 'chevron-down'} size={18} color={paper.muted} />
-        </Pressable>
-        {contextOpen || study.context ? <TextEditor testID="context" value={study.context} onChange={(context) => change({ context })} translationId={study.passage?.translationId ?? 'blivre'} editable={pro} /> : null}
-      </View>
-      ) : null}
 
 
       <Group title={t('deliver')} />

@@ -21,7 +21,7 @@ export default function Shell() {
   const { t } = useT();
   const path = usePathname();
   const { width } = useWindowDimensions();
-  const { bottom } = useSafeAreaInsets();
+  const { bottom, top } = useSafeAreaInsets();
   const wide = width >= 768;
   const { readerTheme } = useReader();
   const page = path === '/bible' && !wide ? readingThemes[readerTheme] : null;
@@ -46,7 +46,7 @@ export default function Shell() {
   return (
     <View style={[s.shell, wide && s.wide]}>
       {wide ? (
-        <View style={s.rail}>
+        <View style={[s.rail, { paddingTop: Math.max(top, 20) + 12 }]}>
           <Text style={s.brand}>Preachfy</Text>
           {items}
         </View>

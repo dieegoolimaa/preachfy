@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 import { Hint, Screen } from '@/components/ui';
+import { call, type Community } from '@/lib/community';
 import { devLogin, seedStudy } from '@/lib/devtools';
 import { useT } from '@/lib/i18n';
 
@@ -19,6 +20,10 @@ export default function Dev() {
     devLogin().then((ok) => {
       if (!ok) setFailed(true);
       else {
+        if (to === 'community') {
+          call<Community[]>('/communities').then((list) => router.replace(list?.[0] ? `/community/${list[0].id}` : '/community'));
+          return;
+        }
         const id = seedStudy(locale);
         router.replace(to === 'pulpit' ? `/pulpit?id=${id}&autostart=1&block=1` : `/study/${id}`);
       }

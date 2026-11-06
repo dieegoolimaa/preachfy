@@ -138,6 +138,22 @@ test('notices are for leaders, and seen counts once per person', async () => {
   assert.equal(first.seenByMe, true);
 });
 
+test('amen toggles once per person and replies hang from a post', async () => {
+  const { id, leader, member } = await group();
+  const postId = await post(id, leader, { text: 'Leiam o Salmo 23' });
+  const first = await call(`/communities/${id}/posts/${postId}/amen`, { user: member, method: 'POST' }).then(json);
+  assert.deepEqual([first.amenCount, first.amenByMe], [1, true]);
+  const second = await call(`/communities/${id}/posts/${postId}/amen`, { user: member, method: 'POST' }).then(json);
+  assert.deepEqual([second.amenCount, second.amenByMe], [0, false]);
+  const replyId = await post(id, member, { text: 'Li hoje', replyTo: postId });
+  const items = await feed(id, leader);
+  assert.equal(items.find((item) => item.id === replyId).replyTo, postId);
+  // A reply cannot be answered again, and deleting the post takes its replies.
+  assert.equal((await call(`/communities/${id}/posts`, { user: leader, method: 'POST', body: { text: 'x', replyTo: replyId } })).status, 400);
+  await call(`/communities/${id}/posts/${postId}`, { user: leader, method: 'DELETE' });
+  assert.equal((await feed(id, leader)).length, 0);
+});
+
 test('authors and leaders delete posts; other members cannot', async () => {
   const { id, leader, member } = await group();
   const other = await signUp('Outro');

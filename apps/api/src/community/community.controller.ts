@@ -79,6 +79,12 @@ export class CommunityController {
     return this.service.markSeen(id, user.id, postId);
   }
 
+  @Post('communities/:id/posts/:postId/amen')
+  @HttpCode(200)
+  amen(@Req() { user }: AuthedRequest, @Param('id') id: string, @Param('postId') postId: string) {
+    return this.service.toggleAmen(id, user.id, postId);
+  }
+
   @Post('communities/:id/posts/:postId/report')
   @HttpCode(200)
   report(@Req() { user }: AuthedRequest, @Param('id') id: string, @Param('postId') postId: string, @Body() body: Fields) {

@@ -218,12 +218,13 @@ Decidido: entra depois de Criar e Púlpito, como recurso Pro e pacote opcional.
 ## Comunidade
 Grupo fechado por convite: igreja, célula ou equipe. Só quem cria precisa do Pro; os membros entram de graça, com conta.
 
-- **Mural:** publicações e avisos. Só líderes publicam avisos, e os membros marcam "ciente".
-- **Agenda:** líderes marcam encontros, membros confirmam presença.
-- **Membros:** nome e papel, sem e-mail. O dono promove líderes; o convite pode ser trocado.
-- **Estudo da semana:** o último estudo que o líder anexou aparece em destaque no alto da comunidade. Os membros acompanham no Púlpito sem pagar e sem copiar; copiar para os próprios conteúdos é Pro. Anexar ao mural envia o material, sem as marcações pessoais.
+Quatro abas: **Início**, **Conversa**, **Encontros** e **Pessoas**.
+- **Início:** o estudo da semana em destaque (o último estudo que o líder anexou; os membros acompanham no Púlpito sem pagar, copiar é Pro), o último aviso, o próximo encontro e a conversa recente. Quando faltam, o líder vê convites para compartilhar um estudo e marcar o encontro.
+- **Conversa:** publicações, avisos só de líderes (com "ciente"), "Amém" em cada publicação e respostas em cadeia. Ações como remover, denunciar e bloquear ficam em um menu.
+- **Encontros:** o líder marca escolhendo o dia e a hora em botões, sem digitar data; os membros confirmam presença.
+- **Pessoas:** convite com código grande e compartilhamento pelo sistema, líderes à frente, o dono promove líderes.
+- **Moderação (exigência da App Store):** denunciar publicação, bloquear pessoa, líderes removem. Termos com tolerância zero. Falta um canal do desenvolvedor para agir em 24 horas.
 - **Mensagem de exemplo:** toda conta nova começa com uma mensagem de exemplo, que mostra como se monta (texto bíblico, introdução, passos, conclusão) e como o Púlpito conduz. Pode ser apagada, e o Púlpito dela abre para todos.
-- **Moderação (exigência da App Store para conteúdo de usuários):** denunciar publicação, bloquear pessoa, líderes removem. Termos com tolerância zero. Falta um canal do desenvolvedor para agir em 24 horas.
 
 ## Serviço de compartilhamento
 Faz parte da `apps/api`, e a página do aluno faz parte do web em Expo. Guarda só o que o professor publicou e expira. O plano gratuito do Render hiberna, então a aula ao vivo exige um plano sempre ligado.

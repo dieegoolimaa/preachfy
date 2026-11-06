@@ -9,6 +9,7 @@ export type Detail = {
 export type Post = {
   id: string; authorId: string; authorName: string; kind: 'post' | 'notice'; text: string; createdAt: number;
   attachment: { title: string; study: unknown } | null; seenCount: number; seenByMe: boolean; mine: boolean;
+  replyTo: string | null; amenCount: number; amenByMe: boolean;
 };
 export type CommunityEvent = {
   id: string; title: string; description: string; startsAt: number; place: string | null; meetLink: string | null;

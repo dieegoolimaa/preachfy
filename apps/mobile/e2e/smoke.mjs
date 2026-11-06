@@ -152,13 +152,17 @@ try {
 
   // A leader shares a study; members follow it in the Pulpit without copying.
   await page.goto(`${WEB}/community`);
+  await T('show-create').click();
   await T('community-name').waitFor();
   await T('community-name').fill(`Grupo ${Date.now()}`);
   await T('create-community').click();
   await T('community-detail').waitFor();
-  await T('post-attach').click();
+  ok('a new community opens on its home', await T('ctab-home').isVisible() && await T('week-empty').isVisible());
+  await T('week-empty').click();
+  await T('post-attach').waitFor();
   await T('attach-option').first().click();
   await T('post-send').click();
+  await T('ctab-home').click();
   await T('week-study').waitFor();
   ok('a shared study becomes the study of the week', true);
   await T('week-follow').click();
@@ -167,6 +171,31 @@ try {
   await T('step-title').waitFor();
   ok('the shared study opens in the Pulpit', true);
   await page.goBack();
+  await T('community-detail').waitFor();
+
+  // Talk: write, say amen, reply.
+  await T('ctab-feed').click();
+  await T('post-text').fill('Bom dia, grupo');
+  await T('post-send').click();
+  await page.getByText('Bom dia, grupo').waitFor();
+  await T('amen').first().click();
+  await page.getByText(/Amém · 1/).first().waitFor();
+  ok('amen counts', true);
+  await T('reply').first().click();
+  await T('reply-input').fill('Que bom!');
+  await T('reply-send').click();
+  await T('reply-row').first().waitFor();
+  ok('a reply hangs from the post', (await T('reply-row').count()) === 1);
+
+  // Meetings: pick the day and time from chips.
+  await T('ctab-agenda').click();
+  await T('event-new').click();
+  await T('event-title').fill('Estudo da quarta');
+  await T('event-day-2').click();
+  await T('event-time-19:30').click();
+  await T('event-create').click();
+  await T('event-row').waitFor();
+  ok('a meeting is planned without typing a date', (await T('event-row').count()) === 1);
 
   // The Bible version is chosen from a menu.
   await page.goto(`${WEB}/bible`);

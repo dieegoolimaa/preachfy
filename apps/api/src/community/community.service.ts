@@ -7,7 +7,7 @@ type Community = { _id: string; name: string; description: string; ownerId: stri
 type Member = { communityId: string; userId: string; name: string; role: Role; joinedAt: number };
 type Post = {
   _id: string; communityId: string; authorId: string; authorName: string; kind: 'post' | 'notice'; text: string;
-  attachment?: { title: string; study: unknown }; seenBy: string[]; createdAt: number;
+  attachment?: { title: string; study: unknown }; seenBy: string[]; amenBy?: string[]; replyTo?: string; createdAt: number;
 };
 type Event = {
   _id: string; communityId: string; title: string; description: string; startsAt: number;
@@ -190,13 +190,14 @@ export class CommunityService implements OnModuleInit {
       .sort({ createdAt: -1 })
       .limit(FEED_PAGE)
       .toArray();
-    return page.map(({ _id, authorId, authorName, kind, text: body, attachment, seenBy, createdAt }) => ({
-      id: _id, authorId, authorName, kind, text: body, attachment: attachment ?? null, createdAt,
+    return page.map(({ _id, authorId, authorName, kind, text: body, attachment, seenBy, amenBy = [], replyTo, createdAt }) => ({
+      id: _id, authorId, authorName, kind, text: body, attachment: attachment ?? null, createdAt, replyTo: replyTo ?? null,
       seenCount: seenBy.length, seenByMe: seenBy.includes(userId), mine: authorId === userId,
+      amenCount: amenBy.length, amenByMe: amenBy.includes(userId),
     }));
   }
 
-  async createPost(id: string, user: Actor, body: { text?: unknown; kind?: unknown; attachment?: { title?: unknown; study?: unknown } }) {
+  async createPost(id: string, user: Actor, body: { text?: unknown; kind?: unknown; replyTo?: unknown; attachment?: { title?: unknown; study?: unknown } }) {
     const member = await this.membership(id, user.id);
     const kind = body.kind === 'notice' ? 'notice' : 'post';
     if (kind === 'notice' && member.role !== 'leader') throw new ForbiddenException();
@@ -204,9 +205,17 @@ export class CommunityService implements OnModuleInit {
       ? { title: text(body.attachment.title, 200), study: body.attachment.study ?? null }
       : undefined;
     if (attachment && JSON.stringify(attachment.study).length > MAX_ATTACHMENT_BYTES) throw new BadRequestException('Attachment too large');
+    // A reply answers a post of the same community, never another reply.
+    let replyTo: string | undefined;
+    if (typeof body.replyTo === 'string') {
+      const parent = await posts().findOne({ _id: body.replyTo, communityId: id });
+      if (!parent || parent.replyTo || attachment || kind === 'notice') throw new BadRequestException('Invalid reply');
+      replyTo = parent._id;
+    }
     const post: Post = {
       _id: randomUUID(), communityId: id, authorId: user.id, authorName: member.name, kind,
-      text: text(body.text, 4000, !attachment), seenBy: [], createdAt: Date.now(),
+      text: text(body.text, 4000, !attachment), seenBy: [], amenBy: [], createdAt: Date.now(),
+      ...(replyTo ? { replyTo } : {}),
       ...(attachment ? { attachment } : {}),
     };
     await posts().insertOne(post);
@@ -218,8 +227,19 @@ export class CommunityService implements OnModuleInit {
     const post = await posts().findOne({ _id: postId, communityId: id });
     if (!post) throw new NotFoundException();
     if (post.authorId !== userId && member.role !== 'leader') throw new ForbiddenException();
-    await posts().deleteOne({ _id: postId });
+    await posts().deleteMany({ communityId: id, $or: [{ _id: postId }, { replyTo: postId }] });
     await reports().deleteMany({ postId });
+  }
+
+  /** "Amén" is a toggle: one per person per post. */
+  async toggleAmen(id: string, userId: string, postId: string) {
+    await this.membership(id, userId);
+    const post = await posts().findOne({ _id: postId, communityId: id });
+    if (!post) throw new NotFoundException();
+    const had = (post.amenBy ?? []).includes(userId);
+    await posts().updateOne({ _id: postId }, had ? { $pull: { amenBy: userId } } : { $addToSet: { amenBy: userId } });
+    const count = (post.amenBy ?? []).length + (had ? -1 : 1);
+    return { amenCount: count, amenByMe: !had };
   }
 
   async markSeen(id: string, userId: string, postId: string) {

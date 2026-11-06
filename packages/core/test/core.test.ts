@@ -375,3 +375,14 @@ test('templates start each section with its blocks, and nothing private goes to 
   assert.match(sent, /Que verbos/);
   assert.doesNotMatch(sent, /SECRETA/);
 });
+
+test('every verse of the day points to a real book and chapter', async () => {
+  const { DAILY_VERSES, BOOKS: books } = await import('../src/index.ts');
+  assert.ok(DAILY_VERSES.length >= 30);
+  for (const [book, chapter, verse] of DAILY_VERSES) {
+    const found = books.find((b) => b.id === book);
+    assert.ok(found, `unknown book ${book}`);
+    assert.ok(chapter >= 1 && chapter <= found.chapters, `${book} ${chapter}`);
+    assert.ok(verse >= 1, `${book} ${chapter}:${verse}`);
+  }
+});

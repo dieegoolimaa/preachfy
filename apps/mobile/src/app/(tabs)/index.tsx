@@ -1,4 +1,4 @@
-import { bookName, hasBaseText, isReadyForPulpit, nextStudy, planChapters, planDayOf, templateFor } from '@preachfy/core';
+import { bookName, DAILY_VERSES, hasBaseText, isReadyForPulpit, nextStudy, planChapters, planDayOf, templateFor } from '@preachfy/core';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -13,13 +13,6 @@ import { updateReader, useReader } from '@/lib/store';
 import { paper, serif, serifBold } from '@/lib/theme';
 import { translationById } from '@/lib/translations';
 
-const DAILY: [string, number, number][] = [
-  ['PSA', 23, 1], ['JOH', 3, 16], ['ROM', 8, 28], ['PHP', 4, 13], ['ISA', 41, 10], ['PSA', 46, 1], ['PRO', 3, 5],
-  ['MAT', 11, 28], ['JER', 29, 11], ['ROM', 12, 2], ['PSA', 119, 105], ['2CO', 5, 17], ['GAL', 2, 20], ['HEB', 11, 1],
-  ['JOS', 1, 9], ['MAT', 6, 33], ['PSA', 27, 1], ['1JN', 4, 19], ['ISA', 40, 31], ['EPH', 2, 8], ['1PE', 5, 7],
-  ['LAM', 3, 22], ['PSA', 37, 5], ['COL', 3, 23], ['JAS', 1, 5], ['ROM', 5, 8], ['JOH', 14, 6], ['MIC', 6, 8],
-  ['PSA', 91, 1], ['HEB', 12, 2], ['1CO', 13, 13],
-];
 
 const tags = { pt: 'pt-BR', en: 'en-US', es: 'es-ES' } as const;
 
@@ -29,7 +22,7 @@ export default function Today() {
   const { book, chapter, translation, studies, plan } = useReader();
   const [daily, setDaily] = useState('');
   const dayOfYear = Math.floor(Date.now() / 86_400_000);
-  const [dailyBook, dailyChapter, dailyVerse] = DAILY[dayOfYear % DAILY.length]!;
+  const [dailyBook, dailyChapter, dailyVerse] = DAILY_VERSES[dayOfYear % DAILY_VERSES.length]!;
   const next = nextStudy(studies, Date.now());
   const template = next?.kind ? templateFor(next.kind) : null;
   const ready = next ? isReadyForPulpit(next) : false;

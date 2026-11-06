@@ -98,6 +98,11 @@ type BlockCardProps = {
 };
 
 /** One thing to say: its own kind, its own words, its own place in the order. */
+/** Under a minute it reads in seconds, which is how a short paragraph is felt. */
+function speechTime(ms: number, t: ReturnType<typeof useT>['t']) {
+  return ms < 60_000 ? t('speechSeconds', { n: Math.max(5, Math.round(ms / 5000) * 5) }) : t('speechMinutes', { n: Math.round(ms / 6000) / 10 });
+}
+
 function BlockCard({ block, stepIndex, index, count, editable, first, placeholder, onChange, onMove, onRemove }: BlockCardProps) {
   const { t } = useT();
   const [level, setLevel] = useState<StepDetail>('manuscript');
@@ -128,7 +133,7 @@ function BlockCard({ block, stepIndex, index, count, editable, first, placeholde
           options={[
             { key: 'manuscript', label: t('manuscript'), testID: `${id}-level-manuscript` },
             { key: 'outline', label: t('outlineLevel'), testID: `${id}-level-outline` },
-            { key: 'keywords', label: t('keywordsLevel'), testID: `${id}-level-keywords` },
+            { key: 'keywords', label: t('keywordsShort'), testID: `${id}-level-keywords` },
           ]}
         />
       ) : null}
@@ -154,7 +159,7 @@ function BlockCard({ block, stepIndex, index, count, editable, first, placeholde
         />
       ) : null}
       {block.kind !== 'activity' && words > 0 ? (
-        <Text style={s.estimate} testID={`${id}-estimate`}>{t('speechEstimate', { n: Math.round(blockSpeechMs(block) / 6000) / 10, w: words })}</Text>
+        <Text style={s.estimate} testID={`${id}-estimate`}>{t('speechEstimate', { n: speechTime(blockSpeechMs(block), t), w: words })}</Text>
       ) : null}
     </View>
   );
@@ -265,6 +270,9 @@ function StepCard({ study, step, index, last, open, editable, onToggle, onChange
 
             <Text style={ui.fieldLabel}>{t('baseText')}</Text>
             <TextEditor testID={`step-${index}-base`} value={step.baseText} onChange={(baseText) => onChange({ baseText })} translationId={translationId} editable={editable} />
+            {missing && editable && study.passage ? (
+              <Pill plain testID={`step-${index}-whole-passage`} label={t('useWholePassage')} onPress={() => onChange({ baseText: passageText(study.passage!) })} />
+            ) : null}
             {suggestions.length ? (
               <>
                 <Text style={ui.fieldLabel}>{t('fromYourStudy')}</Text>
@@ -386,9 +394,11 @@ export default function StudyEditor() {
 
       <View style={s.deliver}>
         <Segments done={study.steps.filter(hasBaseText).length} total={Math.max(study.steps.length, 1)} />
-        <Text style={[s.status, ready ? s.statusReady : s.statusMissing]} testID={ready ? 'ready' : 'missing-base'}>
-          {ready ? t('ready') : t('missingBase', { list: missing.map((step) => step.title).join(', ') })}
-        </Text>
+        <Pressable testID={ready ? 'ready' : 'missing-base'} disabled={ready} accessibilityRole="button" onPress={() => missing[0] && setOpenStep(missing[0].id)}>
+          <Text style={[s.status, ready ? s.statusReady : s.statusMissing]}>
+            {ready ? t('ready') : `${t('missingBase', { list: missing.map((step) => step.title).join(', ') })} ${t('fixNext')}`}
+          </Text>
+        </Pressable>
         <Pill
           testID="open-pulpit"
           primary

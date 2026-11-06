@@ -4,6 +4,11 @@ import { getLocales } from 'expo-localization';
 import { useReader } from './store';
 
 const pt = {
+  keywordsShort: 'Chaves',
+  useWholePassage: 'Usar a passagem toda',
+  fixNext: 'Toque para ir ao primeiro',
+  speechSeconds: '{n} s',
+  speechMinutes: '{n} min',
   blockScripture: 'Texto bíblico',
   blockIdea: 'Ideia',
   blockIllustration: 'Ilustração',
@@ -13,7 +18,7 @@ const pt = {
   blockCue: 'Nota de palco',
   blockActivity: 'Atividade',
   blocksTitle: 'O que dizer, na ordem',
-  speechEstimate: '≈ {n} min de fala · {w} palavras',
+  speechEstimate: '≈ {n} de fala · {w} palavras',
   targetLabel: 'Meta',
   plannedTotal: '{n} min planejados',
   overTarget: '{n} min acima da meta',
@@ -293,6 +298,11 @@ const pt = {
 type Key = keyof typeof pt;
 
 const en: Record<Key, string> = {
+  keywordsShort: 'Keys',
+  useWholePassage: 'Use the whole passage',
+  fixNext: 'Tap to go to the first one',
+  speechSeconds: '{n} s',
+  speechMinutes: '{n} min',
   blockScripture: 'Scripture',
   blockIdea: 'Idea',
   blockIllustration: 'Illustration',
@@ -302,7 +312,7 @@ const en: Record<Key, string> = {
   blockCue: 'Stage note',
   blockActivity: 'Activity',
   blocksTitle: 'What to say, in order',
-  speechEstimate: '≈ {n} min of speech · {w} words',
+  speechEstimate: '≈ {n} of speech · {w} words',
   targetLabel: 'Target',
   plannedTotal: '{n} min planned',
   overTarget: '{n} min over the target',
@@ -580,6 +590,11 @@ const en: Record<Key, string> = {
 };
 
 const es: Record<Key, string> = {
+  keywordsShort: 'Claves',
+  useWholePassage: 'Usar todo el pasaje',
+  fixNext: 'Toca para ir al primero',
+  speechSeconds: '{n} s',
+  speechMinutes: '{n} min',
   blockScripture: 'Texto bíblico',
   blockIdea: 'Idea',
   blockIllustration: 'Ilustración',
@@ -589,7 +604,7 @@ const es: Record<Key, string> = {
   blockCue: 'Nota de escena',
   blockActivity: 'Actividad',
   blocksTitle: 'Qué decir, en orden',
-  speechEstimate: '≈ {n} min de habla · {w} palabras',
+  speechEstimate: '≈ {n} de habla · {w} palabras',
   targetLabel: 'Meta',
   plannedTotal: '{n} min planificados',
   overTarget: '{n} min sobre la meta',

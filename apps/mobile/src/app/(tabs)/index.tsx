@@ -96,9 +96,11 @@ export default function Today() {
         <Row testID="continue" label={`${bookName(book, locale)} ${chapter}`} detail={t('continueReading')} onPress={() => router.navigate('/bible')} />
       </Group>
 
-      <Group footer={t('tryPulpitHint')}>
-        <Row testID="open-demo" label={t('openDemo')} onPress={() => router.push('/pulpit?id=demo')} />
-      </Group>
+      {next ? null : (
+        <Group footer={t('tryPulpitHint')}>
+          <Row testID="open-demo" label={t('openDemo')} onPress={() => router.push('/pulpit?id=demo')} />
+        </Group>
+      )}
     </Screen>
   );
 }

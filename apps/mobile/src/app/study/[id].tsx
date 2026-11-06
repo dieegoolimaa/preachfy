@@ -12,7 +12,7 @@ import { LivePanel } from '@/components/LivePanel';
 import { RunAudio } from '@/components/RunAudio';
 import { Chip, Field, Group, Hint, IconButton, Pill, Screen, Segmented, Segments, ui } from '@/components/ui';
 import { dateTime, fromInput, toInput } from '@/lib/dates';
-import { blockColor, blockKey } from '@/lib/blocks';
+import { blockColor, blockKey, isGenericTitle, stepName } from '@/lib/blocks';
 import { shareHandout } from '@/lib/handout';
 import { useT } from '@/lib/i18n';
 import { newId } from '@/lib/ids';
@@ -233,7 +233,7 @@ function StepCard({ study, step, index, last, open, editable, onToggle, onChange
       <View style={s.stepBody}>
         <Pressable testID={`step-${index}-toggle`} accessibilityRole="button" accessibilityLabel={t('showStep')} style={s.stepHead} onPress={onToggle}>
           <View style={s.stepTitle}>
-            <Text style={s.stepName}>{step.title}</Text>
+            <Text style={s.stepName}>{stepName(step) || t('stepN', { i: index + 1 })}</Text>
             <Text style={[s.stepMeta, missing && s.stepMissing]}>
               {t('minutes', { n: Math.round(step.plannedMs / 60_000) })}
               {speech > 0 ? ` · ${t('speechVsPlan', { n: speech })}` : ''}
@@ -258,7 +258,7 @@ function StepCard({ study, step, index, last, open, editable, onToggle, onChange
 
         {open ? (
           <View style={s.edit}>
-            <Field testID={`step-${index}-title`} label={t('titleLabel')} editable={editable} value={step.title} onChangeText={(title) => onChange({ title })} />
+            <Field testID={`step-${index}-title`} label={t('titleLabel')} placeholder={t('stepNamePh')} editable={editable} value={isGenericTitle(step.title) ? '' : step.title} onChangeText={(title) => onChange({ title })} />
             <Field
               testID={`step-${index}-minutes`}
               label={t('minutesLabel')}
@@ -396,7 +396,7 @@ export default function StudyEditor() {
         <Segments done={study.steps.filter(hasBaseText).length} total={Math.max(study.steps.length, 1)} />
         <Pressable testID={ready ? 'ready' : 'missing-base'} disabled={ready} accessibilityRole="button" onPress={() => missing[0] && setOpenStep(missing[0].id)}>
           <Text style={[s.status, ready ? s.statusReady : s.statusMissing]}>
-            {ready ? t('ready') : `${t('missingBase', { list: missing.map((step) => step.title).join(', ') })} ${t('fixNext')}`}
+            {ready ? t('ready') : `${t('missingBase', { list: missing.map((step) => stepName(step) || t('stepN', { i: study.steps.indexOf(step) + 1 })).join(', ') })} ${t('fixNext')}`}
           </Text>
         </Pressable>
         <Pill

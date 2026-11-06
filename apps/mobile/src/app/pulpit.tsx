@@ -6,14 +6,14 @@ import {
 import { Icon } from '@/components/Icon';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Qr } from '@/components/Qr';
 import type { IconName } from '@/components/ui';
 import { apiFetch } from '@/lib/auth';
-import { blockColor, blockKey } from '@/lib/blocks';
+import { blockColor, blockKey, stepName } from '@/lib/blocks';
 import { useT } from '@/lib/i18n';
 import { newId } from '@/lib/ids';
 import { backgrounds, classLink, openLive, pushHighlight, pushScreen, pushStep, screenLink } from '@/lib/live';
@@ -50,11 +50,11 @@ function Round({ icon, label, onPress, onLongPress, t, testID, big, disabled, ac
       accessibilityRole="button"
       accessibilityLabel={label}
       disabled={disabled}
-      style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? t.over : t.soft, opacity: disabled ? 0.4 : 1 }}
+      style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? t.accent : t.soft, opacity: disabled ? 0.4 : 1 }}
       delayLongPress={800}
       onLongPress={onLongPress}
       onPress={onPress}>
-      <Icon name={icon} size={big ? 26 : 22} color={t.fg} />
+      <Icon name={icon} size={big ? 26 : 22} color={active ? t.accentFg : t.fg} />
     </Pressable>
   );
 }
@@ -181,11 +181,19 @@ export default function Pulpit() {
   const [detourQuery, setDetourQuery] = useState('');
   const [detour, setDetour] = useState<Rendered | null>(null);
   const [detourFailed, setDetourFailed] = useState(false);
+  const [zoom, setZoom] = useState<number | null>(null);
+  const [displayOpen, setDisplayOpen] = useState(false);
+  const [toast, setToast] = useState('');
+  const [fit, setFit] = useState(1);
+  const [settled, setSettled] = useState(false);
+  const [viewH, setViewH] = useState(0);
+  const search = useRef({ lo: 0.35, hi: 1.6, f: 1, n: 0, h: 0 });
   const allowed = id === 'demo' || isPro(reader);
   const { width } = useWindowDimensions();
   const wide = width >= 768;
   const t = dark ? stage : paper;
-  const s = themed(t, wide);
+  const scale = zoom ?? fit;
+  const s = themed(t, wide, scale);
 
   useEffect(() => {
     if (!allowed) router.replace('/paywall?feature=pulpit');
@@ -255,6 +263,36 @@ export default function Pulpit() {
     }
   };
   const recording = useSermonRecorder(index, session ? isPaused(session) : false);
+
+  // The text is sized to fill the screen without scrolling. The reader can then make it bigger or smaller.
+  useEffect(() => {
+    search.current = { lo: 0.35, hi: 1.6, f: 1, n: 0, h: search.current.h };
+    setFit(1);
+    setSettled(false);
+  }, [index, blockIndex, detail, viewH, wide]);
+  const evaluate = useCallback(
+    (h: number) => {
+      const r = search.current;
+      r.h = h;
+      if (!viewH || h === 0) return;
+      if (h > viewH + 1) r.hi = r.f;
+      else r.lo = r.f;
+      if (r.hi - r.lo > 0.04 && r.n < 10) {
+        r.n += 1;
+        r.f = (r.lo + r.hi) / 2;
+      } else {
+        r.f = r.lo;
+        setSettled(true);
+      }
+      setFit(r.f);
+    },
+    [viewH],
+  );
+  useEffect(() => {
+    if (settled || zoom !== null) return;
+    const timer = setTimeout(() => evaluate(search.current.h), 160);
+    return () => clearTimeout(timer);
+  }, [fit, settled, zoom, evaluate, index, blockIndex, detail]);
 
   const changeScreen = useCallback(
     (next: (current: typeof screen) => typeof screen) => {
@@ -374,7 +412,7 @@ export default function Pulpit() {
   };
 
   const openScreen = () => {
-    if (id !== 'demo') openLive(study, locale).catch(() => {});
+    if (id !== 'demo') openLive(study, locale).catch(() => setToast(tr('screenFailed')));
   };
 
   const currentPace = pace(session);
@@ -395,14 +433,24 @@ export default function Pulpit() {
   const context = texts?.context;
   const state = timerState(session, now);
   const timeColor = state === 'over' ? t.over : state === 'warning' ? t.warn : t.fg;
-  const detailKey = { manuscript: 'manuscript', outline: 'outlineLevel', keywords: 'keywordsLevel' } as const;
-  const nextDetail = { manuscript: 'outline', outline: 'keywords', keywords: 'manuscript' } as const;
+  const detailKey = { manuscript: 'detailFull', outline: 'outlineLevel', keywords: 'keywordsLevel' } as const;
+  const sizes = [0.8, 1, 1.25, 1.6, 2];
+  const smaller = () => setZoom([...sizes].reverse().find((x) => x < scale - 0.01) ?? sizes[0]!);
+  const bigger = () => setZoom(sizes.find((x) => x > scale + 0.01) ?? sizes[sizes.length - 1]!);
+  const nameOf = (i: number) => {
+    const at = study.steps[i];
+    return at ? stepName(at, texts?.steps[i]?.label ?? '') || tr('stepN', { i: i + 1 }) : '';
+  };
+  const jump = (i: number) => {
+    change((c) => goTo(c, i, Date.now()));
+    setBlockIndex(0);
+  };
   const tools = (
     <>
       <Round testID="context" icon="book" label={tr('context')} t={t} onPress={() => setContextOpen((o) => !o)} />
-      <Round testID="detail" icon="text-size" label={tr(detailKey[detail])} t={t} onPress={() => setDetail(nextDetail[detail])} />
+      <Round testID="detail" icon="text-size" label={tr('display')} t={t} active={displayOpen} onPress={() => setDisplayOpen((o) => !o)} />
       {canRecord && id !== 'demo' ? (
-        <Round testID="record" icon="mic" label={tr('record')} t={t} active={recording.active} onPress={() => (recording.active ? undefined : recording.start().catch(() => {}))} />
+        <Round testID="record" icon="mic" label={tr('record')} t={t} active={recording.active} onPress={() => (recording.active ? setToast(`● ${tr('record')}`) : recording.start().catch(() => setToast(tr('micDenied'))))} />
       ) : null}
       <Round testID="detour" icon="verse" label={tr('verseOutside')} t={t} onPress={() => setDetourOpen(true)} />
       {id !== 'demo' ? <Round testID="live" icon="tv" label={tr('screenSheet')} t={t} onPress={() => setLiveOpen(true)} /> : null}
@@ -411,8 +459,8 @@ export default function Pulpit() {
   );
   const contextBody = (
     <ScrollView contentContainerStyle={s.contextBody}>
-      <Text style={s.label}>{context?.label}</Text>
-      <Text style={s.contextText}>{context?.body}</Text>
+      {context?.body ? <Text style={s.label}>{context.label}</Text> : null}
+      <Text style={s.contextText}>{context?.body || tr('noPassageText')}</Text>
     </ScrollView>
   );
 
@@ -427,6 +475,7 @@ export default function Pulpit() {
             {recording.active ? ` · ● ${clock(recording.elapsed)}` : ''}
             {recording.denied ? ` · ${tr('micDenied')}` : ''}
           </Text>
+          {toast ? <Text testID="toast" style={s.pace} onPress={() => setToast('')}>{toast}</Text> : null}
         </View>
         {locked ? <View style={s.roundSpace} /> : <Round
           testID="pause"
@@ -448,20 +497,31 @@ export default function Pulpit() {
         })}
       </View>
 
-      <View style={s.flow} testID="flow">
+      <View style={s.journey} testID="flow">
+        <Pressable testID="journey-prev" style={[s.jSide, { alignItems: 'flex-start' }]} onPress={() => index > 0 && jump(index - 1)}>
+          {index > 0 ? (
+            <>
+              <Text style={s.jTag}>← {tr('before')}</Text>
+              <Text style={s.jName} numberOfLines={2}>{nameOf(index - 1)}</Text>
+            </>
+          ) : null}
+        </Pressable>
+        <View style={s.jNow}>
+          <Text style={s.jTag}>{tr('stepOf', { i: index + 1, n: study.steps.length })}</Text>
+          <Text testID="step-title" style={s.jNowName} numberOfLines={2}>{nameOf(index)}</Text>
+        </View>
+        <Pressable testID="journey-next" style={[s.jSide, { alignItems: 'flex-end' }]} onPress={() => next && jump(index + 1)}>
+          {next ? (
+            <>
+              <Text style={s.jTag}>{tr('after')} →</Text>
+              <Text style={[s.jName, { textAlign: 'right' }]} numberOfLines={2}>{nameOf(index + 1)}</Text>
+            </>
+          ) : null}
+        </Pressable>
+      </View>
+      <View style={s.dots}>
         {study.steps.map((item, i) => (
-          <View key={item.id} style={s.flowItem}>
-            {i > 0 ? <View style={[s.link, i <= index && s.linkDone]} /> : null}
-            <Pressable
-              testID={`node-${i}`}
-              onPress={() => {
-                change((c) => goTo(c, i, Date.now()));
-                setBlockIndex(0);
-              }}
-              style={[s.node, i < index && s.nodeDone, i === index && s.nodeNow]}>
-              <Text style={[s.nodeText, i === index && s.nodeTextNow]}>{i + 1}</Text>
-            </Pressable>
-          </View>
+          <Pressable key={item.id} testID={`node-${i}`} hitSlop={10} accessibilityLabel={nameOf(i)} onPress={() => jump(i)} style={[s.dot, i < index && s.dotDone, i === index && s.dotNow]} />
         ))}
       </View>
 
@@ -482,51 +542,76 @@ export default function Pulpit() {
       <View style={s.body}>
         <Pressable testID="zone-prev" accessibilityLabel={tr('previous')} style={[s.zone, s.zoneLeft]} onPress={() => advance(-1)} />
         <Pressable testID="zone-next" accessibilityLabel={tr('next')} style={[s.zone, s.zoneRight]} onPress={() => advance(1)} />
-        <ScrollView style={s.main} contentContainerStyle={s.mainInner}>
-          <Text style={s.label}>{tr('stepOf', { i: index + 1, n: study.steps.length })}</Text>
-          <Text testID="step-title" style={s.title}>{step.title}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.railBar} contentContainerStyle={s.rail} testID="block-rail">
-            {[...(hasBase ? [{ kind: 'scripture' as const, id: 'base' }] : []), ...blocks].map((item, i) => (
-              <Pressable key={item.id} testID={`rail-${i}`} accessibilityRole="button" style={[s.railChip, i < position && s.railDone, i === position && s.railNow]} onPress={() => setBlockIndex(i)}>
-                <Text style={[s.railText, i === position && s.railTextNow]}>{tr(blockKey[item.kind])}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-          <View style={[s.base, { borderLeftColor: accent }]} testID="block-card">
-            {total === 0 ? (
-              <Text testID="step-empty" style={s.blockText}>{tr('stepEmpty')}</Text>
-            ) : showingBase ? (
-              <>
-                {base?.label ? <Text style={s.label}>{base.label}</Text> : null}
-                <Text testID="base-text" style={s.baseText}>{base?.body}</Text>
-              </>
-            ) : current ? (
-              <>
-                <Text style={s.label}>{tr(blockKey[current.kind])}</Text>
-                {current.kind !== 'activity' || current.text ? (
-                  <Text testID="block-text" style={current.kind === 'idea' && detail === 'keywords' ? s.keywords : s.blockText}>{blockBody(current, detail)}</Text>
-                ) : null}
-                {current.kind === 'activity' ? <ActivityTimer key={current.id} minutes={current.minutes ?? ACTIVITY_DEFAULT_MINUTES} t={t} s={s} /> : null}
-                {current.kind === 'question' && current.expectedAnswer ? <Text testID="expected" style={s.expected}>{tr('expectedAnswer')}: {current.expectedAnswer}</Text> : null}
-              </>
-            ) : null}
+        <View style={s.main}>
+          <View style={s.railWrap}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.railBar} contentContainerStyle={s.rail} testID="block-rail">
+              {[...(hasBase ? [{ kind: 'scripture' as const, id: 'base' }] : []), ...blocks].map((item, i) => (
+                <Pressable key={item.id} testID={`rail-${i}`} accessibilityRole="button" style={[s.railChip, i < position && s.railDone, i === position && s.railNow]} onPress={() => setBlockIndex(i)}>
+                  <Text style={[s.railText, i === position && s.railTextNow]}>{tr(blockKey[item.kind])}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
           </View>
+          <ScrollView
+            style={[s.fitView, { opacity: settled || zoom !== null ? 1 : 0 }]}
+            contentContainerStyle={s.mainInner}
+            onLayout={(e) => setViewH(Math.round(e.nativeEvent.layout.height))}
+            onContentSizeChange={(_w, h) => evaluate(h)}>
+            <View style={[s.base, { borderLeftColor: accent }]} testID="block-card">
+              {total === 0 ? (
+                <Text testID="step-empty" style={s.blockText}>{tr('stepEmpty')}</Text>
+              ) : showingBase ? (
+                <>
+                  {base?.label ? <Text style={s.label}>{base.label}</Text> : null}
+                  <Text testID="base-text" style={s.baseText}>{base?.body}</Text>
+                </>
+              ) : current ? (
+                <>
+                  <Text style={s.label}>{tr(blockKey[current.kind])}</Text>
+                  {current.kind !== 'activity' || current.text ? (
+                    <Text testID="block-text" style={current.kind === 'idea' && detail === 'keywords' ? s.keywords : s.blockText}>{blockBody(current, detail)}</Text>
+                  ) : null}
+                  {current.kind === 'activity' ? <ActivityTimer key={current.id} minutes={current.minutes ?? ACTIVITY_DEFAULT_MINUTES} t={t} s={s} /> : null}
+                  {current.kind === 'question' && current.expectedAnswer ? <Text testID="expected" style={s.expected}>{tr('expectedAnswer')}: {current.expectedAnswer}</Text> : null}
+                </>
+              ) : null}
+            </View>
+          </ScrollView>
           {next ? (
-            <Text style={s.nextHint} testID="bridge">
-              {tr('bridgeNext')} → {next.title}{step.bridge ? ` · “${step.bridge}”` : ''}
-            </Text>
+            <Pressable style={s.bridgeRow} testID="bridge" onPress={() => jump(index + 1)}>
+              <View style={s.bridgeLine} />
+              <Text style={s.bridgeText} numberOfLines={2}>{step.bridge ? `“${step.bridge}”` : `${tr('bridgeNext')} · ${nameOf(index + 1)}`}</Text>
+              <Icon name="chevron-forward" size={16} color={t.muted} />
+            </Pressable>
           ) : null}
-        </ScrollView>
+        </View>
         {wide && contextOpen ? <View testID="context-pane" style={s.pane}>{contextBody}</View> : null}
       </View>
 
+      {displayOpen && !locked ? (
+        <View style={s.displayPanel} testID="display-panel">
+          <View style={s.tools}>
+            <Pressable testID="size-down" accessibilityLabel={tr('sizeSmaller')} style={s.tool} onPress={smaller}><Text style={s.toolText}>A−</Text></Pressable>
+            <Pressable testID="size-auto" accessibilityLabel={tr('sizeAuto')} style={[s.tool, zoom === null && s.toolOn]} onPress={() => setZoom(null)}><Text style={[s.toolText, zoom === null && s.toolTextOn]}>{tr('sizeAuto')}</Text></Pressable>
+            <Pressable testID="size-up" accessibilityLabel={tr('sizeBigger')} style={s.tool} onPress={bigger}><Text style={s.toolText}>A+</Text></Pressable>
+          </View>
+          <View style={s.tools}>
+            {(['manuscript', 'outline', 'keywords'] as const).map((level) => (
+              <Pressable key={level} testID={`detail-${level}`} style={[s.tool, detail === level && s.toolOn]} onPress={() => setDetail(level)}>
+                <Text style={[s.toolText, detail === level && s.toolTextOn]}>{tr(detailKey[level])}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={s.pace}>{tr('detailHint')}</Text>
+        </View>
+      ) : null}
       {!wide && !locked ? <View style={s.toolsRow}>{tools}</View> : null}
       <View style={s.bottom}>
         <Round testID="prev" big icon="chevron-back" label={tr('previous')} t={t} disabled={index === 0 && blockIndex === 0} onPress={() => advance(-1)} />
         {locked ? <Text testID="locked" style={s.lockedText}>{tr('lockedHint')}</Text> : wide ? tools : null}
         <Round testID="lock" icon="lock" label={tr('lockScreen')} t={t} onPress={() => !locked && setLocked(true)} onLongPress={() => setLocked(false)} />
-        <Pressable testID="next" accessibilityRole="button" disabled={!hasMore} style={[s.nav, s.navMain, !hasMore && s.off]} onPress={() => advance(1)}>
-          <Text style={[s.navText, s.navTextMain]} numberOfLines={1}>{position < total - 1 ? tr('nextBlock') : tr('nextStepGo')}</Text>
+        <Pressable testID="next" accessibilityRole="button" style={[s.nav, s.navMain]} onPress={() => (hasMore ? advance(1) : finish())}>
+          <Text style={[s.navText, s.navTextMain]} numberOfLines={1}>{!hasMore ? tr('finish') : position < total - 1 ? tr('nextBlock') : tr('nextStepGo')}</Text>
         </Pressable>
       </View>
 
@@ -632,7 +717,7 @@ export default function Pulpit() {
   );
 }
 
-const themed = (t: Theme, wide: boolean) =>
+const themed = (t: Theme, wide: boolean, scale = 1) =>
   StyleSheet.create({
     page: { flex: 1, backgroundColor: t.bg },
     top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 16, paddingVertical: 10 },
@@ -652,11 +737,27 @@ const themed = (t: Theme, wide: boolean) =>
     nodeTextNow: { color: t.accentFg, fontWeight: '700' },
     body: { flex: 1, flexDirection: 'row' },
     main: { flex: 1 },
-    mainInner: { padding: wide ? 32 : 20, gap: 16, maxWidth: 860, width: '100%', alignSelf: 'center' },
+    fitView: { flex: 1 },
+    railWrap: { paddingHorizontal: wide ? 32 : 20, paddingTop: 12, maxWidth: 860, width: '100%', alignSelf: 'center' },
+    mainInner: { paddingHorizontal: wide ? 32 : 20, paddingVertical: 14, gap: 16, maxWidth: 860, width: '100%', alignSelf: 'center' },
+    journey: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingBottom: 8 },
+    jSide: { flex: 1, minHeight: 48, justifyContent: 'center', gap: 2 },
+    jNow: { flex: 1.5, alignItems: 'center', gap: 2 },
+    jTag: { fontSize: 11, fontWeight: '600', color: t.muted, letterSpacing: 0.3 },
+    jName: { fontSize: 13, color: t.muted, opacity: 0.8 },
+    jNowName: { fontFamily: serifBold, fontSize: wide ? 24 : 19, lineHeight: wide ? 28 : 23, color: t.fg, textAlign: 'center' },
+    dots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.line },
+    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: t.line },
+    dotDone: { backgroundColor: t.muted },
+    dotNow: { width: 26, backgroundColor: t.accent },
+    bridgeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: wide ? 32 : 20, paddingVertical: 10, maxWidth: 860, width: '100%', alignSelf: 'center' },
+    bridgeLine: { width: 3, alignSelf: 'stretch', borderRadius: 2, backgroundColor: t.accent, opacity: 0.6 },
+    bridgeText: { flex: 1, fontFamily: serif, fontStyle: 'italic', fontSize: 16, lineHeight: 22, color: t.muted },
+    displayPanel: { gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.line },
     label: { fontSize: 13, fontWeight: '600', color: t.muted },
     title: { fontFamily: serifBold, fontSize: wide ? 42 : 32, lineHeight: wide ? 46 : 36, color: t.fg },
     base: { gap: 8, paddingLeft: 16, borderLeftWidth: 5, borderLeftColor: t.mark },
-    baseText: { fontFamily: serif, fontSize: wide ? 34 : 26, lineHeight: wide ? 46 : 36, color: t.fg },
+    baseText: { fontFamily: serif, fontSize: Math.round((wide ? 34 : 26) * scale), lineHeight: Math.round((wide ? 46 : 36) * scale), color: t.fg },
     notes: { fontSize: wide ? 24 : 20, lineHeight: wide ? 34 : 29, color: t.fg },
     nextHint: { fontSize: 15, color: t.muted },
     pane: { width: '36%', borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: t.line },
@@ -687,7 +788,7 @@ const themed = (t: Theme, wide: boolean) =>
     railNow: { backgroundColor: t.accent, borderColor: t.accent },
     railText: { fontSize: 13, color: t.muted },
     railTextNow: { color: t.accentFg, fontWeight: '700' },
-    blockText: { fontFamily: serif, fontSize: wide ? 32 : 26, lineHeight: wide ? 44 : 36, color: t.fg },
+    blockText: { fontFamily: serif, fontSize: Math.round((wide ? 32 : 26) * scale), lineHeight: Math.round((wide ? 44 : 36) * scale), color: t.fg },
     activity: { gap: 14, alignItems: 'flex-start', marginTop: 8 },
     activityClock: { fontSize: wide ? 96 : 72, fontWeight: '600', fontVariant: ['tabular-nums'], letterSpacing: -2, color: t.fg },
     roundSpace: { width: 44, height: 44 },
@@ -715,7 +816,7 @@ const themed = (t: Theme, wide: boolean) =>
     zone: { position: 'absolute', top: 0, bottom: 0, width: '16%', zIndex: 2 },
     zoneLeft: { left: 0 },
     zoneRight: { right: 0 },
-    keywords: { fontFamily: serifBold, fontSize: wide ? 48 : 36, lineHeight: wide ? 56 : 43, color: t.fg },
+    keywords: { fontFamily: serifBold, fontSize: Math.round((wide ? 48 : 36) * scale), lineHeight: Math.round((wide ? 56 : 43) * scale), color: t.fg },
     prepare: { padding: 24, gap: 16, maxWidth: 640, width: '100%', alignSelf: 'center' },
     input: { minHeight: 44, paddingHorizontal: 14, paddingVertical: 11, borderRadius: 10, backgroundColor: t.card, fontSize: 17, color: t.fg },
     inputLong: { minHeight: 110, textAlignVertical: 'top' },

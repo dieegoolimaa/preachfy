@@ -300,6 +300,7 @@ const pt = {
   endScreen: "Desligar telão",
   checkStepsMissing: "{n} passos sem texto base. Você pode seguir assim mesmo.",
   stepEmpty: "Nada escrito neste passo.",
+  stepN: "Passo {i}", stepNamePh: "Nome (opcional)", sizeSmaller: "Letra menor", sizeBigger: "Letra maior", sizeAuto: "Ajustar à tela", detailFull: "Texto completo", detailHint: "Tópicos e palavras valem para as ideias.", screenFailed: "Não foi possível abrir a tela. Verifique sua conexão.", noPassageText: "Esta mensagem não tem uma passagem para mostrar.", before: "Antes", now: "Agora", after: "Depois", display: "Letra e detalhe",
   noStepsYet: "Esta mensagem ainda não tem passos. Volte e adicione o que vai dizer.",
 };
 
@@ -602,6 +603,7 @@ const en: Record<Key, string> = {
   endScreen: "Turn the screen off",
   checkStepsMissing: "{n} steps without base text. You can go ahead anyway.",
   stepEmpty: "Nothing written in this step.",
+  stepN: "Step {i}", stepNamePh: "Name (optional)", sizeSmaller: "Smaller text", sizeBigger: "Larger text", sizeAuto: "Fit to screen", detailFull: "Full text", detailHint: "Outline and keywords apply to ideas.", screenFailed: "Could not open the screen. Check your connection.", noPassageText: "This message has no passage to show.", before: "Before", now: "Now", after: "After", display: "Text and detail",
   noStepsYet: "This message has no steps yet. Go back and add what you will say.",
 };
 
@@ -902,6 +904,7 @@ const es: Record<Key, string> = {
   endScreen: "Apagar la pantalla",
   checkStepsMissing: "{n} pasos sin texto base. Puedes seguir así.",
   stepEmpty: "Nada escrito en este paso.",
+  stepN: "Paso {i}", stepNamePh: "Nombre (opcional)", sizeSmaller: "Letra menor", sizeBigger: "Letra mayor", sizeAuto: "Ajustar a la pantalla", detailFull: "Texto completo", detailHint: "Esquema y palabras valen para las ideas.", screenFailed: "No se pudo abrir la pantalla. Revisa tu conexión.", noPassageText: "Este mensaje no tiene un pasaje que mostrar.", before: "Antes", now: "Ahora", after: "Después", display: "Letra y detalle",
   noStepsYet: "Este mensaje aún no tiene pasos. Vuelve y añade lo que dirás.",
 };
 

@@ -26,6 +26,7 @@ const lines: Partial<Record<IconName, string>> = {
   people: 'M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5M16 6.2a3 3 0 0 1 0 5.6M17.5 14.3c2.2.5 3.5 2.3 3.5 4.7',
   plus: 'M12 5v14M5 12h14',
   sliders: 'M4 7h8M18 7h2M4 17h2M12 17h8',
+  more: 'M5 12h.01M12 12h.01M19 12h.01',
   search: 'M15 15l5 5',
   share: 'M12 15V4M8 8l4-4 4 4M6 12v7h12v-7',
   sun: 'M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8',
@@ -36,6 +37,13 @@ const lines: Partial<Record<IconName, string>> = {
 export function Icon({ name, size, color }: Props) {
   if (name === 'text-size') {
     return <Text style={{ fontSize: size * 0.8, lineHeight: size, color, fontWeight: '400', letterSpacing: -0.5 }}>Aa</Text>;
+  }
+  if (name === 'more') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        {[5, 12, 19].map((x) => <Circle key={x} cx={x} cy="12" r="1.8" fill={color} />)}
+      </Svg>
+    );
   }
   if (name === 'play') {
     return <Svg width={size} height={size} viewBox="0 0 24 24"><Path d="M8 5l11 7-11 7z" fill={color} /></Svg>;

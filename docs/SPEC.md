@@ -222,6 +222,7 @@ Quatro abas: **Início**, **Conversa**, **Encontros** e **Pessoas**.
 - **Início:** o estudo da semana em destaque (o último estudo que o líder anexou; os membros acompanham no Púlpito sem pagar, copiar é Pro), o último aviso, o próximo encontro e a conversa recente. Quando faltam, o líder vê convites para compartilhar um estudo e marcar o encontro.
 - **Conversa:** publicações, avisos só de líderes (com "ciente"), "Amém" em cada publicação e respostas em cadeia. Ações como remover, denunciar e bloquear ficam em um menu.
 - **Encontros:** o líder marca escolhendo o dia e a hora em botões, sem digitar data; os membros confirmam presença.
+- **Reunião agora:** abre o Google Meet em uma reunião nova (`meet.google.com/new`); o líder copia o link, volta e cola, e o app cria o encontro de agora com o link e avisa o grupo. Sem conta Google no app e sem API. Link automático pela API do Meet fica para depois do lançamento, exige verificação do Google.
 - **Pessoas:** convite com código grande e compartilhamento pelo sistema, líderes à frente, o dono promove líderes.
 - **Moderação (exigência da App Store):** denunciar publicação, bloquear pessoa, líderes removem. Termos com tolerância zero. Falta um canal do desenvolvedor para agir em 24 horas.
 - **Mensagem de exemplo:** toda conta nova começa com uma mensagem de exemplo, que mostra como se monta (texto bíblico, introdução, passos, conclusão) e como o Púlpito conduz. Pode ser apagada, e o Púlpito dela abre para todos.

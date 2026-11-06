@@ -1,4 +1,5 @@
 import type { Study } from '@preachfy/core';
+import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
@@ -75,6 +76,8 @@ export default function CommunityDetail() {
   const [eventLink, setEventLink] = useState('');
   const [feedback, setFeedback] = useState('');
   const [leaving, setLeaving] = useState(false);
+  const [instant, setInstant] = useState(false);
+  const [instantLink, setInstantLink] = useState('');
 
   const base = `/communities/${id}`;
   const load = useCallback(async () => {
@@ -172,6 +175,33 @@ export default function CommunityDetail() {
       setEventLink('');
       setEventDay(0);
       setCreating(false);
+    }
+  };
+
+  /** Google Meet makes the room; the leader copies its link and pastes it here. */
+  const openMeet = () => Linking.openURL('https://meet.google.com/new').catch(() => setFeedback(t('offline')));
+  const pasteLink = async (set: (link: string) => void) => {
+    const pasted = (await Clipboard.getStringAsync().catch(() => '')).trim();
+    if (/^https?:\/\/\S+$/.test(pasted)) {
+      set(pasted);
+      setFeedback('');
+    } else setFeedback(t('linkInvalid'));
+  };
+  const startNow = () => {
+    setInstant(true);
+    openMeet();
+  };
+  const announceNow = async () => {
+    if (!/^https?:\/\/\S+$/.test(instantLink.trim())) {
+      setFeedback(t('linkInvalid'));
+      return;
+    }
+    const event = await act(`${base}/events`, 'POST', { title: t('meetNow'), startsAt: Date.now(), meetLink: instantLink.trim() });
+    if (event) {
+      await act(`${base}/posts`, 'POST', { text: `${t('meetNowNotice')} ${instantLink.trim()}`, kind: 'notice' });
+      setInstant(false);
+      setInstantLink('');
+      setTab('home');
     }
   };
 
@@ -390,14 +420,32 @@ export default function CommunityDetail() {
             </View>
             <Field testID="event-place" value={eventPlace} onChangeText={setEventPlace} placeholder={t('placeLabel')} />
             <Field testID="event-link" value={eventLink} onChangeText={setEventLink} placeholder={t('optionalLink')} autoCapitalize="none" />
+            <View style={s.actions}>
+              <Pill plain testID="event-meet" label={t('meetCreate')} onPress={openMeet} />
+              <Pill plain testID="event-paste" label={t('pasteLink')} onPress={() => pasteLink(setEventLink)} />
+            </View>
             <View style={ui.row}>
               <Pill testID="event-create" primary disabled={!eventTitle.trim()} label={t('schedule')} onPress={createEvent} />
               <Pill plain label={t('cancel')} onPress={() => setCreating(false)} />
             </View>
           </View>
         ) : (
-          <Pill testID="event-new" primary big label={t('newMeeting')} onPress={() => setCreating(true)} />
+          <View style={s.actions0}>
+            <Pill testID="event-new" primary big label={t('newMeeting')} onPress={() => setCreating(true)} />
+            <Pill testID="meet-now" big label={t('meetNow')} onPress={startNow} />
+          </View>
         )
+      ) : null}
+      {leader && instant ? (
+        <View style={s.form} testID="instant-card">
+          <Text style={s.invitationTitle}>{t('meetNow')}</Text>
+          <Text style={s.invitationText}>{t('meetNowHint')}</Text>
+          <Field testID="instant-link" value={instantLink} onChangeText={setInstantLink} placeholder="https://meet.google.com/…" autoCapitalize="none" />
+          <View style={ui.row}>
+            <Pill plain testID="instant-paste" label={t('pasteLink')} onPress={() => pasteLink(setInstantLink)} />
+            <Pill testID="instant-send" primary disabled={!instantLink.trim()} label={t('meetNowSend')} onPress={announceNow} />
+          </View>
+        </View>
       ) : null}
       {upcoming.length ? <Text style={s.section}>{t('upcoming').toUpperCase()}</Text> : null}
       {upcoming.map((event) => {
@@ -569,6 +617,7 @@ const s = StyleSheet.create({
   attach: { gap: 8, padding: 14, borderRadius: 14, backgroundColor: paper.soft },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginLeft: -12 },
   start: { alignItems: 'flex-start', marginLeft: -12 },
+  actions0: { gap: 10 },
   menu: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   replyBox: { marginLeft: 36, gap: 8, paddingBottom: 10 },
   replyInput: { minHeight: 56, padding: 12, borderRadius: 12, backgroundColor: paper.soft, fontSize: 16, color: paper.fg, textAlignVertical: 'top' },

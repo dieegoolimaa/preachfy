@@ -197,6 +197,17 @@ try {
   await T('event-row').waitFor();
   ok('a meeting is planned without typing a date', (await T('event-row').count()) === 1);
 
+  // An instant meeting: Google Meet opens, the leader pastes its link and tells the group.
+  await T('event-new').waitFor();
+  const [popup] = await Promise.all([page.context().waitForEvent('page'), T('meet-now').click()]);
+  ok('Meet opens from the instant meeting button', /meet\.google\.com|about:blank/.test(popup.url()), popup.url());
+  await popup.close().catch(() => {});
+  await T('instant-link').fill('https://meet.google.com/abc-defg-hij');
+  await T('instant-send').click();
+  await T('next-meeting').waitFor();
+  ok('the instant meeting becomes the next meeting with its link', /Reunião agora/.test(await T('next-meeting').innerText()));
+  ok('the group is told with a notice', /abc-defg-hij/.test(await T('latest-notice').innerText()));
+
   // The Bible version is chosen from a menu.
   await page.goto(`${WEB}/bible`);
   await T('word-1-1').waitFor();

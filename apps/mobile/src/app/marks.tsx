@@ -47,7 +47,7 @@ export default function Marks() {
             {editing === mark.id ? (
               <Field testID="note-input" multiline value={mark.note} onChangeText={(note) => change(mark.id, { note })} placeholder={t('noteLabel')} />
             ) : null}
-            <View style={ui.row}>
+            <View style={[ui.row, s.pills]}>
               <Pill
                 plain
                 testID="edit-note"
@@ -65,6 +65,7 @@ export default function Marks() {
 
 const s = StyleSheet.create({
   mark: { gap: 4, paddingLeft: 10, borderLeftWidth: 4 },
+  pills: { marginLeft: -12 },
   note: { fontSize: 16, lineHeight: 23, color: paper.fg, textAlign: 'left', paddingLeft: 14 },
   quote: { fontFamily: serif, fontSize: 18, lineHeight: 25, color: paper.fg },
 });

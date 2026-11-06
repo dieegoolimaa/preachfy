@@ -128,17 +128,21 @@ Cada passo tem o **texto base** (obrigatório) e depois uma sequência livre de 
 - **Sem corte automático:** o app não sugere o que pular quando o pregador atrasa. Decisão de 2026-11-05.
 - Estudos antigos continuam funcionando: as notas e a pergunta viram blocos.
 
+### Começar a criar
+- Escrever vem primeiro: depois de escolher o trecho, "Começar em branco" abre um único passo já com o texto base e o cursor na anotação. A estrutura cresce do que se escreve, com quantos passos o autor quiser.
+- Modelos (Esboço, Estudo, Devocional, Aula, Palestra) são um atalho opcional.
+- Cada passo tem dois campos: **texto base** (bíblico ou autoral) e a **anotação** do que será ministrado. Nome, minutos e ponte ficam em "Mais opções".
+
 ### Estrutura de um estudo
-- **Texto de contexto (opcional, global):** passagem longa, versículo isolado ou texto autoral.
 - **Passos:** cada um tem **texto base** (seleção bíblica ou texto de referência) e **anotações da ministração**.
 - O rascunho pode ter lacunas, para os modelos continuarem funcionando. O Púlpito só abre quando todo passo tem texto base, e o app aponta quais faltam.
 - Em Palestra, o texto base pode ser a frase-chave, sem Bíblia.
 
 ### Púlpito por passos
-- Nunca mostra o conteúdo inteiro como um bloco contínuo. O orador avança de propósito.
-- Fluxo visual com transição clara entre passos, mostrando de onde veio e para onde vai.
-- Em destaque, só o texto base e as anotações daquele passo.
-- O texto de contexto fica a um toque, sem tirar o foco do passo atual.
+- Um passo é uma tela: o texto base e tudo o que foi escrito sobre ele (anotações do estudo e as notas pessoais feitas na Bíblia nesses versículos) aparecem juntos, sem alternar. O texto se ajusta para caber, sem rolar; o orador aumenta ou diminui (A−, A+).
+- Faixa de processo no topo: Antes, passo atual e Depois, com pontos tocáveis. Passos sem nome mostram a referência do texto, nunca "Ponto 1".
+- Cartão "A seguir" com a frase de ponte e o começo do que vem depois. Nenhum botão fica desabilitado; no último passo "Próximo" vira "Terminar".
+- Detalhe do texto (completo, tópicos, palavras-chave) e tema claro ou escuro ficam em um painel, não em botões de alternância.
 
 ## Conta, cobrança e integração
 
@@ -223,8 +227,8 @@ Faz parte da `apps/api`, e a página do aluno faz parte do web em Expo. Guarda s
 ## Grátis e Pro
 Regra: leitura, marcação simples, copiar e compartilhar versículos são grátis. Criar conteúdo para o Púlpito é Pro. A lista oficial está em `packages/core/src/entitlements.ts`.
 
-- **Grátis:** ler, trocar de versão, buscar, Modo Limpo e destacar com as 8 categorias, inclusive por palavra, copiar e compartilhar versículos.
-- **Pro:** todo o resto, incluindo notas por versículo, categorias próprias, comparar versões, plano de leitura, sincronização, snapshot, criar, Púlpito, telão, gravação, aula ao vivo e PDF.
+- **Grátis:** ler, trocar de versão, buscar, Modo Limpo, destacar com as 8 categorias, inclusive por palavra, escrever notas nas marcações, copiar e compartilhar versículos.
+- **Pro:** todo o resto, incluindo categorias próprias, comparar versões, plano de leitura, sincronização, snapshot, criar, Púlpito, telão, gravação, aula ao vivo e PDF.
 - **Sempre disponível:** ver e exportar o que a pessoa já criou, mesmo sem assinatura.
 - **Aluno:** acessa a aula de graça; quem paga é o professor.
 

@@ -30,13 +30,11 @@ export function Verse({ verse, translationId, focused, marks, isSelected, look, 
   const colorAt = (start: number, end: number) => ranges.find((r) => start < r.end && end > r.start)?.color;
 
   const words = wordsOf(text);
+  // One solid color per word, never layered: translucent boxes that overlap would double up into darker bands.
   const paint = (i: number) => {
     if (isSelected(i)) return look.select;
     const color = colorAt(words[i]!.start, words[i]!.end);
-    if (!color) return undefined;
-    // On a dark page the highlight becomes a translucent layer and the text stays light.
-    const alpha = Math.round(look.markOpacity * 255).toString(16).padStart(2, '0');
-    return `${color}${alpha}`;
+    return color ? blend(color, look.bg, look.markOpacity) : undefined;
   };
   const size = { fontSize: 20 * scale, lineHeight: 30 * scale, color: look.fg };
 
@@ -45,30 +43,36 @@ export function Verse({ verse, translationId, focused, marks, isSelected, look, 
       <Text style={[styles.number, { lineHeight: 30 * scale, color: look.muted }]}>{ref.verse}</Text>
       {words.map((word, i) => {
         const next = words[i + 1];
-        const after = text.slice(word.end, next ? next.start : text.length).trimEnd();
-        const before = i === 0 ? text.slice(0, word.start) : '';
+        const tail = text.slice(word.end, next ? next.start : text.length).trimEnd();
+        const lead = i === 0 ? text.slice(0, word.start) : '';
         const color = paint(i);
-        // The space takes the color only when the next word has the same one.
-        const joined = color && next && paint(i + 1) === color;
+        // The space between two words takes the color only when both have it, so a run reads as one stroke.
+        const joined = Boolean(color) && Boolean(next) && paint(i + 1) === color;
         return (
-          <Text
-            key={i}
-            testID={`word-${ref.verse}-${i}`}
-            style={[styles.word, size, joined ? { backgroundColor: color } : null]}
-            onLayout={(e) => onWordLayout(i, e.nativeEvent.layout)}>
-            {before}
-            <Text style={color ? { backgroundColor: color } : null}>{word.text}</Text>
-            {after}
-          </Text>
+          <View key={i} style={styles.unit} onLayout={(e) => onWordLayout(i, e.nativeEvent.layout)}>
+            <Text testID={`word-${ref.verse}-${i}`} style={[styles.word, size, color ? { backgroundColor: color } : null]}>
+              {lead}{word.text}{tail}
+            </Text>
+            <View style={[styles.gap, { height: 30 * scale }, joined ? { backgroundColor: color } : null]} />
+          </View>
         );
       })}
     </View>
   );
 }
 
+/** Mixes a color into the page color, so a highlight stays solid on light and dark pages alike. */
+function blend(hex: string, base: string, amount: number) {
+  const channel = (value: string, at: number) => parseInt(value.slice(1 + at * 2, 3 + at * 2), 16);
+  const mix = (at: number) => Math.round(channel(base, at) * (1 - amount) + channel(hex, at) * amount);
+  return `#${[0, 1, 2].map((at) => mix(at).toString(16).padStart(2, '0')).join('')}`;
+}
+
 const styles = StyleSheet.create({
   verse: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: 10 },
   focused: { backgroundColor: '#8886' },
   number: { fontSize: 11, fontWeight: '600', paddingRight: 5 },
-  word: { fontFamily: serif, paddingRight: 5 },
+  unit: { flexDirection: 'row' },
+  word: { fontFamily: serif },
+  gap: { width: 5 },
 });

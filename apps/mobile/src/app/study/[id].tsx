@@ -403,7 +403,6 @@ export default function StudyEditor() {
           testID="open-pulpit"
           primary
           big
-          disabled={!ready}
           label={template?.role[locale] ?? t('pulpit')}
           onPress={() => requirePro('pulpit') && router.push(`/pulpit?id=${study.id}`)}
         />

@@ -58,7 +58,7 @@
   "scripts": {
     "start": "expo start",
     "web": "expo start --web",
-    "ios": "expo start --ios",
+    "ios": "expo run:ios",
     "export:web": "expo export --platform web",
     "check-types": "tsc --noEmit",
     "e2e": "node e2e/smoke.mjs"

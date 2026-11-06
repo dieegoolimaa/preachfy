@@ -23,7 +23,9 @@ const lines: Partial<Record<IconName, string>> = {
   lock: 'M8.5 11V8a3.5 3.5 0 0 1 7 0v3',
   mic: 'M6 11a6 6 0 0 0 12 0M12 17v4',
   moon: 'M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z',
+  people: 'M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5M16 6.2a3 3 0 0 1 0 5.6M17.5 14.3c2.2.5 3.5 2.3 3.5 4.7',
   plus: 'M12 5v14M5 12h14',
+  sliders: 'M4 7h8M18 7h2M4 17h2M12 17h8',
   search: 'M15 15l5 5',
   share: 'M12 15V4M8 8l4-4 4 4M6 12v7h12v-7',
   sun: 'M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8',
@@ -55,6 +57,9 @@ export function Icon({ name, size, color }: Props) {
       {name === 'lock' ? <Rect x="6" y="11" width="12" height="9" rx="2" /> : null}
       {name === 'mic' ? <Rect x="9" y="3" width="6" height="11" rx="3" /> : null}
       {name === 'sun' ? <Circle cx="12" cy="12" r="4" /> : null}
+      {name === 'people' ? <Circle cx="9" cy="8" r="3" /> : null}
+      {name === 'sliders' ? <Circle cx="15" cy="7" r="2.2" /> : null}
+      {name === 'sliders' ? <Circle cx="9" cy="17" r="2.2" /> : null}
       {name === 'search' ? <Circle cx="10.5" cy="10.5" r="6" /> : null}
       {name === 'eye' || name === 'eye-off' ? <Circle cx="12" cy="12" r="2.8" /> : null}
       {name === 'tv' ? <Rect x="3" y="5" width="18" height="12" rx="2" /> : null}

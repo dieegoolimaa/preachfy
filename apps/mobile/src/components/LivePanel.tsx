@@ -20,6 +20,7 @@ export function LivePanel({ study }: { study: Study }) {
   const [failed, setFailed] = useState(false);
   const [copied, setCopied] = useState('');
   const [closing, setClosing] = useState('');
+  const isClass = study.kind === 'class';
 
   useEffect(() => {
     if (!code) return;
@@ -48,8 +49,8 @@ export function LivePanel({ study }: { study: Study }) {
   if (!code) {
     return (
       <View style={{ gap: 6 }}>
-        <Pill testID="open-live" big disabled={busy} label={t('shareClass')} onPress={open} />
-        <Hint>{t('shareClassHint')}</Hint>
+        <Pill testID="open-live" big disabled={busy} label={t(isClass ? 'shareClass' : 'openScreen')} onPress={open} />
+        <Hint>{t(isClass ? 'shareClassHint' : 'openScreenHint')}</Hint>
         {failed ? <Text testID="live-error" style={ui.error}>{t('offline')}</Text> : null}
       </View>
     );
@@ -57,18 +58,18 @@ export function LivePanel({ study }: { study: Study }) {
 
   return (
     <Card testID="live-panel">
-      <Text style={ui.label}>{t('liveNow')}</Text>
-      <Text testID="live-code" style={s.code}>{code}</Text>
-      <Qr testID="live-qr" value={classLink(code)} />
-      <Hint>{classLink(code)}</Hint>
+      <Text style={ui.label}>{t(isClass ? 'liveNow' : 'screenLive')}</Text>
+      {isClass ? <Text testID="live-code" style={s.code}>{code}</Text> : null}
+      <Qr testID="live-qr" value={isClass ? classLink(code) : screenLink(code)} />
+      <Hint>{isClass ? classLink(code) : screenLink(code)}</Hint>
       <View style={ui.row}>
-        <Pill plain testID="copy-class" label={t('copyClassLink')} onPress={() => copy(classLink(code))} />
+        {isClass ? <Pill plain testID="copy-class" label={t('copyClassLink')} onPress={() => copy(classLink(code))} /> : null}
         <Pill plain testID="copy-screen" label={t('copyScreenLink')} onPress={() => copy(screenLink(code))} />
       </View>
       {copied ? <Hint>{t('copied')}</Hint> : null}
       <Hint>{t('screenHint')}</Hint>
-      <Field testID="live-closing" label={t('closingLabel')} multiline value={closing} onChangeText={setClosing} />
-      <Pill plain danger testID="end-live" label={t('endClass')} onPress={() => endLive(study.id, code, closing)} />
+      {isClass ? <Field testID="live-closing" label={t('closingLabel')} multiline value={closing} onChangeText={setClosing} /> : null}
+      <Pill plain danger testID="end-live" label={t(isClass ? 'endClass' : 'endScreen')} onPress={() => endLive(study.id, code, closing)} />
     </Card>
   );
 }

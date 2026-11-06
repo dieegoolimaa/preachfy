@@ -115,13 +115,30 @@ try {
   await T('study').waitFor();
   ok('Create builds a class from the passage', true);
 
+  // A sermon is not a class, and Pregar is never locked.
+  await page.goto(`${WEB}/new`);
+  await T('passage-ok').waitFor();
+  await T('wiz-continue').click();
+  await T('kind-outline').click();
+  await T('create-study').click();
+  await T('study').waitFor();
+  ok('Pregar is available even with steps still empty', await T('open-pulpit').isEnabled());
+  ok('a sermon offers the screen, not a class', /telão/i.test(await T('open-live').innerText()) && !/aula/i.test(await T('open-live').innerText()), await T('open-live').innerText());
+  await T('open-pulpit').click();
+  await T('prepare').waitFor();
+  ok('the checklist informs without blocking', await T('start').isEnabled());
+  await T('start').click();
+  await T('step-title').waitFor();
+  ok('a step with nothing written still opens', true);
+  await page.goBack();
+
   // Today leads with what to do next.
   await page.goto(WEB);
   await T('next-card').waitFor();
   ok('Today shows the next content with its progress', (await T('next-title').innerText()).length > 0 && (await T('segments').count()) > 0);
   await T('next-cta').click();
   await page.waitForTimeout(500);
-  ok('the next step opens the content', /\/(study|pulpit)\//.test(page.url()), page.url());
+  ok('the next step opens the content', /\/(study|pulpit)[/?]/.test(page.url()), page.url());
 
   // The Pulpit opens on a checklist, then starts.
   await page.goto(`${WEB}/pulpit?id=demo`);
@@ -130,6 +147,16 @@ try {
   await T('start').click();
   await T('step-title').waitFor();
   ok('Pulpit starts on the first step', true);
+
+  // The Bible version is chosen from a menu.
+  await page.goto(`${WEB}/bible`);
+  await T('word-1-1').waitFor();
+  await T('translation').click();
+  await T('version-menu').waitFor();
+  ok('the version menu lists every translation', (await page.locator('[data-testid^=version-]').count()) >= 5);
+  await T('version-kjv').click();
+  await page.waitForTimeout(400);
+  ok('choosing a version changes the text', /KJV/.test(await T('translation').innerText()));
 
   // From a selection in the Bible, the passage is already chosen.
   await page.goto(`${WEB}/bible`);

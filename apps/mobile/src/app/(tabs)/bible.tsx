@@ -6,8 +6,8 @@ import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import { Icon } from '@/components/Icon';
 import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
-import { PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Modal, PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton, Pill, type IconName } from '@/components/ui';
 import { Verse } from '@/components/Verse';
@@ -37,6 +37,8 @@ export default function Reader() {
   const { translation, book, chapter, verse: focusVerse, marks, readerTheme, textScale } = useReader();
   const look = readingThemes[readerTheme];
   const [lookOpen, setLookOpen] = useState(false);
+  const [versionOpen, setVersionOpen] = useState(false);
+  const { top } = useSafeAreaInsets();
   const { t, locale } = useT();
   const [chapters, setChapters] = useState<string[][] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -266,11 +268,6 @@ export default function Reader() {
     router.push({ pathname: '/new', params: { passage: `${title} ${chapter}:${first}-${last}` } });
   };
 
-  const nextVersion = () => {
-    const at = translations.findIndex((t) => t.id === translation);
-    updateReader({ translation: translations[(at + 1) % translations.length]!.id });
-  };
-
   const turn = (delta: number) => {
     updateReader({ chapter: chapter + delta, verse: undefined });
     list.current?.scrollTo({ y: 0, animated: false });
@@ -282,8 +279,9 @@ export default function Reader() {
   return (
     <SafeAreaView style={[styles.page, { backgroundColor: look.bg }]} edges={['top']}>
       <View style={[styles.header, { borderBottomColor: look.line }]}>
-        <Pressable testID="translation" style={styles.side} onPress={nextVersion}>
-          <Text style={[styles.version, { color: look.muted }]}>{version.short}</Text>
+        <Pressable testID="translation" accessibilityRole="button" accessibilityLabel={t('bibleVersion')} style={[styles.side, styles.versionButton]} onPress={() => setVersionOpen(true)}>
+          <Text style={[styles.version, { color: look.fg }]}>{version.short}</Text>
+          <Icon name="chevron-down" size={12} color={look.muted} />
         </Pressable>
         <Pressable testID="open-picker" accessibilityRole="button" style={styles.titleButton} onPress={() => router.push('/picker')}>
           <Text testID="reader-title" style={[styles.title, { color: look.fg }]} numberOfLines={1}>{title} {chapter}</Text>
@@ -293,6 +291,31 @@ export default function Reader() {
           <IconButton testID="open-search" icon="search" color={look.fg} label={t('search')} onPress={() => router.push('/search')} />
         </View>
       </View>
+
+      <Modal visible={versionOpen} transparent animationType="fade" onRequestClose={() => setVersionOpen(false)}>
+        <Pressable testID="version-backdrop" style={styles.backdrop} onPress={() => setVersionOpen(false)}>
+          <View style={[styles.menu, { top: top + 50 }]} testID="version-menu">
+            {translations.map((item) => (
+              <Pressable
+                key={item.id}
+                testID={`version-${item.id}`}
+                accessibilityRole="menuitem"
+                accessibilityState={{ selected: item.id === translation }}
+                style={styles.menuItem}
+                onPress={() => {
+                  updateReader({ translation: item.id });
+                  setVersionOpen(false);
+                }}>
+                <View style={styles.menuText}>
+                  <Text style={styles.menuName}>{item.name}</Text>
+                  <Text style={styles.menuLanguage}>{item.short} · {item.language}</Text>
+                </View>
+                {item.id === translation ? <Icon name="check" size={18} color={paper.fg} /> : null}
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
 
       {failed ? <Text style={styles.message}>{t('openFailed')}</Text> : null}
       {!chapters && !failed ? <Text style={styles.message}>{t('opening')}</Text> : null}
@@ -409,7 +432,14 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', minHeight: 44, paddingHorizontal: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: paper.line },
   side: { flex: 1, minHeight: 44, justifyContent: 'center' },
   sideRight: { alignItems: 'flex-end' },
-  version: { fontSize: 13, fontWeight: '600', letterSpacing: 1, color: paper.muted },
+  versionButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  version: { fontSize: 14, fontWeight: '600', letterSpacing: 0.5 },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.25)' },
+  menu: { position: 'absolute', left: 12, width: 290, borderRadius: 14, backgroundColor: paper.card, paddingVertical: 6, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 24, shadowOffset: { width: 0, height: 8 } },
+  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, paddingHorizontal: 16 },
+  menuText: { flex: 1, gap: 1 },
+  menuName: { fontSize: 16, color: paper.fg },
+  menuLanguage: { fontSize: 12, color: paper.muted },
   titleButton: { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, minHeight: 44 },
   title: { fontFamily: serifBold, fontSize: 19, color: paper.fg },
   list: { flex: 1 },

@@ -1,5 +1,5 @@
 import {
-  ACTIVITY_DEFAULT_MINUTES, blockBody, goTo, isPaused, isReadyForPulpit, pace, pause, pulpitSections, remaining, resume, spentInSection,
+  ACTIVITY_DEFAULT_MINUTES, blockBody, goTo, hasBaseText, isPaused, isReadyForPulpit, stepsMissingBaseText, pace, pause, pulpitSections, remaining, resume, spentInSection,
   startSession, passageText, timerState, totalPlanned, visibleBlocks,
   type PulpitRun, type PulpitSession, type StepDetail, type Study,
 } from '@preachfy/core';
@@ -93,10 +93,11 @@ function Prepare({ study, texts, resumable, onStart, onResume }: { study: Study;
   const { t: tr } = useT();
   const t = stage;
   const s = themed(t, false);
+  const missing = stepsMissingBaseText(study).length;
   const checks = [
     { id: 'text', on: Boolean(texts), label: tr('checkText') },
     { id: 'screen', on: true, label: tr('checkAwake') },
-    { id: 'steps', on: isReadyForPulpit(study), label: tr('checkSteps', { n: study.steps.length }) },
+    { id: 'steps', on: missing === 0, label: missing === 0 ? tr('checkSteps', { n: study.steps.length }) : tr('checkStepsMissing', { n: missing }) },
   ];
   return (
     <SafeAreaView style={s.page}>
@@ -203,7 +204,7 @@ export default function Pulpit() {
 
   // Development shortcut: `?autostart=1&block=2` opens the Pulpit already running.
   useEffect(() => {
-    if (!__DEV__ || !autostart || session || !texts || !study || !isReadyForPulpit(study)) return;
+    if (!__DEV__ || !autostart || session || !texts || !study || study.steps.length === 0) return;
     const started = startSession(pulpitSections(study), Date.now());
     setSession(started);
     saveSession(id, started);
@@ -236,7 +237,10 @@ export default function Pulpit() {
   const index = session?.currentIndex ?? 0;
 
   /** The base text first, then each block that has something in it. */
-  const lengthOf = (i: number) => 1 + (study?.steps[i] ? visibleBlocks(study.steps[i]!).length : 0);
+  const lengthOf = (i: number) => {
+    const at = study?.steps[i];
+    return at ? Math.max(1, Number(hasBaseText(at)) + visibleBlocks(at).length) : 1;
+  };
   const advance = (direction: 1 | -1) => {
     if (direction === 1) {
       if (blockIndex < lengthOf(index) - 1) setBlockIndex(blockIndex + 1);
@@ -296,7 +300,21 @@ export default function Pulpit() {
     return () => window.removeEventListener('keydown', onKey);
   }, [advance, session === null]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!study || !isReadyForPulpit(study) || !allowed) return null;
+  if (!study || !allowed) return null;
+  // Nothing to lead yet, so say it plainly instead of showing an empty screen.
+  if (study.steps.length === 0) {
+    return (
+      <SafeAreaView style={s.page}>
+        <View style={s.prepareBody} testID="pulpit-empty">
+          <Text style={s.prepareTitle}>{study.title}</Text>
+          <Text style={s.prepareHint}>{tr('noStepsYet')}</Text>
+        </View>
+        <View style={s.prepareActions}>
+          <Pressable testID="empty-back" style={[s.nav, s.navMain]} onPress={() => goBack()}><Text style={[s.navText, s.navTextMain]}>{tr('back')}</Text></Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const begin = (resumed?: PulpitSession) => {
     const next = resumed ?? startSession(pulpitSections(study), Date.now());
@@ -365,11 +383,15 @@ export default function Pulpit() {
   const step = study.steps[index]!;
   const next = study.steps[index + 1];
   const base = texts?.steps[index];
+  const hasBase = hasBaseText(step);
   const blocks = visibleBlocks(step);
-  const position = Math.min(blockIndex, blocks.length);
-  const current = position === 0 ? null : blocks[position - 1]!;
-  const hasMore = position < blocks.length || Boolean(next);
+  const total = Number(hasBase) + blocks.length;
+  const position = Math.min(blockIndex, Math.max(total - 1, 0));
+  const showingBase = hasBase && position === 0;
+  const current = showingBase ? null : (blocks[position - Number(hasBase)] ?? null);
+  const hasMore = position < total - 1 || Boolean(next);
   const accent = blockColor(current?.kind ?? 'scripture', dark);
+  const isClass = study.kind === 'class';
   const context = texts?.context;
   const state = timerState(session, now);
   const timeColor = state === 'over' ? t.over : state === 'warning' ? t.warn : t.fg;
@@ -464,19 +486,21 @@ export default function Pulpit() {
           <Text style={s.label}>{tr('stepOf', { i: index + 1, n: study.steps.length })}</Text>
           <Text testID="step-title" style={s.title}>{step.title}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.railBar} contentContainerStyle={s.rail} testID="block-rail">
-            {[{ kind: 'scripture' as const, id: 'base' }, ...blocks].map((item, i) => (
+            {[...(hasBase ? [{ kind: 'scripture' as const, id: 'base' }] : []), ...blocks].map((item, i) => (
               <Pressable key={item.id} testID={`rail-${i}`} accessibilityRole="button" style={[s.railChip, i < position && s.railDone, i === position && s.railNow]} onPress={() => setBlockIndex(i)}>
                 <Text style={[s.railText, i === position && s.railTextNow]}>{tr(blockKey[item.kind])}</Text>
               </Pressable>
             ))}
           </ScrollView>
           <View style={[s.base, { borderLeftColor: accent }]} testID="block-card">
-            {current === null ? (
+            {total === 0 ? (
+              <Text testID="step-empty" style={s.blockText}>{tr('stepEmpty')}</Text>
+            ) : showingBase ? (
               <>
                 {base?.label ? <Text style={s.label}>{base.label}</Text> : null}
                 <Text testID="base-text" style={s.baseText}>{base?.body}</Text>
               </>
-            ) : (
+            ) : current ? (
               <>
                 <Text style={s.label}>{tr(blockKey[current.kind])}</Text>
                 {current.kind !== 'activity' || current.text ? (
@@ -485,7 +509,7 @@ export default function Pulpit() {
                 {current.kind === 'activity' ? <ActivityTimer key={current.id} minutes={current.minutes ?? ACTIVITY_DEFAULT_MINUTES} t={t} s={s} /> : null}
                 {current.kind === 'question' && current.expectedAnswer ? <Text testID="expected" style={s.expected}>{tr('expectedAnswer')}: {current.expectedAnswer}</Text> : null}
               </>
-            )}
+            ) : null}
           </View>
           {next ? (
             <Text style={s.nextHint} testID="bridge">
@@ -502,7 +526,7 @@ export default function Pulpit() {
         {locked ? <Text testID="locked" style={s.lockedText}>{tr('lockedHint')}</Text> : wide ? tools : null}
         <Round testID="lock" icon="lock" label={tr('lockScreen')} t={t} onPress={() => !locked && setLocked(true)} onLongPress={() => setLocked(false)} />
         <Pressable testID="next" accessibilityRole="button" disabled={!hasMore} style={[s.nav, s.navMain, !hasMore && s.off]} onPress={() => advance(1)}>
-          <Text style={[s.navText, s.navTextMain]} numberOfLines={1}>{position < blocks.length ? tr('nextBlock') : tr('nextStepGo')}</Text>
+          <Text style={[s.navText, s.navTextMain]} numberOfLines={1}>{position < total - 1 ? tr('nextBlock') : tr('nextStepGo')}</Text>
         </Pressable>
       </View>
 
@@ -576,16 +600,16 @@ export default function Pulpit() {
                       </Pressable>
                     ))}
                   </View>
-                  <Qr value={classLink(code)} size={150} />
-                  <Text style={s.label}>{code} · {screenLink(code)}</Text>
+                  <Qr value={isClass ? classLink(code) : screenLink(code)} size={150} />
+                  <Text style={s.label}>{isClass ? `${code} · ${classLink(code)}` : screenLink(code)}</Text>
                 </>
               ) : (
                 <Pressable testID="screen-open" style={[s.nav, s.navMain]} onPress={openScreen}>
-                  <Text style={[s.navText, s.navTextMain]}>{tr('shareClass')}</Text>
+                  <Text style={[s.navText, s.navTextMain]}>{tr(isClass ? 'shareClass' : 'openScreen')}</Text>
                 </Pressable>
               )}
-              {step.question ? <Text style={s.notes}>{step.question}</Text> : null}
-              {answers.map((answer) => (
+              {isClass && step.question ? <Text style={s.notes}>{step.question}</Text> : null}
+              {(isClass ? answers : []).map((answer) => (
                 <Pressable key={answer.id} testID="answer" style={s.answer} onPress={() => highlight(answer.id)}>
                   <Text style={s.toolText}>{answer.text}</Text>
                   <Text style={s.pace}>{answer.nickname || tr('anonymous')} · {tr('showOnScreen')}</Text>

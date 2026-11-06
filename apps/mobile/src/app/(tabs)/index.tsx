@@ -47,10 +47,8 @@ export default function Today() {
   const act = () => {
     if (!next) {
       if (requirePro('create')) router.push('/new');
-    } else if (ready) {
-      if (requirePro('pulpit')) router.push(`/pulpit?id=${next.id}`);
-    } else {
-      router.push(`/study/${next.id}`);
+    } else if (requirePro('pulpit')) {
+      router.push(`/pulpit?id=${next.id}`);
     }
   };
 
@@ -71,9 +69,14 @@ export default function Today() {
           </Text>
           <Pressable testID="next-cta" accessibilityRole="button" style={s.cta} onPress={act}>
             <Text style={s.ctaText}>
-              {!next ? t('startPreparing') : ready ? `${template?.role[locale] ?? t('pulpit')} →` : `${t('continuePrep')} →`}
+              {!next ? t('startPreparing') : `${template?.role[locale] ?? t('pulpit')} →`}
             </Text>
           </Pressable>
+          {next && !ready ? (
+            <Pressable testID="next-edit" accessibilityRole="button" onPress={() => router.push(`/study/${next.id}`)}>
+              <Text style={s.editLink}>{t('continuePrep')}</Text>
+            </Pressable>
+          ) : null}
         </LinearGradient>
       </FadeIn>
 
@@ -107,6 +110,7 @@ const s = StyleSheet.create({
   nextTitle: { fontFamily: serifBold, fontSize: 29, lineHeight: 32, letterSpacing: -0.4, color: '#16181D' },
   nextText: { fontSize: 14, lineHeight: 20, color: '#16181DCC' },
   cta: { minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', backgroundColor: '#16181D' },
+  editLink: { fontSize: 15, fontWeight: '600', color: '#16181D', textAlign: 'center', paddingVertical: 6, textDecorationLine: 'underline' },
   ctaText: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
   daily: { gap: 6, paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: paper.line },
   verse: { fontFamily: serif, fontSize: 21, lineHeight: 30, color: paper.fg },

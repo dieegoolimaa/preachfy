@@ -156,7 +156,7 @@ function After({ run, onDone }: { run: PulpitRun; onDone: (place: string, note: 
 }
 
 export default function Pulpit() {
-  const { id = 'demo', autostart, block } = useLocalSearchParams<{ id?: string; autostart?: string; block?: string }>();
+  const { id = 'demo', autostart } = useLocalSearchParams<{ id?: string; autostart?: string }>();
   const { t: tr, locale } = useT();
   const reader = useReader();
   const { studies, sessions, liveCodes } = reader;
@@ -171,7 +171,6 @@ export default function Pulpit() {
   const [now, setNow] = useState(() => Date.now());
   const [dark, setDark] = useState(true);
   const [detail, setDetail] = useState<StepDetail>('manuscript');
-  const [blockIndex, setBlockIndex] = useState(0);
   const [contextOpen, setContextOpen] = useState(false);
   const [liveOpen, setLiveOpen] = useState(false);
   const [answers, setAnswers] = useState<Answer[]>([]);
@@ -216,8 +215,7 @@ export default function Pulpit() {
     const started = startSession(pulpitSections(study), Date.now());
     setSession(started);
     saveSession(id, started);
-    if (block) setBlockIndex(Number(block) || 0);
-  }, [autostart, block, session, texts, study, id]);
+  }, [autostart, session, texts, study, id]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -244,23 +242,10 @@ export default function Pulpit() {
 
   const index = session?.currentIndex ?? 0;
 
-  /** The base text first, then each block that has something in it. */
-  const lengthOf = (i: number) => {
-    const at = study?.steps[i];
-    return at ? Math.max(1, Number(hasBaseText(at)) + visibleBlocks(at).length) : 1;
-  };
+  /** One step is one screen: its base text and everything written about it, together. */
   const advance = (direction: 1 | -1) => {
-    if (direction === 1) {
-      if (blockIndex < lengthOf(index) - 1) setBlockIndex(blockIndex + 1);
-      else if (study && index < study.steps.length - 1) {
-        move(1);
-        setBlockIndex(0);
-      }
-    } else if (blockIndex > 0) setBlockIndex(blockIndex - 1);
-    else if (index > 0) {
-      move(-1);
-      setBlockIndex(lengthOf(index - 1) - 1);
-    }
+    if (direction === 1 && study && index < study.steps.length - 1) move(1);
+    else if (direction === -1 && index > 0) move(-1);
   };
   const recording = useSermonRecorder(index, session ? isPaused(session) : false);
 
@@ -269,7 +254,7 @@ export default function Pulpit() {
     search.current = { lo: 0.35, hi: 1.6, f: 1, n: 0, h: search.current.h };
     setFit(1);
     setSettled(false);
-  }, [index, blockIndex, detail, viewH, wide]);
+  }, [index, detail, viewH, wide]);
   const evaluate = useCallback(
     (h: number) => {
       const r = search.current;
@@ -292,7 +277,7 @@ export default function Pulpit() {
     if (settled || zoom !== null) return;
     const timer = setTimeout(() => evaluate(search.current.h), 160);
     return () => clearTimeout(timer);
-  }, [fit, settled, zoom, evaluate, index, blockIndex, detail]);
+  }, [fit, settled, zoom, evaluate, index, detail]);
 
   const changeScreen = useCallback(
     (next: (current: typeof screen) => typeof screen) => {
@@ -423,12 +408,7 @@ export default function Pulpit() {
   const base = texts?.steps[index];
   const hasBase = hasBaseText(step);
   const blocks = visibleBlocks(step);
-  const total = Number(hasBase) + blocks.length;
-  const position = Math.min(blockIndex, Math.max(total - 1, 0));
-  const showingBase = hasBase && position === 0;
-  const current = showingBase ? null : (blocks[position - Number(hasBase)] ?? null);
-  const hasMore = position < total - 1 || Boolean(next);
-  const accent = blockColor(current?.kind ?? 'scripture', dark);
+  const hasMore = Boolean(next);
   const isClass = study.kind === 'class';
   const context = texts?.context;
   const state = timerState(session, now);
@@ -443,7 +423,6 @@ export default function Pulpit() {
   };
   const jump = (i: number) => {
     change((c) => goTo(c, i, Date.now()));
-    setBlockIndex(0);
   };
   const tools = (
     <>
@@ -543,39 +522,28 @@ export default function Pulpit() {
         <Pressable testID="zone-prev" accessibilityLabel={tr('previous')} style={[s.zone, s.zoneLeft]} onPress={() => advance(-1)} />
         <Pressable testID="zone-next" accessibilityLabel={tr('next')} style={[s.zone, s.zoneRight]} onPress={() => advance(1)} />
         <View style={s.main}>
-          <View style={s.railWrap}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.railBar} contentContainerStyle={s.rail} testID="block-rail">
-              {[...(hasBase ? [{ kind: 'scripture' as const, id: 'base' }] : []), ...blocks].map((item, i) => (
-                <Pressable key={item.id} testID={`rail-${i}`} accessibilityRole="button" style={[s.railChip, i < position && s.railDone, i === position && s.railNow]} onPress={() => setBlockIndex(i)}>
-                  <Text style={[s.railText, i === position && s.railTextNow]}>{tr(blockKey[item.kind])}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
           <ScrollView
             style={[s.fitView, { opacity: settled || zoom !== null ? 1 : 0 }]}
             contentContainerStyle={s.mainInner}
             onLayout={(e) => setViewH(Math.round(e.nativeEvent.layout.height))}
             onContentSizeChange={(_w, h) => evaluate(h)}>
-            <View style={[s.base, { borderLeftColor: accent }]} testID="block-card">
-              {total === 0 ? (
-                <Text testID="step-empty" style={s.blockText}>{tr('stepEmpty')}</Text>
-              ) : showingBase ? (
-                <>
-                  {base?.label ? <Text style={s.label}>{base.label}</Text> : null}
-                  <Text testID="base-text" style={s.baseText}>{base?.body}</Text>
-                </>
-              ) : current ? (
-                <>
-                  <Text style={s.label}>{tr(blockKey[current.kind])}</Text>
-                  {current.kind !== 'activity' || current.text ? (
-                    <Text testID="block-text" style={current.kind === 'idea' && detail === 'keywords' ? s.keywords : s.blockText}>{blockBody(current, detail)}</Text>
-                  ) : null}
-                  {current.kind === 'activity' ? <ActivityTimer key={current.id} minutes={current.minutes ?? ACTIVITY_DEFAULT_MINUTES} t={t} s={s} /> : null}
-                  {current.kind === 'question' && current.expectedAnswer ? <Text testID="expected" style={s.expected}>{tr('expectedAnswer')}: {current.expectedAnswer}</Text> : null}
-                </>
-              ) : null}
-            </View>
+            {!hasBase && blocks.length === 0 ? <Text testID="step-empty" style={s.blockText}>{tr('stepEmpty')}</Text> : null}
+            {hasBase ? (
+              <View style={[s.base, { borderLeftColor: blockColor('scripture', dark) }]} testID="block-card">
+                {base?.label ? <Text style={s.label}>{base.label}</Text> : null}
+                <Text testID="base-text" style={s.baseText}>{base?.body}</Text>
+              </View>
+            ) : null}
+            {blocks.map((item) => (
+              <View key={item.id} style={[s.base, { borderLeftColor: blockColor(item.kind, dark) }]} testID="block-card">
+                <Text style={s.label}>{tr(blockKey[item.kind])}</Text>
+                {item.kind !== 'activity' || item.text ? (
+                  <Text testID="block-text" style={item.kind === 'idea' && detail === 'keywords' ? s.keywords : s.blockText}>{blockBody(item, detail)}</Text>
+                ) : null}
+                {item.kind === 'activity' ? <ActivityTimer key={item.id} minutes={item.minutes ?? ACTIVITY_DEFAULT_MINUTES} t={t} s={s} /> : null}
+                {item.kind === 'question' && item.expectedAnswer ? <Text testID="expected" style={s.expected}>{tr('expectedAnswer')}: {item.expectedAnswer}</Text> : null}
+              </View>
+            ))}
           </ScrollView>
           {next ? (
             <Pressable style={s.bridgeRow} testID="bridge" onPress={() => jump(index + 1)}>
@@ -607,11 +575,11 @@ export default function Pulpit() {
       ) : null}
       {!wide && !locked ? <View style={s.toolsRow}>{tools}</View> : null}
       <View style={s.bottom}>
-        <Round testID="prev" big icon="chevron-back" label={tr('previous')} t={t} disabled={index === 0 && blockIndex === 0} onPress={() => advance(-1)} />
+        <Round testID="prev" big icon="chevron-back" label={tr('previous')} t={t} disabled={index === 0} onPress={() => advance(-1)} />
         {locked ? <Text testID="locked" style={s.lockedText}>{tr('lockedHint')}</Text> : wide ? tools : null}
         <Round testID="lock" icon="lock" label={tr('lockScreen')} t={t} onPress={() => !locked && setLocked(true)} onLongPress={() => setLocked(false)} />
         <Pressable testID="next" accessibilityRole="button" style={[s.nav, s.navMain]} onPress={() => (hasMore ? advance(1) : finish())}>
-          <Text style={[s.navText, s.navTextMain]} numberOfLines={1}>{!hasMore ? tr('finish') : position < total - 1 ? tr('nextBlock') : tr('nextStepGo')}</Text>
+          <Text style={[s.navText, s.navTextMain]} numberOfLines={1}>{hasMore ? tr('nextStepGo') : tr('finish')}</Text>
         </Pressable>
       </View>
 

@@ -1,23 +1,24 @@
 import {
-  bookById, bookName, canUse, resolveSpan, selectionSpans, visibleMarks,
+  bookById, bookName, canUse, resolveSpan, selectionSpans, visibleMarks, wordsOf,
   type Mark, type ReadingLayer, type VerseSpan, type VerseText, type WordPoint,
 } from '@preachfy/core';
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import { Icon } from '@/components/Icon';
 import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
-import { Modal, PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
+import { KeyboardAvoidingView, PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View, type LayoutRectangle } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton, Pill, type IconName } from '@/components/ui';
 import { Verse } from '@/components/Verse';
+import { VersionMenu } from '@/components/VersionMenu';
 import { loadBook } from '@/lib/bible';
 import { useT } from '@/lib/i18n';
 import { newId } from '@/lib/ids';
 import { requirePro } from '@/lib/pro';
-import { updateReader, useReader } from '@/lib/store';
+import { getReader, updateReader, useReader } from '@/lib/store';
 import { categories, paper, readingThemes, serifBold } from '@/lib/theme';
-import { translationById, translations } from '@/lib/translations';
+import { translationById } from '@/lib/translations';
 
 const HOLD_MS = 220;
 const DRAG_PX = 10;
@@ -47,6 +48,7 @@ export default function Reader() {
   const [focus, setFocus] = useState<WordPoint | null>(null);
   const [notice, setNotice] = useState('');
   const [selecting, setSelecting] = useState(false);
+  const [openMark, setOpenMark] = useState<string | null>(null);
   const list = useRef<ComponentRef<typeof ScrollView>>(null);
   const area = useRef<ComponentRef<typeof View>>(null);
   const layout = useRef<{ verses: (LayoutRectangle | undefined)[]; words: (LayoutRectangle | undefined)[][] }>({ verses: [], words: [] });
@@ -142,8 +144,23 @@ export default function Reader() {
     edge: undefined as ReturnType<typeof setInterval> | undefined,
     lastTap: 0,
   });
-  const actions = useRef({ wordAt, clear, hasSelection: false });
-  actions.current = { wordAt, clear, hasSelection: Boolean(anchor) };
+  /** The highlight under a word, so tapping it opens its note. */
+  const markAt = (hit: WordPoint) => {
+    const verse = verses[hit.verseIndex];
+    const word = verse ? wordsOf(verse.text)[hit.wordIndex] : undefined;
+    if (!verse || !word) return null;
+    for (const m of [...shown].reverse()) {
+      for (const span of m.spans) {
+        if (span.ref.book !== book || span.ref.chapter !== chapter || span.ref.verse !== verse.ref.verse) continue;
+        const found = resolveSpan(span, verse.text, translation);
+        const range = found.kind === 'wholeVerse' ? { start: 0, end: verse.text.length } : found;
+        if (word.start < range.end && word.end > range.start) return m.id;
+      }
+    }
+    return null;
+  };
+  const actions = useRef({ wordAt, clear, markAt, hasSelection: false });
+  actions.current = { wordAt, clear, markAt, hasSelection: Boolean(anchor) };
 
   const responder = useMemo(() => {
     const g = gesture.current;
@@ -225,7 +242,13 @@ export default function Reader() {
           return;
         }
         g.lastTap = now;
-        if (actions.current.hasSelection) actions.current.clear();
+        if (actions.current.hasSelection) {
+          actions.current.clear();
+          return;
+        }
+        const hit = point(pageX, pageY);
+        const found = hit ? actions.current.markAt(hit) : null;
+        if (found) setOpenMark(found);
       },
       onPanResponderTerminate: stop,
     });
@@ -242,9 +265,13 @@ export default function Reader() {
     if (!canUse('simpleMark', false)) return;
     const created: Mark = { id: newId(), scope: { kind: 'bible' }, spans, categoryKey, note: '', updatedAt: Date.now() };
     updateReader({ marks: [...marks, created] });
-    setNotice(t('markSaved'));
+    setOpenMark(created.id);
     clear();
   };
+
+  const change = (id: string, patch: Partial<Mark>) =>
+    updateReader({ marks: getReader().marks.map((m) => (m.id === id ? { ...m, ...patch, updatedAt: Date.now() } : m)) });
+  const editing = openMark ? marks.find((m) => m.id === openMark && !m.deletedAt) : undefined;
 
   const copy = async () => {
     await Clipboard.setStringAsync(`“${quoted}” ${reference}`);
@@ -292,30 +319,7 @@ export default function Reader() {
         </View>
       </View>
 
-      <Modal visible={versionOpen} transparent animationType="fade" onRequestClose={() => setVersionOpen(false)}>
-        <Pressable testID="version-backdrop" style={styles.backdrop} onPress={() => setVersionOpen(false)}>
-          <View style={[styles.menu, { top: top + 50 }]} testID="version-menu">
-            {translations.map((item) => (
-              <Pressable
-                key={item.id}
-                testID={`version-${item.id}`}
-                accessibilityRole="menuitem"
-                accessibilityState={{ selected: item.id === translation }}
-                style={styles.menuItem}
-                onPress={() => {
-                  updateReader({ translation: item.id });
-                  setVersionOpen(false);
-                }}>
-                <View style={styles.menuText}>
-                  <Text style={styles.menuName}>{item.name}</Text>
-                  <Text style={styles.menuLanguage}>{item.short} · {item.language}</Text>
-                </View>
-                {item.id === translation ? <Icon name="check" size={18} color={paper.fg} /> : null}
-              </Pressable>
-            ))}
-          </View>
-        </Pressable>
-      </Modal>
+      <VersionMenu visible={versionOpen} selected={translation} onSelect={(id) => updateReader({ translation: id })} onClose={() => setVersionOpen(false)} top={top + 50} />
 
       {failed ? <Text style={styles.message}>{t('openFailed')}</Text> : null}
       {!chapters && !failed ? <Text style={styles.message}>{t('opening')}</Text> : null}
@@ -329,7 +333,20 @@ export default function Reader() {
         onContentSizeChange={(_w, height) => {
           gesture.current.max = Math.max(height - (gesture.current.bottom - gesture.current.top), 0);
         }}>
-        <View ref={area} style={styles.area} {...responder.panHandlers}>
+        <View
+          ref={area}
+          style={styles.area}
+          onLayout={() => {
+            // Measured as soon as the text is on screen, so the very first tap already knows where the words are.
+            area.current?.measureInWindow((x, y) => {
+              gesture.current.origin = { x, y };
+            });
+            list.current?.measureInWindow?.((_x: number, y: number, _w: number, height: number) => {
+              gesture.current.top = y;
+              gesture.current.bottom = y + height;
+            });
+          }}
+          {...responder.panHandlers}>
           {verses.map((item, index) => (
             <Verse
               key={item.ref.verse}
@@ -377,6 +394,33 @@ export default function Reader() {
             <Action icon="close" label={t('cancel')} onPress={clear} />
           </View>
         </View>
+      ) : editing ? (
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={styles.sheet} testID="mark-sheet">
+            <Text style={styles.quote} numberOfLines={2}>{editing.spans.map((x) => x.quote).filter(Boolean).join(' ')}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colors}>
+              {categories.map((c) => (
+                <Pressable key={c.key} testID={`mark-cat-${c.key}`} accessibilityRole="button" style={styles.color} onPress={() => change(editing.id, { categoryKey: c.key })}>
+                  <View style={[styles.dot, { backgroundColor: c.color }, editing.categoryKey === c.key && styles.dotOn]} />
+                  <Text style={styles.colorName} numberOfLines={1}>{t(`cat${c.key}`)}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+            <TextInput
+              testID="mark-note-input"
+              style={styles.note}
+              multiline
+              value={editing.note}
+              onChangeText={(note) => change(editing.id, { note })}
+              placeholder={t('noteHere')}
+              placeholderTextColor={paper.muted}
+            />
+            <View style={styles.actions}>
+              <Action testID="mark-remove" icon="close" label={t('removeMark')} onPress={() => { change(editing.id, { deletedAt: Date.now() }); setOpenMark(null); }} />
+              <Action testID="mark-done" icon="check" label={t('done')} onPress={() => setOpenMark(null)} />
+            </View>
+          </View>
+        </KeyboardAvoidingView>
       ) : (
         <>
           {lookOpen ? (
@@ -461,6 +505,8 @@ const styles = StyleSheet.create({
   colors: { flexDirection: 'row', gap: 4, paddingHorizontal: 10 },
   color: { width: 72, minHeight: 58, alignItems: 'center', gap: 5 },
   dot: { width: 32, height: 32, borderRadius: 16 },
+  dotOn: { borderWidth: 3, borderColor: paper.fg },
+  note: { minHeight: 84, maxHeight: 160, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, backgroundColor: paper.soft, fontSize: 16, color: paper.fg, textAlignVertical: 'top' },
   colorName: { fontSize: 11, color: paper.fg },
   actions: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 8 },
   action: { flex: 1, minHeight: 50, alignItems: 'center', justifyContent: 'center', gap: 3 },

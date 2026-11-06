@@ -2,10 +2,9 @@
  * Reading, simple marking, copying and sharing verses are free. Everything else needs Pro.
  * People who follow a class or belong to a community do not pay; the teacher or leader does.
  */
-export const FREE_FEATURES = ['read', 'switchTranslation', 'search', 'cleanMode', 'simpleMark', 'copyVerse', 'shareVerse'] as const;
+export const FREE_FEATURES = ['read', 'switchTranslation', 'search', 'cleanMode', 'simpleMark', 'copyVerse', 'shareVerse', 'notes'] as const;
 
 export const PRO_FEATURES = [
-  'notes',
   'customCategories',
   'compareTranslations',
   'readingPlan',

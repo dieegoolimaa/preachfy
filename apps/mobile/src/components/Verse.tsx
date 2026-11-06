@@ -27,6 +27,7 @@ export function Verse({ verse, translationId, focused, marks, isSelected, look, 
         return { ...range, color: categoryColor(mark.categoryKey) };
       }),
   );
+  const noted = marks.find((m) => m.note.trim() && m.spans.some((x) => x.ref.book === ref.book && x.ref.chapter === ref.chapter && x.ref.verse === ref.verse));
   const colorAt = (start: number, end: number) => ranges.find((r) => start < r.end && end > r.start)?.color;
 
   const words = wordsOf(text);
@@ -41,6 +42,7 @@ export function Verse({ verse, translationId, focused, marks, isSelected, look, 
   return (
     <View style={[styles.verse, focused && styles.focused]} onLayout={(e) => onVerseLayout(e.nativeEvent.layout)}>
       <Text style={[styles.number, { lineHeight: 30 * scale, color: look.muted }]}>{ref.verse}</Text>
+      {noted ? <View testID={`note-${ref.verse}`} style={[styles.noteDot, { backgroundColor: categoryColor(noted.categoryKey), marginTop: 12 * scale }]} /> : null}
       {words.map((word, i) => {
         const next = words[i + 1];
         const tail = text.slice(word.end, next ? next.start : text.length).trimEnd();
@@ -72,6 +74,7 @@ const styles = StyleSheet.create({
   verse: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: 10 },
   focused: { backgroundColor: '#8886' },
   number: { fontSize: 11, fontWeight: '600', paddingRight: 5 },
+  noteDot: { width: 7, height: 7, borderRadius: 4, marginRight: 5 },
   unit: { flexDirection: 'row' },
   word: { fontFamily: serif },
   gap: { width: 5 },

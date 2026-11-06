@@ -1,11 +1,10 @@
-import { bookName, canUse, visibleMarks, type Mark } from '@preachfy/core';
+import { bookName, visibleMarks, type Mark } from '@preachfy/core';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card, Chip, Chips, Field, Hint, Pill, Screen, ui } from '@/components/ui';
 import { useT } from '@/lib/i18n';
-import { requirePro, usePro } from '@/lib/pro';
 import { getReader, updateReader, useReader } from '@/lib/store';
 import { categories, categoryColor, paper, serif } from '@/lib/theme';
 
@@ -15,7 +14,6 @@ const change = (id: string, patch: Partial<Mark>) =>
 export default function Marks() {
   const { t, locale } = useT();
   const { marks } = useReader();
-  const pro = usePro();
   const [category, setCategory] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const shown = visibleMarks({ kind: 'personal' }, marks)
@@ -54,7 +52,7 @@ export default function Marks() {
                 plain
                 testID="edit-note"
                 label={t(editing === mark.id ? 'done' : 'noteLabel')}
-                onPress={() => (canUse('notes', pro) || requirePro('notes')) && setEditing(editing === mark.id ? null : mark.id)}
+                onPress={() => setEditing(editing === mark.id ? null : mark.id)}
               />
               <Pill plain danger testID="delete-mark" label={t('remove')} onPress={() => change(mark.id, { deletedAt: Date.now() })} />
             </View>

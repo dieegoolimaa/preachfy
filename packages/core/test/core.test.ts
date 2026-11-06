@@ -112,7 +112,7 @@ test('pulpit requires a base text on every step', () => {
 
 test('reading, simple marking, copying and sharing are free', () => {
   for (const f of ['read', 'search', 'cleanMode', 'simpleMark', 'copyVerse', 'shareVerse'] as const) assert.equal(canUse(f, false), true);
-  for (const f of ['notes', 'pulpit', 'snapshot', 'create', 'sync', 'liveClass'] as const) assert.equal(canUse(f, false), false);
+  for (const f of ['pulpit', 'snapshot', 'create', 'sync', 'liveClass'] as const) assert.equal(canUse(f, false), false);
   assert.equal(canUse('pulpit', true), true);
   assert.equal(canUse('exportOwnContent', false), true);
 });

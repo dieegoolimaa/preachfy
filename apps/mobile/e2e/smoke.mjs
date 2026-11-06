@@ -68,16 +68,13 @@ try {
   await T('start').click();
   await T('step-title').waitFor();
   const firstTitle = await T('step-title').innerText();
-  ok('the Pulpit shows the base text first, with the block rail', (await T('base-text').isVisible()) && (await T('rail-1').isVisible()));
+  ok('the Pulpit shows the base text and the blocks together', (await T('base-text').isVisible()) && (await T('block-text').first().isVisible()));
   await T('next').click();
   await page.waitForTimeout(250);
-  ok('next moves to the next block of the same step', (await T('step-title').innerText()) === firstTitle && (await T('block-text').isVisible()));
-  await T('next').click();
-  await page.waitForTimeout(250);
-  ok('after the last block it moves to the next step', (await T('step-title').innerText()) !== firstTitle);
+  ok('next moves straight to the next step', (await T('step-title').innerText()) !== firstTitle);
   await T('prev').click();
   await page.waitForTimeout(250);
-  ok('going back returns to the last block of the previous step', (await T('step-title').innerText()) === firstTitle && (await T('block-text').isVisible()));
+  ok('going back returns to the previous step', (await T('step-title').innerText()) === firstTitle);
   await page.goBack();
   await T('study').waitFor().catch(() => {});
 
@@ -169,6 +166,28 @@ try {
   await T('word-1-1').dblclick();
   await T('selection-bar').waitFor();
   ok('double tap selects a word', true);
+
+  // A highlight takes a note (free), and tapping the highlight opens it again.
+  await T('cat-promessa').click();
+  await T('mark-sheet').waitFor();
+  await T('mark-note-input').fill('Deus cuida de mim');
+  await T('mark-done').click();
+  await page.waitForTimeout(300);
+  ok('a highlighted verse shows a note marker', await T('note-1').isVisible());
+  await T('word-1-1').click();
+  await T('mark-sheet').waitFor();
+  ok('tapping the highlight opens its note', (await T('mark-note-input').inputValue()) === 'Deus cuida de mim');
+  await T('mark-done').click();
+
+  // Comparing: each version has its own color and a dropdown.
+  await page.goto(`${WEB}/compare`);
+  await T('compare-1').waitFor();
+  const rightBefore = await T('compare-right').innerText();
+  await T('compare-right').click();
+  await T('compare-version-menu').waitFor();
+  await page.locator('[data-testid^=compare-version-]').filter({ hasNot: page.getByTestId('compare-version-menu') }).nth(2).click();
+  await page.waitForTimeout(400);
+  ok('comparison picks versions from a dropdown', (await T('compare-right').innerText()) !== rightBefore);
 
   ok('no page errors', errors.length === 0, errors[0] ?? '');
 } catch (error) {

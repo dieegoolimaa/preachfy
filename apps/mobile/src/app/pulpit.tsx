@@ -1,7 +1,7 @@
 import {
   ACTIVITY_DEFAULT_MINUTES, blockBody, goTo, hasBaseText, isPaused, isReadyForPulpit, stepsMissingBaseText, pace, pause, pulpitSections, remaining, resume, spentInSection,
   startSession, passageText, timerState, totalPlanned, visibleBlocks,
-  type PulpitRun, type PulpitSession, type StepDetail, type Study,
+  type Mark, type PulpitRun, type PulpitSession, type Step, type StepDetail, type Study,
 } from '@preachfy/core';
 import { Icon } from '@/components/Icon';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
@@ -156,6 +156,51 @@ function After({ run, onDone }: { run: PulpitRun; onDone: (place: string, note: 
   );
 }
 
+/** What the reader wrote in the Bible about the verses of a step. */
+function notesOf(marks: Mark[], step: Step | undefined) {
+  const base = step?.baseText;
+  if (base?.kind !== 'scripture') return [];
+  return marks.filter(
+    (m) => !m.deletedAt && m.note.trim() && m.spans.some((a) => base.spans.some((b) => b.ref.book === a.ref.book && b.ref.chapter === a.ref.chapter && b.ref.verse === a.ref.verse)),
+  );
+}
+
+/** Finds the biggest text size that still fits the column, by measuring and moving toward it. */
+function useFit(viewH: number, resetKey: string, manual: boolean) {
+  const [fit, setFit] = useState(1);
+  const [settled, setSettled] = useState(false);
+  const search = useRef({ lo: 0.48, hi: 2.4, f: 1, n: 0 });
+  const height = useRef(0);
+  useEffect(() => {
+    search.current = { lo: 0.48, hi: 2.4, f: 1, n: 0 };
+    setFit(1);
+    setSettled(false);
+  }, [resetKey, viewH]);
+  useEffect(() => {
+    if (settled || manual) return;
+    const timer = setInterval(() => {
+      const h = height.current;
+      const r = search.current;
+      if (!viewH || h === 0) return;
+      const fits = h <= viewH + 1;
+      if (fits) r.lo = Math.max(r.lo, r.f);
+      else r.hi = Math.min(r.hi, r.f);
+      if ((fits && h >= viewH * 0.88) || r.n >= 8 || r.hi - r.lo < 0.03) {
+        r.f = fits ? r.f : r.lo;
+        setSettled(true);
+        setFit(r.f);
+        return;
+      }
+      r.n += 1;
+      const guess = r.f * Math.pow(viewH / h, 0.6);
+      r.f = guess > r.lo && guess < r.hi ? guess : (r.lo + r.hi) / 2;
+      setFit(r.f);
+    }, 110);
+    return () => clearInterval(timer);
+  }, [settled, manual, viewH, resetKey]);
+  return { fit, settled: settled || manual, report: (h: number) => void (height.current = h) };
+}
+
 export default function Pulpit() {
   const { id = 'demo', autostart } = useLocalSearchParams<{ id?: string; autostart?: string }>();
   const { t: tr, locale } = useT();
@@ -184,18 +229,24 @@ export default function Pulpit() {
   const [zoom, setZoom] = useState<number | null>(null);
   const [displayOpen, setDisplayOpen] = useState(false);
   const [toast, setToast] = useState('');
-  const [fit, setFit] = useState(1);
-  const [settled, setSettled] = useState(false);
   const [viewH, setViewH] = useState(0);
-  const search = useRef({ lo: 0.48, hi: 1.6, f: 1, n: 0, h: 0 });
+  // Each column is sized on its own, so a short note is not stuck at the size of a long passage.
+  const left = useFit(viewH, `${id}`, zoom !== null);
+  const right = useFit(viewH, `${id}`, zoom !== null);
   // The sample, a message shared in a community and the demo are open to everyone. Only the author's own needs Pro.
   const own = id !== 'demo' && !isShared(id);
   const allowed = !own || Boolean(study?.example) || isPro(reader);
   const { width } = useWindowDimensions();
   const wide = width >= 768;
   const t = dark ? stage : paper;
-  const scale = zoom ?? fit;
-  const s = themed(t, wide, scale);
+  // Two columns are sized on their own. One column shares a size, capped so short notes do not become giant.
+  const here = study?.steps[session?.currentIndex ?? 0];
+  const split = wide && Boolean(here) && hasBaseText(here!) && (visibleBlocks(here!).length > 0 || notesOf(reader.marks, here).length > 0);
+  const one = Math.min(left.fit, wide ? 1.4 : 1.6);
+  const scale = zoom ?? (split ? left.fit : one);
+  // The Bible text stays the hero: the notes never grow past it.
+  const noteScale = zoom ?? (split ? Math.min(right.fit, left.fit * 1.1) : one);
+  const s = themed(t, wide, scale, noteScale);
 
   useEffect(() => {
     if (!allowed) router.replace('/paywall?feature=pulpit');
@@ -251,36 +302,6 @@ export default function Pulpit() {
     else if (direction === -1 && index > 0) move(-1);
   };
   const recording = useSermonRecorder(index, session ? isPaused(session) : false);
-
-  // The text is sized to fill the screen without scrolling. The reader can then make it bigger or smaller.
-  useEffect(() => {
-    search.current = { lo: 0.48, hi: wide ? 2.4 : 1.6, f: 1, n: 0, h: search.current.h };
-    setFit(1);
-    setSettled(false);
-  }, [index, detail, viewH, wide]);
-  const evaluate = useCallback(
-    (h: number) => {
-      const r = search.current;
-      r.h = h;
-      if (!viewH || h === 0) return;
-      if (h > viewH + 1) r.hi = r.f;
-      else r.lo = r.f;
-      if (r.hi - r.lo > 0.04 && r.n < 10) {
-        r.n += 1;
-        r.f = (r.lo + r.hi) / 2;
-      } else {
-        r.f = r.lo;
-        setSettled(true);
-      }
-      setFit(r.f);
-    },
-    [viewH],
-  );
-  useEffect(() => {
-    if (settled || zoom !== null) return;
-    const timer = setTimeout(() => evaluate(search.current.h), 160);
-    return () => clearTimeout(timer);
-  }, [fit, settled, zoom, evaluate, index, detail]);
 
   const changeScreen = useCallback(
     (next: (current: typeof screen) => typeof screen) => {
@@ -424,14 +445,7 @@ export default function Pulpit() {
     const at = study.steps[i];
     return at ? stepName(at, (texts?.steps[i]?.label ?? '').split(' · ')[0] ?? '') || tr('stepN', { i: stepNumber(study.steps, i) }) : '';
   };
-  /** What the reader wrote in the Bible about the verses of this step: it belongs on the Pulpit too. */
-  const notesFor = (i: number) => {
-    const base = study.steps[i]?.baseText;
-    if (base?.kind !== 'scripture') return [];
-    return reader.marks.filter(
-      (m) => !m.deletedAt && m.note.trim() && m.spans.some((a) => base.spans.some((b) => b.ref.book === a.ref.book && b.ref.chapter === a.ref.chapter && b.ref.verse === a.ref.verse)),
-    );
-  };
+  const notesFor = (i: number) => notesOf(reader.marks, study.steps[i]);
   /** The start of what comes next, as much as fits. */
   const previewOf = (i: number) => {
     const at = study.steps[i];
@@ -540,35 +554,65 @@ export default function Pulpit() {
         <Pressable testID="zone-prev" accessibilityLabel={tr('previous')} style={[s.zone, s.zoneLeft]} onPress={() => advance(-1)} />
         <Pressable testID="zone-next" accessibilityLabel={tr('next')} style={[s.zone, s.zoneRight]} onPress={() => advance(1)} />
         <View style={s.main}>
-          <ScrollView
-            style={[s.fitView, { opacity: settled || zoom !== null ? 1 : 0 }]}
-            contentContainerStyle={s.mainInner}
-            onLayout={(e) => setViewH(Math.round(e.nativeEvent.layout.height))}
-            onContentSizeChange={(_w, h) => evaluate(h)}>
-            {!hasBase && blocks.length === 0 && notesFor(index).length === 0 ? <Text testID="step-empty" style={s.blockText}>{tr('stepEmpty')}</Text> : null}
-            {hasBase ? (
-              <View style={[s.base, { borderLeftColor: blockColor('scripture', dark) }]} testID="block-card">
-                {base?.label ? <Text style={s.cardLabel}>{base.label}</Text> : null}
+          {(() => {
+            const marks = notesFor(index);
+            const hasNotes = blocks.length > 0 || marks.length > 0;
+            const empty = !hasBase && !hasNotes;
+            const scripture = hasBase ? (
+              <View style={s.scripture} testID="block-card">
+                {base?.label ? <Text style={s.ref}>{base.label.toUpperCase()}</Text> : null}
                 <Text testID="base-text" style={s.baseText}>{base?.body}</Text>
               </View>
-            ) : null}
-            {notesFor(index).map((mark) => (
-              <View key={mark.id} style={[s.base, { borderLeftColor: categoryColor(mark.categoryKey) }]} testID="mark-card">
-                <Text style={s.cardLabel}>{tr('myNote')}</Text>
-                <Text testID="mark-text" style={s.blockText}>{mark.note.trim()}</Text>
-              </View>
-            ))}
-            {blocks.map((item) => (
-              <View key={item.id} style={[s.base, { borderLeftColor: blockColor(item.kind, dark) }]} testID="block-card">
-                <Text style={s.cardLabel}>{tr(blockKey[item.kind])}</Text>
-                {item.kind !== 'activity' || item.text ? (
-                  <Text testID="block-text" style={item.kind === 'idea' && detail === 'keywords' ? s.keywords : s.blockText}>{blockBody(item, detail)}</Text>
-                ) : null}
-                {item.kind === 'activity' ? <ActivityTimer key={item.id} minutes={item.minutes ?? ACTIVITY_DEFAULT_MINUTES} t={t} s={s} /> : null}
-                {item.kind === 'question' && item.expectedAnswer ? <Text testID="expected" style={s.expected}>{tr('expectedAnswer')}: {item.expectedAnswer}</Text> : null}
-              </View>
-            ))}
-          </ScrollView>
+            ) : null;
+            const cues = (
+              <>
+                {marks.map((mark) => (
+                  <View key={mark.id} style={s.cue} testID="mark-card">
+                    <View style={s.cueHead}>
+                      <View style={[s.cueDot, { backgroundColor: categoryColor(mark.categoryKey) }]} />
+                      <Text style={s.cueLabel}>{tr('myNote').toUpperCase()}</Text>
+                    </View>
+                    <Text testID="mark-text" style={s.cueText}>{mark.note.trim()}</Text>
+                  </View>
+                ))}
+                {blocks.map((item) => (
+                  <View key={item.id} style={s.cue} testID="block-card">
+                    <View style={s.cueHead}>
+                      <View style={[s.cueDot, { backgroundColor: blockColor(item.kind, dark) }]} />
+                      <Text style={s.cueLabel}>{tr(blockKey[item.kind]).toUpperCase()}</Text>
+                    </View>
+                    {item.kind !== 'activity' || item.text ? <Text testID="block-text" style={s.cueText}>{blockBody(item, 'manuscript')}</Text> : null}
+                    {item.kind === 'activity' ? <ActivityTimer key={item.id} minutes={item.minutes ?? ACTIVITY_DEFAULT_MINUTES} t={t} s={s} /> : null}
+                    {item.kind === 'question' && item.expectedAnswer ? <Text testID="expected" style={s.expected}>{tr('expectedAnswer')}: {item.expectedAnswer}</Text> : null}
+                  </View>
+                ))}
+              </>
+            );
+            const shownLeft = { opacity: left.settled ? 1 : 0 };
+            const shownRight = { opacity: right.settled ? 1 : 0 };
+            const shownOne = { opacity: left.settled ? 1 : 0 };
+            // On a wide screen the Bible text and the speaker's notes sit side by side, each in its own column.
+            if (wide && hasBase && hasNotes) {
+              return (
+                <View style={s.split}>
+                  <ScrollView key={`${index}-a`} style={[s.colLeft, shownLeft]} contentContainerStyle={s.colInner} onLayout={(e) => setViewH(Math.round(e.nativeEvent.layout.height))} onContentSizeChange={(_w, h) => left.report(h)}>
+                    {scripture}
+                  </ScrollView>
+                  <ScrollView key={`${index}-b`} style={[s.colRight, shownRight]} contentContainerStyle={s.colInner} onContentSizeChange={(_w, h) => right.report(h)}>
+                    {cues}
+                  </ScrollView>
+                </View>
+              );
+            }
+            return (
+              <ScrollView key={`${index}-a`} style={[s.fitView, shownOne]} contentContainerStyle={s.mainInner} onLayout={(e) => setViewH(Math.round(e.nativeEvent.layout.height))} onContentSizeChange={(_w, h) => left.report(h)}>
+                {empty ? <Text testID="step-empty" style={s.cueText}>{tr('stepEmpty')}</Text> : null}
+                {scripture}
+                {hasBase && hasNotes ? <View style={s.rule} /> : null}
+                {cues}
+              </ScrollView>
+            );
+          })()}
           {next ? (
             <View style={s.upWrap}><Pressable style={s.upNext} testID="bridge" onPress={() => jump(index + 1)}>
               <View style={s.upHead}>
@@ -705,7 +749,7 @@ export default function Pulpit() {
   );
 }
 
-const themed = (t: Theme, wide: boolean, scale = 1) =>
+const themed = (t: Theme, wide: boolean, scale = 1, noteScale = scale) =>
   StyleSheet.create({
     page: { flex: 1, backgroundColor: t.bg },
     top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 16, paddingVertical: 10 },
@@ -750,6 +794,18 @@ const themed = (t: Theme, wide: boolean, scale = 1) =>
     cardLabel: { fontSize: 12, fontWeight: '600', color: t.muted },
     label: { fontSize: 13, fontWeight: '600', color: t.muted },
     title: { fontFamily: serifBold, fontSize: wide ? 42 : 32, lineHeight: wide ? 46 : 36, color: t.fg },
+    scripture: { gap: 12, paddingLeft: 18, borderLeftWidth: 3, borderLeftColor: t.mark },
+    ref: { fontSize: 12, fontWeight: '700', letterSpacing: 1.4, color: t.accent === paper.accent ? t.muted : t.accent },
+    rule: { height: StyleSheet.hairlineWidth, backgroundColor: t.line, marginVertical: 2 },
+    cue: { gap: 6, paddingVertical: 4 },
+    cueHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    cueDot: { width: 8, height: 8, borderRadius: 4 },
+    cueLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1.2, color: t.muted },
+    cueText: { fontSize: Math.round((wide ? 26 : 21) * noteScale), lineHeight: Math.round((wide ? 36 : 29) * noteScale), color: t.fg },
+    split: { flex: 1, flexDirection: 'row' },
+    colLeft: { flex: 1.25 },
+    colRight: { flex: 1, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: t.line },
+    colInner: { paddingHorizontal: 28, paddingVertical: 20, gap: 22 },
     base: { gap: 4, padding: Math.round(14 * Math.min(scale, 1)), borderRadius: 16, backgroundColor: t.card, borderLeftWidth: 5, borderLeftColor: t.mark },
     baseText: { fontFamily: serif, fontSize: Math.round((wide ? 34 : 26) * scale), lineHeight: Math.round((wide ? 46 : 36) * scale), color: t.fg },
     notes: { fontSize: wide ? 24 : 20, lineHeight: wide ? 34 : 29, color: t.fg },
